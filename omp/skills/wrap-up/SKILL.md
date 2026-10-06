@@ -100,8 +100,8 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdic
   in this session because it prompts you; the tier is the recommended strength for this
   session."
 - Parallelism: "Row 1 runs first, inline. Rows 2–5 then run in parallel (read-only, pinned to
-  `<base>`..`<head0 short>`). Row 6 runs last, inline." Gate F then fixes the review findings
-  before row 6 runs.
+  `<base>`..`<head0 short>`; they may start while Gate A's commit is pending). Row 6 runs last,
+  inline." Gate F then fixes the review findings before row 6 runs.
 - Always: "Pre-flight is cheap. To run the picks on a stronger mode, start a new session there
   and send `/skill:wrap-up run <your reply>`."
 - Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
@@ -235,7 +235,11 @@ Inline rows:
       `git show --stat HEAD` and confirm every follow-up from step 1 (e.g. a regenerated lockfile)
       is in the commit. If one isn't, add it now and wait for the user to amend or commit it
       before running triage.
-   3. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
+   3. **Rows 2–5 don't wait for this commit.** They are read-only and pinned to `head0`, so
+      neither the tooling commit nor triage's merges enter the reviewed diff — spawn the wave
+      while the user commits, then run Gate F. The user may fold the tooling changes and Gate F's
+      fixes into one commit; either way the tree must be clean before triage.
+   4. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
       before continuing — the playbook page reads are dead weight from here, and triage reloads its
       own instructions on invocation. Their call, not a gate.
 
