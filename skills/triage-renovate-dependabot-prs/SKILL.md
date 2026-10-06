@@ -272,7 +272,7 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 - **`git merge --no-ff` requires explicit current authorization.** An authorized local merge can create its merge commit; invoking this skill or classifying risk LOW is not authorization. Accepting a proposed conflict resolution authorizes concluding that merge with `git commit --no-edit`, and nothing else. No other `git commit` invocations.
 - **Never `git push`**, **never `git push --force`** — user pushes manually.
 - **Never `--no-verify`** on the merge — let pre-commit / commit-msg hooks run.
-- **Never apply a conflict resolution silently.** Always propose it as a diff and wait for explicit acceptance. Conflicts in a renovate bump often mean two PRs touched the same lockfile, and an unreviewed resolution destroys version intent. Regenerate lockfiles; never hand-merge them.
+- **Never apply a conflict resolution silently.** Always propose it as a diff and wait for explicit acceptance. Conflicts in a renovate bump often mean two PRs touched the same lockfile, and an unreviewed resolution destroys version intent.
 - **Never reset / discard without explicit confirmation** — even on a failed merge, ask before `git reset --hard`.
 - **Refuse on protected branches** (`main`, `master`, `dev`, `develop`, `release/*`, `staging`) unless user overrides.
 - **Bot rebase is automatic when applicable; acceptance is repair-aware.** Defer stale-branch conflicts without a choice prompt. For other branches, prefer a bounded complete upgrade over skipping an incomplete bot payload. Preserve required merge authorization and per-branch MEDIUM/HIGH gates; never batch those approvals or lower risk without evidence.

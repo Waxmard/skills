@@ -13,7 +13,7 @@ description: >
   fixes), and hand-offs. Trigger: "wrap up this
   branch", "I'm done with this branch", "end of branch", "pre-merge
   checklist", "what should I run before merging", "sync tooling and triage
-  renovate", "repo spa day", or /wrap-up (omp: /skill:wrap-up). Optional `lean` reply keyword
+  renovate", "repo spa day", or /wrap-up. Optional `lean` reply keyword
   (suggested when other maintainers are detected) limits the run to definite
   improvements.
 ---

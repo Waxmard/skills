@@ -168,7 +168,7 @@ Format (markdown, terse):
 ```
 **N. <verdict>** — `<file>:<line>` (@<author>)
 
-<reply, ≤ ~60 words, per Reply style>
+<reply, ≤ ~60 words (over budget → cut restated context first), per Reply style>
 
 <url>
 ```
@@ -186,7 +186,6 @@ For non-anchored comments, drop the `` `file:line` `` segment.
   - Removed code (e.g. in a `stale` reply): pin to `base_sha` instead.
   - Before emitting, run `git show <sha>:<path>` for each link and check the lines match the claim. Fix or drop a link that doesn't.
 - **Scaffolding stays plain:** the header `` `<file>:<line>` `` and the trailing `<url>` are for the user; keep them unlinked. Links go only in the reply prose.
-- **Budget:** reply prose at or under ~60 words. Over budget → cut restated context first.
 - **Tone:** concrete, practical effect first. No hedging filler, no praise beyond a short opener like "Good catch, but", no "as discussed", no restating the reviewer's words back to them.
 
 Emit the reply as bare text: no `>` blockquote, no leading indent. Both end up in the user's copy.
