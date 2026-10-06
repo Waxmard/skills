@@ -1,0 +1,7 @@
+{
+  "name": "mw-omp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "omp-only skills: wrap-up, post-mr-review",
+  "omp": {}
+}
