@@ -30,9 +30,9 @@ Read-only: no edits, no installs. Runs before any skill.
 
 1. `git rev-parse --git-dir`. If it fails, stop: "not a git repo".
 2. `branch=$(git rev-parse --abbrev-ref HEAD)`. If it matches
-   `main|master|dev|develop|release/*|staging`, stop and tell the user to
-   `git switch -c <feature>` first (triage refuses on these, and the gate commits must land on
-   the feature branch).
+   `main|master|dev|develop|release/*|staging`, put a note at the top of the report: "on
+   protected branch `<branch>`: reviewing unpushed commits; gate commits will land here".
+   Not a blocker.
 3. Resolve the base:
    ```bash
    git fetch origin --prune
@@ -71,7 +71,7 @@ Read-only: no edits, no installs. Runs before any skill.
 | 3 | `ponytail-review` | added lines ≥ 100 **or** a changed file's basename is one of `package.json pyproject.toml Cargo.toml go.mod Gemfile` or matches `requirements*.txt` | `@smol` | "+A lines" and/or "deps changed: `<files>`". SKIP: "small diff (+A), no manifest changes" |
 | 4 | `web-design-guidelines` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@grunt` | "N UI files changed". SKIP: "no UI files in diff" |
 | 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@smol` | "N UI files changed". SKIP: "no UI files in diff" |
-| 6 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) | `inline · smol+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches" |
+| 6 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) and branch not protected (step 2) | `inline · smol+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches", or "protected branch: triage refuses on `<branch>`" |
 
 If a listed skill is not in `skill://`, its verdict is SKIP with reason "not installed". For `ponytail-review`, append " — `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from `skill://` (see its dispatch note below).
 
