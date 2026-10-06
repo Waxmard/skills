@@ -23,9 +23,14 @@ Get the repo's Trivy CI jobs back to green with the smallest correct change. Tri
    ```
    Note each job's exact command: subcommand (`fs`/`image`/`config`), `--scanners`, `--severity`, `--ignorefile`, `--exit-code`, and target. Local verification replays these commands verbatim.
 2. Get the failing job logs. Use the job IDs the user gave you, or the latest failed pipeline on the current branch:
-   - GitLab: `glab api "projects/:id/pipelines/<pipeline_id>/jobs?per_page=100"`, then `glab api "projects/:id/jobs/<job_id>/trace"`. `glab ci view` needs a TTY, so don't use it.
+   - GitLab: `glab api "projects/:id/pipelines/<pipeline_id>/jobs?per_page=100" | jq -r '.[] | select(.status=="failed") | "\(.id) \(.name)"'`, then `glab api "projects/:id/jobs/<job_id>/trace"`. `glab ci view` needs a TTY, so don't use it.
    - GitHub: `gh run list --branch "$(git branch --show-current)" --limit 5`, then `gh run view <run_id> --log-failed`.
-   Read the log end to end: the `trivy --version` line, any `FATAL`/`ERROR` lines, and every per-target findings table (Library, Vulnerability, Severity, Status, Installed, Fixed).
+   Don't read the raw log. Image-job summaries list every scanned file and can run to hundreds of KB. Save each log to a temp file and filter it:
+   ```bash
+   grep -E -B2 'Total: [1-9]|Failures: [1-9]|FATAL|ERROR' job.log   # each target with findings, with its Type
+   grep -E 'Version: |(CVE|GHSA)-[0-9]+-[0-9]+ ' job.log            # trivy version + finding rows
+   ```
+   If a target shows a non-zero count that the rows don't explain (a misconfig or secret), read only that target's section.
 3. If the log has no findings table and fails before scanning (registry auth, image pull, DB download), it's an infrastructure failure, not something this skill fixes. Report the error line and stop.
 
 ## Step 1 — Bring trivy up to date
@@ -100,12 +105,13 @@ Use the same trivy version as the CI pin. Check `trivy --version`. If it differs
   tmp=$(mktemp -d) && git ls-files -z | xargs -0 tar cf - | tar xf - -C "$tmp"
   (cd "$tmp" && trivy fs <CI flags verbatim> .); echo "exit=$?"; rm -rf "$tmp"
   ```
-- **image job:** build for CI's platform and scan the local image:
+- **image job:** skip the build when every image finding is a language package (`python-pkg`, `node-pkg`, `gobinary`, …) that the fs job also reported, and the Dockerfile installs from the lockfile (`uv sync --frozen`, `npm ci`, `poetry install`, …). In that case the green fs scan already shows the image's copy is fixed. Build and scan the image only for OS findings, image-only findings, or a Dockerfile that installs outside the lockfile:
   ```bash
   docker build --platform linux/amd64 -t trivy-smoke:local .
-  trivy image <CI flags verbatim> trivy-smoke:local; echo "exit=$?"
+  docker save trivy-smoke:local -o /tmp/trivy-smoke.tar
+  trivy image --input /tmp/trivy-smoke.tar <CI flags verbatim>; echo "exit=$?"; rm -f /tmp/trivy-smoke.tar
   ```
-  If Docker isn't available, say the image job wasn't verified locally, and why.
+  Use `--input`: `trivy image <tag>` can't read images from containerd-backed Docker (colima, Docker Desktop's containerd store). On Apple silicon the amd64 build runs under QEMU and is slow. If Docker isn't available, say the image job wasn't verified locally, and why.
 
 Done when every replayed command exits 0. If one still fails, go back to Step 2 for the remaining findings.
 
@@ -114,5 +120,5 @@ Done when every replayed command exits 0. If one still fails, go back to Step 2 
 Don't commit or push. Tell the user:
 - The trivy version change (old → new), or "already latest".
 - Each finding → what fixed it (package old → new, base digest old → new, or suppression with its expiry).
-- The verification commands you ran and their exit codes, plus anything not verified (CI-only registry auth, image job without Docker).
+- The verification commands you ran and their exit codes, plus anything not verified (CI-only registry auth, image job skipped because the fs scan covers it, image job without Docker).
 - A suggested Conventional Commit subject, e.g. `fix(deps): bump fsspec to 2026.6.0 for CVE-2026-104851` or `ci: upgrade trivy to 0.75.0`.
