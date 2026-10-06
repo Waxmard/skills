@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "waxmard",
+  "owner": {
+    "name": "Maxwell Ward",
+    "url": "https://github.com/Waxmard"
+  },
+  "metadata": {
+    "description": "Maxwell Ward's agent skills"
+  },
+  "plugins": [
+    {
+      "name": "mw-skills",
+      "source": "./",
+      "description": "Git/PR workflow, docs, tooling-sync, UI taste skills",
+      "category": "productivity"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "mw-skills",
+  "description": "Git/PR workflow, docs, tooling-sync, UI taste skills",
+  "author": {
+    "name": "Maxwell Ward",
+    "url": "https://github.com/Waxmard"
+  },
+  "homepage": "https://github.com/Waxmard/skills",
+  "license": "MIT"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "mw-omp",
+  "description": "omp-only: wrap-up branch pre-flight, post-mr-review",
+  "author": {
+    "name": "Maxwell Ward",
+    "url": "https://github.com/Waxmard"
+  },
+  "homepage": "https://github.com/Waxmard/skills",
+  "license": "MIT"
+}
