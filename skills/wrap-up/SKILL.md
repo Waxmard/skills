@@ -6,8 +6,8 @@ description: >
   interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
   verdict, run order, and model tier (fast/strong) for each, lets
   the user pick, then runs read-only reviews as parallel tier-pinned
-  subagents (only commits since the last wrap-up review on re-runs; `full`
-  forces the whole branch), fixes their findings in-session one report at a time with a commit gate after
+  subagents (pr-review-toolkit reviews only commits since the last wrap-up review on re-runs;
+  `full` forces the whole branch), fixes their findings in-session one report at a time with a commit gate after
   each, runs interactive skills inline with commit gates, and ends with a completion
   summary. Orchestrator: its only logic is ordering, gates (including Gate F's
   fixes), and hand-offs. Trigger: "wrap up this
@@ -66,12 +66,14 @@ Read-only: no edits, no installs. Runs before any skill.
    ```
    `delta` means the last wrap-up review on this branch is still an ancestor of HEAD, so only
    `<from>..<head0>` is new. A rebase, force-push, reset or missing memo falls back to `full`
-   (`from=mb`). The memo lives under `.git/` (per worktree via `--git-path`), so it's never
-   committed and never shows in `git status`.
+   (`from=mb`). Only row 2 uses `from`; rows 3–5 always review `<mb>..<head0>`, because their
+   verdicts and coverage need the whole branch. The memo lives under `.git/` (per worktree via
+   `--git-path`), so it's never committed and never shows in `git status`.
 4. Collect the facts:
-   - Changed files: `git diff --name-only "$from"..."$head0"`.
-   - Added lines without lockfiles: sum column 1 of
-     `git diff --numstat "$from"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
+   - Changed files: `git diff --name-only "$mb"..."$head0"` (rows 3–5). For row 2 in delta mode,
+     also collect them over `"$from"..."$head0"`.
+   - Added lines without lockfiles, over the same ranges: sum column 1 of
+     `git diff --numstat "$mb"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
    - Uncommitted files: `baseline=$(git status --short)`. If non-empty, put a note at the top of
      the report: "N uncommitted files: reviews below cover committed work only". Not a blocker.
    - Other maintainers (skip if `git config user.email` is empty; no suggestion then):
@@ -100,7 +102,7 @@ Read-only: no edits, no installs. Runs before any skill.
 | 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `fast` | "N UI files changed". SKIP: "no UI files in diff" |
 | 6 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) and branch not protected (step 2) | `inline · fast+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches", or "protected branch: triage refuses on `<branch>`" |
 
-If a listed skill is not available to this session, its verdict is SKIP with reason "not installed". For `ponytail-review`, append " — `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from the model-invocable skills (see its dispatch note below).
+If a listed skill is not available to this session, its verdict is SKIP with reason "not installed". For `ponytail-review`, append " — omp: `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`; Claude Code: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from the model-invocable skills (see its dispatch note below).
 
 Tier rationale: defaults favour speed and cost. `fast` for every review row. Nothing defaults to
 `strong`: escalate per run with `2@strong` on a large or risky diff (auth, payments, data
@@ -125,8 +127,9 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdic
   in this session because it prompts you; the tier is the recommended strength for this
   session."
 - Parallelism: "Row 1 runs first, inline. Rows 2–5 then run in parallel (read-only, pinned to
-  `<from short>`..`<head0 short>`; they may start while Gate A's commit is pending). Row 6 runs last,
-  inline." Gate F then fixes the review findings before row 6 runs.
+  `<head0 short>`: row 2 from `<from short>`, rows 3–5 from `<mb short>`; they may start while
+  Gate A's commit is pending). Row 6 runs last, inline." Gate F then fixes the review findings
+  before row 6 runs.
 - Always: "Pre-flight is cheap. To run the picks on a stronger model, start a new session there
   and invoke wrap-up with `run <your reply>`."
 - Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
@@ -149,10 +152,9 @@ Parse the reply:
 - `lean` (any position, any reply, including `run <reply>` mode) turns lean mode on. It's off by
   default, with no auto-enable. In lean mode, `go` = row 2 + RUN rows **excluding rows 1 and 6**.
   Rows 1 and 6 still run when picked by number. `none` is unchanged.
-- `full` (any position, any reply, including `run <reply>` mode) sets `from=mb`, `mode=full`, and
-  re-collects the changed files and UI file list against `mb` for the subagent task text. It does
-  not re-evaluate verdicts: `go` uses the printed RUN rows; pick rows by number to include ones
-  the delta skipped. `full` also makes row 2 run when its delta verdict was `skip`.
+- `full` (any position, any reply, including `run <reply>` mode) sets `from=mb`, `mode=full` for
+  row 2. Rows 3–5 already review the whole branch. `full` also makes row 2 run when its delta
+  verdict was `skip`.
 
 Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
 
@@ -189,30 +191,34 @@ and following it.
 
 Subagent task text (fill in literals; subagents don't share this conversation):
 > Load the `<name>` skill and follow it as a read-only review in repo `<toplevel>`. Review exactly
-> `git diff <from>..<head0>` (base `<base>`). <delta mode only: These are the commits since the
-> last review. For context only, the full branch diff is `git diff <mb>...<head0>`; report
-> findings only on lines changed in the first range, unless a change there breaks code elsewhere
-> in the full range.> <web-design-guidelines only: Files: `<UI file list>`.> Make no edits and no
-> git writes (no checkout/switch/stash; read via git diff/show only). Return the skill's report
-> format verbatim.
+> `git diff <start>..<head0>` (base `<base>`). <row 2 in delta mode only: These are the commits
+> since the last review. For context only, the full branch diff is `git diff <mb>...<head0>`;
+> report findings only on lines changed in the first range, unless a change there breaks code
+> elsewhere in the full range.> <web-design-guidelines only: Files: `<UI file list>`.> Make no
+> edits and no git writes (no checkout/switch/stash; read via git diff/show only). Return the
+> skill's report format verbatim.
+
+`<start>` is `<from>` for row 2 and `<mb>` for rows 3–5.
 
 - `pr-review-toolkit`: its own "Local Branch" diff source, overridden by the pinned range above.
 - `ponytail-review`: bare name `ponytail-review`.
-- `web-design-guidelines`: always pass the UI file list from the current range (delta or full).
-  It asks the user when no files are given, and a subagent can't ask.
+- `web-design-guidelines`: always pass the UI file list from `<mb>...<head0>`. It asks the user
+  when no files are given, and a subagent can't ask.
 - `interface-review`: has `disable-model-invocation: true`, so it isn't model-invocable. Replace the
-  first sentence with "Read `~/.claude/skills/interface-review/SKILL.md` and follow it with
-  target `<from>...<head0>`; resolve its relative file references against that directory." The
+  first sentence with "Read the `interface-review` `SKILL.md` (Claude Code:
+  `~/.claude/skills/interface-review/SKILL.md`; otherwise the harness's skills dir) and follow it
+  with target `<mb>...<head0>`; resolve its relative file references against that directory." The
   user chose to delegate it; the opt-out only stops the model picking it unprompted.
 
 When the wave finishes, print each report under a `### <skill> (<tier>)` heading in row order.
 Retrieve each report verbatim, never a truncated preview (Harness notes). If subagents or the
 tier's model are unavailable, run that row inline in this session and note "ran inline: <reason>".
 
-Once every wave row has returned a report (delegated or ran inline), record the reviewed head:
-`mkdir -p "$(dirname "$memo")" && printf '%s\n' "$head0" > "$memo"`. Skip the write if any row
-returned no report. Write it before Gate F, so Gate F's fix commits land in the next run's delta
-and get reviewed then. Rows 1 and 6 never touch the memo.
+Once row 2 has returned a report (delegated or ran inline), record the reviewed head with
+literals filled in, since bash calls may not share a shell:
+`memo="$(git rev-parse --git-path wrap-up)/<branch>" && mkdir -p "$(dirname "$memo")" && printf '%s\n' <head0> > "$memo"`.
+Write it before Gate F, so Gate F's fix commits land in row 2's next delta and get reviewed
+then. Rows 1 and 3–6 never touch the memo.
 
 **Gate F — fix findings (always, after the wave; never optional).** Runs after the wave's
 reports have printed, whether or not an inline row follows. Do not ask "fix or continue":
@@ -313,7 +319,7 @@ Inline rows:
 - **Pre-flight is read-only.** `scope.py` writes nothing. The only write is the `~/.cache/mw-kit`
   clone or pull, after the user replies `cache` at the `MW_KIT` stop. The `.tooling-sync.json`
   write happens only inside tooling-sync. The memo write in §3 (`.git/wrap-up/<branch>`, after
-  the wave) is the only other write this skill makes; it is local git metadata, not a commit.
+  row 2) is the only other write this skill makes; it is local git metadata, not a commit.
 - **Subagents are read-only.** Only rows 2–5 are ever delegated; tooling-sync and triage always
   run inline because they prompt and write.
 

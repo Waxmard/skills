@@ -26,10 +26,10 @@ Works with both **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in s
    - GitHub: `gh auth status` (must succeed).
    - GitLab: `glab auth status` (must succeed).
 5. Resolve PR/MR number for current branch:
-   - GitHub: `gh pr view --json number,url,headRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`).
+   - GitHub: `gh pr view --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`).
    - GitLab: `glab mr view --output json` → fail if no MR. Record `head_sha` = `.diff_refs.head_sha` (`.sha` if `diff_refs` is null), `base_sha` = `.diff_refs.base_sha`, and `blob_base` = `.web_url` minus the trailing `/-/merge_requests/<iid>`.
    - If state is not `OPEN` / `opened`, warn but continue (user may still want feedback on a merged PR).
-6. `git fetch origin <head branch>` so `git show <head_sha>:<path>` works locally. If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
+6. Fetch the PR head so `git show <head_sha>:<path>` works locally, fork PRs included: GitHub `git fetch origin pull/<n>/head <baseRefName>`, GitLab `git fetch origin merge-requests/<iid>/head`. On GitHub, then set `base_sha` = `git merge-base <baseRefOid> <head_sha>`: `baseRefOid` is the base branch tip, while GitLab's `base_sha` is already the fork point. If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
 
 ## Fetch comments
 
@@ -135,7 +135,7 @@ Each comment is judged independently by reading the live code — there is no sh
 
 Split a bot summary comment into its sub-bullets (`5a`, `5b`, …) **before** dispatch — each sub-bullet is its own unit of work and its own subagent.
 
-Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code and returns a line). Subagents inherit `Read`; that's all they need.
+Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code, runs read-only `git show` / `git diff` to check its links, and returns a line). Subagents need `Read` plus that read-only git access.
 
 For each comment (inline or in a subagent), in order:
 
@@ -231,9 +231,9 @@ Questions** (reviewer-bot `Question,` notes, human "why…?" notes — the non-r
 get no reply: the fix plus Resolve is the response. Each reply is bare text: what changed, in one
 line, plus the *why* only where the fix differs from or goes past what the question implied
 (different mechanism, wider scope, a pre-existing bug found along the way). Tell the user to post
-after pushing, so replies don't claim "fixed" against the old diff. Follow-up replies use the same
-Reply style (backticks, links pinned to the new `head_sha` after the push, budget, tone). Still
-read-only: never post or resolve.
+after pushing, so replies don't claim "fixed" against the old diff. Follow-up replies use Reply
+style, linked to the new `head_sha` (`git rev-parse HEAD` after the push). Still read-only: never
+post or resolve.
 
 ## Args
 

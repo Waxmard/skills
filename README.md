@@ -59,7 +59,7 @@ prints its install line.
 
 | Companion | Used by | Install |
 |---|---|---|
-| ponytail (`ponytail-review`) | `wrap-up` | `/marketplace add DietrichGebert/ponytail`, then `/marketplace install ponytail@ponytail` |
+| ponytail (`ponytail-review`) | `wrap-up` | omp: `/marketplace add DietrichGebert/ponytail`, then `/marketplace install ponytail@ponytail`; Claude Code: `/plugin marketplace add DietrichGebert/ponytail`, then `/plugin install ponytail@ponytail` |
 | `frontend-design` | `ui-taste` | `/plugin marketplace add anthropics/claude-plugins-official`, then `/plugin install frontend-design@claude-plugins-official` |
 | `web-design-guidelines` | `wrap-up`, `ui-taste` | `npx skills add vercel-labs/agent-skills` |
 | `better-*`, `interface-review` | `wrap-up`, `ui-taste` | `npx skills add jakubkrehel/skills` |
