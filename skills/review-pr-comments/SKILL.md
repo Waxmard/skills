@@ -26,9 +26,10 @@ Works with both **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in s
    - GitHub: `gh auth status` (must succeed).
    - GitLab: `glab auth status` (must succeed).
 5. Resolve PR/MR number for current branch:
-   - GitHub: `gh pr view --json number,url,headRefName,state` → fail if no PR.
-   - GitLab: `glab mr view --output json` → fail if no MR.
+   - GitHub: `gh pr view --json number,url,headRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`).
+   - GitLab: `glab mr view --output json` → fail if no MR. Record `head_sha` = `.diff_refs.head_sha` (`.sha` if `diff_refs` is null), `base_sha` = `.diff_refs.base_sha`, and `blob_base` = `.web_url` minus the trailing `/-/merge_requests/<iid>`.
    - If state is not `OPEN` / `opened`, warn but continue (user may still want feedback on a merged PR).
+6. `git fetch origin <head branch>` so `git show <head_sha>:<path>` works locally. If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
 
 ## Fetch comments
 
@@ -134,7 +135,7 @@ Each comment is judged independently by reading the live code — there is no sh
 
 Split a bot summary comment into its sub-bullets (`5a`, `5b`, …) **before** dispatch — each sub-bullet is its own unit of work and its own subagent.
 
-Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code and returns a line). Subagents inherit `Read`; that's all they need.
+Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code and returns a line). Subagents inherit `Read`; that's all they need.
 
 For each comment (inline or in a subagent), in order:
 
@@ -167,7 +168,7 @@ Format (markdown, terse):
 ```
 **N. <verdict>** — `<file>:<line>` (@<author>)
 
-<1-3 line reason. Cite specifics: variable names, line numbers, symbol names.>
+<reply, ≤ ~60 words, per Reply style>
 
 <url>
 ```
@@ -175,6 +176,18 @@ Format (markdown, terse):
 For non-anchored comments, drop the `` `file:line` `` segment.
 
 **Write the reason as a reply, not a verdict.** The label / `file:line` / url are scaffolding for the user; the prose between them must stand alone as something they can paste straight onto the thread as a response to that reviewer. So: address the reviewer in the user's voice ("Good catch, but …" / "It is logged — …" / "Half right."), not the user in yours ("the bot misreads …" / "comment is wrong about …"). No verdict word inside the prose, no third-person reference to "the comment." Stay honest to the verdict — a `disagree` pushes back, a `partial` concedes the half that lands, a `needs-info` states what's missing or asks the question.
+
+**Reply style**
+
+- **Code in backticks:** wrap every identifier, path, flag, literal, and command in backticks.
+- **Linked references:** link every `file:line` in the reply prose, and every referenced symbol definition you can locate.
+  - GitHub: ``[`<file>:<a>-<b>`](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)``, or `#L<a>` for a single line.
+  - GitLab: ``[`<file>:<a>-<b>`](<blob_base>/-/blob/<head_sha>/<path>#L<a>-<b>)``, or `#L<a>` for a single line.
+  - Removed code (e.g. in a `stale` reply): pin to `base_sha` instead.
+  - Before emitting, run `git show <sha>:<path>` for each link and check the lines match the claim. Fix or drop a link that doesn't.
+- **Scaffolding stays plain:** the header `` `<file>:<line>` `` and the trailing `<url>` are for the user; keep them unlinked. Links go only in the reply prose.
+- **Budget:** reply prose at or under ~60 words. Over budget → cut restated context first.
+- **Tone:** concrete, practical effect first. No hedging filler, no praise beyond a short opener like "Good catch, but", no "as discussed", no restating the reviewer's words back to them.
 
 Emit the reply as bare text: no `>` blockquote, no leading indent. Both end up in the user's copy.
 
@@ -185,19 +198,19 @@ Examples:
 ```
 **3. disagree** — `_pr_render.py:94` (@review-bot)
 
-Duplicate `### Heading` collapse is already handled by the set-based diff in use here — the set drops dup lines within a section before this runs. Real-world PR bodies don't carry duplicate H3s anyway.
+Duplicate `### Heading` collapse is already handled by the set-based diff in [`_pr_render.py:80-86`](https://github.com/o/r/blob/abc1234/_pr_render.py#L80-L86) — the set drops dup lines within a section before this runs. Real-world PR bodies don't carry duplicate H3s anyway.
 
 https://github.com/...
 
 **4. agree** — `_pr_render.py:112` (@pupcoder)
 
-Right on both counts — the `existing == updated` short-circuit belongs before `_parse_sections`, and the empty-string case (`not existing.strip()`) returns `""` so `main()` prints no summary banner. Adding a stderr hint for that.
+Right on both counts — the `existing == updated` short-circuit belongs before `_parse_sections` ([`_pr_render.py:112`](https://github.com/o/r/blob/abc1234/_pr_render.py#L112)), and the empty-string case (`not existing.strip()`) returns `""` so `main()` prints no summary banner. Adding a stderr hint for that.
 
 https://github.com/...
 
 **5. partial** — `_pr_render.py:38` (@claude)
 
-Agreed `n=9999` is a magic number. But `max(len(a), len(b))` still leaves a bounded window, so it doesn't fix the underlying issue — going with `n=sys.maxsize`, or dropping to a single-pass walk.
+Agreed `n=9999` is a magic number. But `max(len(a), len(b))` still leaves a bounded window in [`_pr_render.py:38`](https://github.com/o/r/blob/abc1234/_pr_render.py#L38) — going with `n=sys.maxsize`, or dropping to a single-pass walk.
 
 https://github.com/...
 ```
@@ -218,8 +231,9 @@ Questions** (reviewer-bot `Question,` notes, human "why…?" notes — the non-r
 get no reply: the fix plus Resolve is the response. Each reply is bare text: what changed, in one
 line, plus the *why* only where the fix differs from or goes past what the question implied
 (different mechanism, wider scope, a pre-existing bug found along the way). Tell the user to post
-after pushing, so replies don't claim "fixed" against the old diff. Still read-only: never post or
-resolve.
+after pushing, so replies don't claim "fixed" against the old diff. Follow-up replies use the same
+Reply style (backticks, links pinned to the new `head_sha` after the push, budget, tone). Still
+read-only: never post or resolve.
 
 ## Args
 
