@@ -34,6 +34,7 @@ npx skills add Waxmard/skills
 | Skill | Plugin | What it does |
 |---|---|---|
 | `docs-style` | mw-skills | Applies Google developer documentation style to prose written into files. |
+| `fix-trivy-scan` | mw-skills | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
 | `free-disk-space` | mw-skills | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
 | `pr-review-toolkit` | mw-skills | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
 | `resolve-merge-conflicts` | mw-skills | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
