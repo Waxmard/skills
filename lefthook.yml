@@ -1,6 +1,4 @@
 pre-commit:
-  parallel: true
   commands:
-    json-valid:
-      glob: "*.json"
-      run: jq empty {staged_files}
+    check:
+      run: scripts/check.sh

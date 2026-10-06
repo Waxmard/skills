@@ -8,8 +8,8 @@ description: >
   the user pick, then runs read-only reviews as parallel tier-pinned
   subagents, fixes their findings in-session before moving on, runs
   interactive skills inline with commit gates, and ends with a completion
-  summary. Thin
-  orchestrator: no review/sync/merge logic of its own. Trigger: "wrap up this
+  summary. Orchestrator: its only logic is ordering, gates (including Gate F's
+  fixes), and hand-offs. Trigger: "wrap up this
   branch", "I'm done with this branch", "end of branch", "pre-merge
   checklist", "what should I run before merging", "sync tooling and triage
   renovate", "repo spa day", or /skill:wrap-up. Optional `lean` reply keyword
@@ -47,8 +47,8 @@ Read-only: no edits, no installs. Runs before any skill.
    - Changed files: `git diff --name-only "$mb"..."$head0"`.
    - Added lines without lockfiles: sum column 1 of
      `git diff --numstat "$mb"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
-   - Uncommitted files: `git status --short`. If non-empty, put a note at the top of the report:
-     "N uncommitted files: reviews below cover committed work only". Not a blocker.
+   - Uncommitted files: `baseline=$(git status --short)`. If non-empty, put a note at the top of
+     the report: "N uncommitted files: reviews below cover committed work only". Not a blocker.
    - Other maintainers (skip if `git config user.email` is empty; no suggestion then):
      ```bash
      me=$(git config user.email); name=$(git config user.name)
@@ -136,9 +136,9 @@ call `todo` `init` with one item per phase, in run order:
   default order there is exactly one wave);
 - last item: `Close: completion summary`.
 
-Mark each item done as soon as its phase finishes. A row whose skill reports nothing to do still
-gets marked done. Wrap-up is done only when every item is done and the completion block (inline
-step 3) has printed. Never print the completion block while an item is pending.
+Mark each item done as soon as its phase finishes, including rows that report nothing to do.
+Print the completion block (inline step 3) only when every item except
+`Close: completion summary` is done.
 
 Default order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
@@ -201,13 +201,9 @@ stopping to fix is the default for all of wrap-up.
 4. Print a fix table `Finding | File | Status`, where status is `fixed`, `skipped: <reason>`, or
    `user-declined`. The only allowed skip reasons are a verified false positive (state the
    evidence) or the user declining. Then show `git status --short`, stop, and wait for the user
-   to commit. Continue only when `git status --short` is empty.
+   to commit. Continue only when `git status --short` matches the pre-flight `baseline`.
 5. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
    without stopping.
-
-Lean mode changes only the bar in step 1: definite improvements only (bugs, correctness,
-security, regressions, clear contract violations). Fixes stay smallest-change with no adjacent
-cleanup.
 
 Inline rows:
 
@@ -255,16 +251,11 @@ Inline rows:
    - Next: push is yours (`git push`), then open the MR/PR.
    ```
 
-   The heading `## Wrap-up complete` is a fixed literal, so every run ends with the same marker.
-
 ## Hard rules
 
 - **Never commit, never push** — every commit between skills and the final push are the *user's*.
   This skill triggers none of them.
-- **Stop and fix is always the default.** When any phase surfaces a problem fixable in this
-  session (review findings, a failing check after Gate A follow-ups, a missing follow-up flagged
-  in Gate A step 2, a post-merge check failure in triage), fix it before the next phase. Never
-  present "continue anyway" as the recommended choice.
+- **Stop and fix is always the default:** fix any problem a phase surfaces before the next phase.
 - **Don't skip Gate A** when tooling-sync runs before triage. Running triage against an
   uncommitted tooling-sync tree fouls the merges.
 - **Don't duplicate the underlying skills.** If `pr-review-toolkit`, `ponytail-review`,

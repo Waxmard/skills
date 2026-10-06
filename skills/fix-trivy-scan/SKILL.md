@@ -56,18 +56,7 @@ Classify by the target **Type** column:
 
 ### 2a. Lockfile bump
 
-Bump only the vulnerable package to at least the Fixed Version, using the lockfile-scoped command:
-
-| Ecosystem | Command | Find what pins it |
-|---|---|---|
-| uv | `uv lock --upgrade-package <pkg>` | `uv tree --invert --package <pkg>` |
-| poetry | `poetry update <pkg>` | `poetry show --why <pkg>` |
-| npm | `npm update <pkg>` | `npm explain <pkg>` |
-| pnpm | `pnpm update <pkg> --depth Infinity` | `pnpm why <pkg>` |
-| yarn (berry) | `yarn up -R <pkg>` | `yarn why <pkg>` |
-| cargo | `cargo update -p <pkg>` | `cargo tree -i <pkg>` |
-| go | `go get <module>@v<fixed> && go mod tidy` | `go mod why -m <module>` |
-| bundler | `bundle update --conservative <gem>` | `bundle exec gem dependency <gem> --reverse-dependencies` |
+Bump only the vulnerable package to at least the Fixed Version with the ecosystem's single-package lockfile upgrade (e.g. `uv lock --upgrade-package <pkg>`), and use its why/tree command (e.g. `uv tree --invert --package <pkg>`) to find what pins it.
 
 - Confirm the lockfile now holds a version ≥ Fixed Version. If the resolver held it back, a parent pins it (common for sibling packages released in lockstep, like `gcsfs` → `fsspec`). Upgrade the parent in the same command (`uv lock --upgrade-package <parent> --upgrade-package <pkg>`, and likewise for other tools). Use an override (`[tool.uv] override-dependencies`, npm `overrides`, pnpm `pnpm.overrides`, yarn `resolutions`) only if no parent release allows the fixed version, and only after the user confirms.
 - Don't raise the manifest floor (`pyproject.toml`, `package.json`) unless resolution needs it. The lockfile pin is enough.
@@ -83,16 +72,7 @@ Bump only the vulnerable package to at least the Fixed Version, using the lockfi
 
 ### 2c. Suppression
 
-Use this only when there is no fix, or for a confirmed false positive. **Get the user's OK for each entry**, then add it to the ignore file the job passes via `--ignorefile` (default `.trivyignore`). Match that file's format:
-- `.trivyignore.yaml`:
-  ```yaml
-  vulnerabilities:
-    - id: CVE-XXXX-YYYY
-      statement: <why it's not exploitable here, or "no fixed version upstream as of YYYY-MM-DD">
-      expired_at: <today + 30 days, YYYY-MM-DD>
-  ```
-  Use `misconfigurations:` / `secrets:` lists for those finding types, and scope with `paths:` when only one target is affected.
-- Plain `.trivyignore`: one line `CVE-XXXX-YYYY exp:<today + 30 days>` with a `# <why>` comment above it.
+Use this only when there is no fix, or for a confirmed false positive. **Get the user's OK for each entry**, then add it to the ignore file the job passes via `--ignorefile` (default `.trivyignore`), in that file's existing format, with a reason and an expiry of today + 30 days.
 
 Always set an expiry. It forces a re-check once a fix ships.
 
@@ -100,9 +80,9 @@ Always set an expiry. It forces a re-check once a fix ships.
 
 Use the same trivy version as the CI pin. Check `trivy --version`. If it differs, run the container instead (`docker run --rm -v "$PWD:/src" -w /src ghcr.io/aquasecurity/trivy:<ver> <args>`), or `brew upgrade trivy` if the user agrees.
 
-- **fs job:** scan a copy of only the git-tracked files, since untracked local files (build output, stray poms) cause scans and network calls that CI never makes:
+- **fs job:** scan a copy of only the git-tracked files, since untracked local files (build output, stray poms) cause scans and network calls that CI never makes. A new lockfile must be staged (`git add -N`) to be included:
   ```bash
-  tmp=$(mktemp -d) && git ls-files -z | xargs -0 tar cf - | tar xf - -C "$tmp"
+  tmp=$(mktemp -d) && git ls-files -z | tar --null -T - -cf - | tar xf - -C "$tmp"
   (cd "$tmp" && trivy fs <CI flags verbatim> .); echo "exit=$?"; rm -rf "$tmp"
   ```
 - **image job:** skip the build when every image finding is a language package (`python-pkg`, `node-pkg`, `gobinary`, …) that the fs job also reported, and the Dockerfile installs from the lockfile (`uv sync --frozen`, `npm ci`, `poetry install`, …). In that case the green fs scan already shows the image's copy is fixed. Build and scan the image only for OS findings, image-only findings, or a Dockerfile that installs outside the lockfile:
@@ -117,8 +97,4 @@ Done when every replayed command exits 0. If one still fails, go back to Step 2 
 
 ## Report
 
-Don't commit or push. Tell the user:
-- The trivy version change (old → new), or "already latest".
-- Each finding → what fixed it (package old → new, base digest old → new, or suppression with its expiry).
-- The verification commands you ran and their exit codes, plus anything not verified (CI-only registry auth, image job skipped because the fs scan covers it, image job without Docker).
-- A suggested Conventional Commit subject, e.g. `fix(deps): bump fsspec to 2026.6.0 for CVE-2026-104851` or `ci: upgrade trivy to 0.75.0`.
+Don't commit or push.
