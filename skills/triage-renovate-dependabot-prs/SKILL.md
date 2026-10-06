@@ -6,7 +6,8 @@ description: >
   risk assessment (changelog read + call-site cross-reference, not just
   semver), and auto-detected post-merge checks. Auto-advances through
   branches, automatically deferring stale-base conflicts for bot rebase and
-  preferring bounded upgrade repairs over skips. MEDIUM/HIGH decisions and
+  preferring bounded upgrade repairs over skips. Real merge conflicts get a
+  proposed resolution gated on user acceptance. MEDIUM/HIGH decisions and
   required merge permissions remain gated.
   Language-agnostic: handles JS/TS, Python, Rust, Go, Ruby, Java/Kotlin, and
   any other ecosystem the bots target. Trigger: "merge renovate prs",
@@ -73,7 +74,7 @@ If the three-dot delta is tiny and that exact bump is **already satisfied in HEA
 
 ## Per-branch loop
 
-Process branches automatically in discovery order, skipping redundant branches and automatically deferring stale-branch conflicts for bot rebase. For each remaining branch, show the change and assess the upgrade with any bounded compatibility repair before the step-3 gate. After checks pass, auto-advance. Actual conflicts and check failures still hand control back under steps 4 and 5.
+Process branches automatically in discovery order, skipping redundant branches and automatically deferring stale-branch conflicts for bot rebase. For each remaining branch, show the change and assess the upgrade with any bounded compatibility repair before the step-3 gate. After checks pass, auto-advance. Actual conflicts get a proposed resolution that waits for acceptance (step 4); check failures hand control back under step 5.
 
 ### 1. Show the change
 
@@ -191,7 +192,13 @@ git merge --no-ff "origin/${branch}" -m "Merge ${branch} into $(git rev-parse --
 ```
 
 - If `Already up to date.` → branch was already merged (race with platform UI). Skip silently, log it, move on.
-- If conflict → STOP. Show `git status --short` listing conflicts. Hand control to the user. Do NOT attempt auto-resolution. When the user signals resolved, verify with `git diff --check` and proceed to checks.
+- If conflict → propose a resolution, then STOP for acceptance. Don't ask the user to resolve it themselves. List the conflicted files from `git status --short`, then build the proposal in the working tree, leaving it **unstaged**:
+  - **Lockfiles** (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `uv.lock`, `poetry.lock`, `Cargo.lock`, `go.sum`, `Gemfile.lock`, …): never hand-merge the conflict markers. Take HEAD's lock (`git checkout --ours -- <lock>`), resolve the manifest first, then regenerate with the repo's lockfile toolchain from a clean state (see the `node_modules` and resolver-drift pitfalls). The regeneration is part of building the proposal; `git merge --abort` reverts it.
+  - **Manifests**: keep both intents. For each conflicting dep, take the version the bot branch targets unless HEAD already pins a higher one. Keep HEAD's unrelated edits verbatim.
+  - **Modify/delete** (the bot bumped a dep HEAD removed): propose keeping the deletion and recommend aborting the merge as redundant.
+  - **Anything else** (source, config): propose a minimal resolution only when both sides' intent is clear from the diff. Otherwise say so and leave that file conflicted for the user.
+
+  Show the proposal: `git diff` per resolved file, plus a short rationale per hunk that names which side's intent survived and why. Then ask the user (structured question tool if the harness has one): **accept** (`git add` the files, `git diff --check`, `git commit --no-edit`, then step 5; accepting is the explicit authorization for that one commit), **edit** (the user adjusts or redirects, then re-show the diff), or **abort** (`git merge --abort`; choosing it is the confirmation). Never stage or commit a proposed resolution before the user accepts it.
 - If clean → proceed to step 5.
 
 ### 5. Auto-detected post-merge checks
@@ -262,10 +269,10 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 
 ## Hard rules
 
-- **`git merge --no-ff` requires explicit current authorization.** An authorized local merge can create its merge commit; invoking this skill or classifying risk LOW is not authorization. No other `git commit` invocations.
+- **`git merge --no-ff` requires explicit current authorization.** An authorized local merge can create its merge commit; invoking this skill or classifying risk LOW is not authorization. Accepting a proposed conflict resolution authorizes concluding that merge with `git commit --no-edit`, and nothing else. No other `git commit` invocations.
 - **Never `git push`**, **never `git push --force`** — user pushes manually.
 - **Never `--no-verify`** on the merge — let pre-commit / commit-msg hooks run.
-- **Never auto-resolve conflicts** — hand back to the user every time. Conflicts in a renovate bump often mean two PRs touched the same lockfile, and silent resolution destroys version intent.
+- **Never apply a conflict resolution silently.** Always propose it as a diff and wait for explicit acceptance. Conflicts in a renovate bump often mean two PRs touched the same lockfile, and an unreviewed resolution destroys version intent.
 - **Never reset / discard without explicit confirmation** — even on a failed merge, ask before `git reset --hard`.
 - **Refuse on protected branches** (`main`, `master`, `dev`, `develop`, `release/*`, `staging`) unless user overrides.
 - **Bot rebase is automatic when applicable; acceptance is repair-aware.** Defer stale-branch conflicts without a choice prompt. For other branches, prefer a bounded complete upgrade over skipping an incomplete bot payload. Preserve required merge authorization and per-branch MEDIUM/HIGH gates; never batch those approvals or lower risk without evidence.
@@ -277,7 +284,7 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 - **Hidden major bumps in lockfiles**: bot groupings can sneak a major version into a transitive dep. When risk-reading a grouped PR, scan the lockfile diff for `"version": "Y."` (npm), `version = "Y."` (Cargo / uv / poetry), or `vY.0.0` (go.sum) where Y is a new major, not just the top-level manifest deltas.
 - **CI-config bumps** (`docker/build-push-action@vN`, `actions/checkout@vN`, `setup-node@vN`, `setup-python@vN`): touch `.github/workflows/` or `.gitlab-ci.yml` and need the same scrutiny as code deps. Auto-checks won't catch CI breakage — flag and let the user decide whether to push and watch the pipeline.
 - **npm + macOS lockfile bug** (project-specific gotcha — surfaces in some repos via their `CLAUDE.md`): if a merged Renovate PR regenerated `package-lock.json` inside a Linux container, do **not** run `npm install` locally on macOS afterward — it can prune Linux-only optional deps and break CI. The lockfile from the PR is authoritative. If unsure, check the repo's `CLAUDE.md` for a note about this.
-- **Python lockfile resolver drift**: `uv.lock` / `poetry.lock` are platform- and Python-version-aware. Regenerating locally on a different OS or interpreter can produce a different solution than the bot's. Don't re-resolve unless necessary.
+- **Python lockfile resolver drift**: `uv.lock` / `poetry.lock` are platform- and Python-version-aware. Regenerating locally on a different OS or interpreter can produce a different solution than the bot's. Don't re-resolve unless necessary (a lockfile conflict or a stale lock makes it necessary).
 - **Cargo `[patch]` / git deps**: a major bump that resolves through a `[patch.crates-io]` section can silently bypass the version constraint. Read `Cargo.toml` end-to-end on major bumps.
 - **Go minimum version module graph**: `go.mod` may bump indirect deps that other modules pin lower. After merging a `go.mod` change, `go mod tidy` may want to make further edits — don't blindly accept; verify with the user.
 - **Manifest-only bump, stale lockfile**: the branch changes `package.json` / `pyproject.toml` but the lockfile still pins the old version (giveaway: post-merge `npm ci` / `uv lock --check` fails with "lock out of sync" — note `uv sync --frozen` will *not* fail here, it just installs the stale pin). The bot's runner couldn't run the package manager (missing private-registry auth, blocked egress, or a repo-specific lockfile toolchain it lacks — e.g. a docker-pinned `npm run lockfile` that builds in a Linux container). You must regenerate the lock yourself mid-merge before checks pass, then fold it into the merge commit. The bot config can't be fixed from here — note it to the user (it's a runner-capability gap, not a `packageRules`/`postUpdateOptions` issue). If the repo has a docker-based lockfile script, daemon may be down (e.g. colima) — start it first.

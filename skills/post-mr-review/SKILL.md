@@ -11,7 +11,7 @@ description: >
   review-pr-comments).
 ---
 
-Turn review findings that are already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions. The user and you iterate on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from `ask` in the current turn.** Never approve, merge, resolve, assign, commit, or push.
+Turn review findings that are already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions. The user and you iterate on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
 
 GitLab only (`glab`).
 
@@ -19,12 +19,12 @@ GitLab only (`glab`).
 
 1. If the conversation has no review findings, stop and tell the user to run a review first. Do not run one yourself.
 2. Detect the MR. Use `--mr <iid>` if given. Otherwise run `glab mr list --source-branch <branch> -F json` for the branch that was reviewed (not necessarily HEAD) and take `.iid`. If there's no MR, stop.
-3. Fetch the MR with `glab api projects/:id/merge_requests/<iid>` and read `.sha`, `.diff_refs.base_sha`, `.diff_refs.start_sha`, `.diff_refs.head_sha`, `.source_branch`, `.web_url`. Run the fetch from Python/eval (`subprocess` + `json`), not piped to `jq` in bash (see pitfalls).
+3. Fetch the MR with `glab api projects/:id/merge_requests/<iid>` and read `.sha`, `.diff_refs.base_sha`, `.diff_refs.start_sha`, `.diff_refs.head_sha`, `.source_branch`, `.web_url`. Run the fetch from Python (`subprocess` + `json`; omp's eval tool or a `python3` script), not piped to `jq` in bash (see pitfalls).
 4. Run `git fetch origin <source_branch>` and compare the reviewed commit with the MR `head_sha`. If they differ, tell the user the MR moved since the review and offer to re-check the findings against the new head before drafting. Line anchors and "still present" claims must be true at `head_sha`.
 
 ## Fetch existing discussions
 
-Page manually from Python/eval until an empty page comes back. Do not use `glab api --paginate | jq`; it emits concatenated arrays that break `jq`.
+Page manually from Python until an empty page comes back. Do not use `glab api --paginate | jq`; it emits concatenated arrays that break `jq`.
 
 ```python
 import json, subprocess
@@ -108,13 +108,13 @@ Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
 
 ## Confirm
 
-- Make one `ask` call with one question per post, using the top-level `ask` tool directly, never `tool.ask` inside `eval` (the eval cell timeout kills the prompt and the kernel state holding the drafts). The question text names the target thread or line and repeats the effect line. Options: `Post` (with `preview` set to the full body, markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
+- Make one call with one question per post, using the harness's structured question tool directly (omp: the top-level `ask` tool, never `tool.ask` inside `eval`, whose cell timeout kills the prompt and the drafts; Claude Code: AskUserQuestion; neither: plain text, one numbered post per question). The question text names the target thread or line and repeats the effect line. Options: `Post` (with the full body as the option preview where the tool supports one, otherwise in the question text; markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
 - If any target thread is resolved, add one question "Reopen threads I reply in?" with options `Reopen` and `Leave resolved`. For threads a human resolved, repeat in the question text who resolved it and why (from the plan line), so the reopen decision is made with that context.
 - Post only items answered `Post`. If the user answers with edits ("Other"), revise and re-ask for just that item.
 
 ## Post
 
-Run from Python/eval. Write each JSON payload to a temp file and pass `glab api -X <METHOD> <path> --input <file> -H 'Content-Type: application/json'`.
+Run from Python. Write each JSON payload to a temp file and pass `glab api -X <METHOD> <path> --input <file> -H 'Content-Type: application/json'`.
 
 - **New inline comment:** `POST projects/:id/merge_requests/<iid>/discussions`
 
@@ -136,7 +136,7 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 
 ## Hard rules
 
-- **Never post, edit, reopen, or delete** without a same-turn `ask` confirmation for that specific post.
+- **Never post, edit, reopen, or delete** without a same-turn confirmation for that specific post.
 - **Never resolve threads, approve, merge, set auto-merge, or assign** reviewers or assignees.
 - **Never commit or push. Never edit repo files.**
 - **Never post a claim you have not verified at `head_sha`.** Flag lower-confidence items to the user before drafting.
@@ -146,7 +146,7 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 
 - **Null `position`**: general notes and bot Questions have `position: null`; read it null-safely.
 - **`glab api --paginate`** output doesn't parse as one JSON document; page manually.
-- **Harness block**: bash commands matching `*merge_requests/*/merge*` are blocked, so a `jq` filter such as `.detailed_merge_status` after `merge_requests/<iid>` fails. Run MR API reads from Python/eval.
+- **Harness block**: some harnesses block bash commands matching `*merge_requests/*/merge*`, so a `jq` filter such as `.detailed_merge_status` after `merge_requests/<iid>` fails. Run MR API reads from Python.
 - **Silent downgrade**: inline positions silently become general notes if the line isn't in the diff. Check the line map first, then verify `position` after posting.
 - **Stale author replies**: replies often answer the previous round ("handlers now called at 3 sites") instead of the new point. Verify against code, not the reply.
 - **Remote CI components** (`component: $CI_SERVER_FQDN/<group>/<project>/<name>@<ref>`) can be read without cloning: `glab api "projects/<url-encoded group/project>/repository/files/templates%2F<name>.yml/raw?ref=<ref>"` (list with `repository/tree?ref=<ref>&recursive=true`). Read the component's rules before calling a `needs:` or job-presence risk unverified.

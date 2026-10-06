@@ -12,7 +12,7 @@
     {
       "name": "mw-skills",
       "source": "./",
-      "description": "Git/PR workflow, docs, tooling-sync, UI taste skills",
+      "description": "Git/PR workflow, branch wrap-up, MR review posting, docs, tooling-sync, UI taste skills",
       "category": "productivity"
     }
   ]
