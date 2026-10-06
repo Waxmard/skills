@@ -270,8 +270,9 @@ Inline rows:
 - **Don't duplicate the underlying skills.** If `pr-review-toolkit`, `ponytail-review`,
   `web-design-guidelines`, `interface-review`, `tooling-sync` or `triage-renovate-dependabot-prs`
   behavior needs changing, edit that skill — not this wrapper.
-- **Every skill can still run alone.** This is only the convenience path; it adds no behavior the
-  six don't already have.
+- **Every skill can still run alone.** This is only the convenience path; it adds no
+  review/sync/merge logic the six don't already have. Its own behavior is limited to ordering,
+  gates (including Gate F's fixes), and hand-offs.
 - **Pre-flight is read-only.** `scope.py` writes nothing. The only write is the `~/.cache/mw-kit`
   clone or pull, after the user replies `cache` at the `MW_KIT` stop. The `.tooling-sync.json`
   write happens only inside tooling-sync.
