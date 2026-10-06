@@ -161,7 +161,9 @@ Subagent task text (fill in literals; subagents don't share this conversation):
   target `<mb>...<head0>`; resolve its relative file references against that directory." The
   user chose to delegate it; the opt-out only stops the model picking it unprompted.
 
-When the wave finishes, print each report under a `### <skill> (@tier)` heading in row order. If
+When the wave finishes, print each report under a `### <skill> (@tier)` heading in row order.
+Retrieve each report verbatim with `read agent://<id>/report:raw` — the `wait` snapshot truncates
+each report to a preview, and a plain `read agent://<id>` truncates every long line. If
 the Task tool or a model role fails to resolve, run that row inline in this session and note
 "ran inline: <reason>".
 
