@@ -63,6 +63,9 @@ prints its install line.
 | `frontend-design` | `ui-taste` | `/plugin marketplace add anthropics/claude-plugins-official`, then `/plugin install frontend-design@claude-plugins-official` |
 | `web-design-guidelines` | `wrap-up`, `ui-taste` | `npx skills add vercel-labs/agent-skills` |
 | `better-*`, `interface-review` | `wrap-up`, `ui-taste` | `npx skills add jakubkrehel/skills` |
+| `interface-design` | `ui-taste` | `npx skills add dammyjay93/interface-design` |
+| `emil-design-eng` | `ui-taste` | `npx skills add emilkowalski/skills` |
+| `transitions-dev`, `transitions-polish` | `ui-taste` | `npx skills add Jakubantalik/transitions.dev` |
 
 ## Local overrides
 
@@ -72,8 +75,32 @@ first when present.
 
 ## Credits
 
-The `pr-review-toolkit` lens set is adapted from Anthropic's
-[pr-review-toolkit plugin](https://github.com/anthropics/claude-code/tree/main/plugins/pr-review-toolkit).
+Adapted from:
+
+- [pr-review-toolkit](https://github.com/anthropics/claude-code/tree/main/plugins/pr-review-toolkit)
+  by Anthropic: the `pr-review-toolkit` lens set.
+- [Google developer documentation style guide](https://developers.google.com/style):
+  the rules in `docs-style`.
+- [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
+  by Anthropic: used to author these skills.
+
+Builds on:
+
+- [ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert:
+  `ponytail-review` in `wrap-up`.
+- [frontend-design](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/frontend-design)
+  by Anthropic: the process `ui-taste` layers on.
+- [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills):
+  `web-design-guidelines` in `wrap-up` and `ui-taste`.
+- [jakubkrehel/skills](https://github.com/jakubkrehel/skills): `better-*` and
+  `interface-review` in `wrap-up` and `ui-taste`.
+- [interface-design](https://github.com/Dammyjay93/interface-design):
+  craft guidance in `ui-taste`.
+- [emilkowalski/skills](https://github.com/emilkowalski/skills):
+  `emil-design-eng` in `ui-taste`.
+- [transitions.dev](https://transitions.dev)
+  ([repo](https://github.com/Jakubantalik/transitions.dev)): motion
+  snippets and timing in `ui-taste`.
 
 ## License
 
