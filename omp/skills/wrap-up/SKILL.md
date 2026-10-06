@@ -6,8 +6,8 @@ description: >
   interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
   verdict, suggested order, and model tier (slow/smol/grunt) for each, lets
   the user pick, then runs read-only reviews as parallel tier-pinned
-  subagents, fixes their findings in-session before moving on, runs
-  interactive skills inline with commit gates, and ends with a completion
+  subagents, fixes their findings in-session one report at a time with a commit gate after
+  each, runs interactive skills inline with commit gates, and ends with a completion
   summary. Orchestrator: its only logic is ordering, gates (including Gate F's
   fixes), and hand-offs. Trigger: "wrap up this
   branch", "I'm done with this branch", "end of branch", "pre-merge
@@ -191,18 +191,23 @@ stopping to fix is the default for all of wrap-up.
    - Exclude 🟢 strengths and **pure nits**: items the report labels nit/optional/taste that cite
      no project rule (AGENTS.md/CLAUDE.md convention, lint config). A style item backed by a
      project rule is not a nit, so it gets fixed.
-   - Drop exact duplicates that two reports raised for the same `file:line`.
+   - Drop exact duplicates that two reports raised for the same `file:line`. Keep the item under
+     the first report in row order.
 2. Findings that need a user decision (two valid fixes with different shapes, a behavior change,
    a disputed finding) go to the user in one batched `ask` before any edit. Never skip them
    silently.
-3. Apply every fix in this session, using the smallest change that resolves the finding. Then run
-   the repo's narrowest check that covers the touched files (from its AGENTS.md/Makefile/
-   package.json). If a check fails, fix that too before moving on.
-4. Print a fix table `Finding | File | Status`, where status is `fixed`, `skipped: <reason>`, or
-   `user-declined`. The only allowed skip reasons are a verified false positive (state the
-   evidence) or the user declining. Then show `git status --short`, stop, and wait for the user
-   to commit. Continue only when `git status --short` matches the pre-flight `baseline`.
-5. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
+3. Work through the reports in row order, one at a time. For each report with items left:
+   1. Apply its fixes in this session, using the smallest change that resolves each finding. Then
+      run the repo's narrowest check that covers the touched files (from its AGENTS.md/Makefile/
+      package.json). If a check fails, fix that too before moving on.
+   2. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
+      `fixed`, `skipped: <reason>`, or `user-declined`. The only allowed skip reasons are a
+      verified false positive (state the evidence) or the user declining.
+   3. If anything changed, show `git status --short` and suggest a subject (e.g. `fix: address
+      <skill> findings`). Then stop and wait for the user to commit. Move to the next report only
+      when `git status --short` matches the pre-flight `baseline`. If nothing changed, say so and
+      go straight to the next report.
+4. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
    without stopping.
 
 Inline rows:
