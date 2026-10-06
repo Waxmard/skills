@@ -12,13 +12,7 @@
     {
       "name": "mw-skills",
       "source": "./",
-      "description": "Git/PR workflow, docs, tooling-sync, UI taste skills",
-      "category": "productivity"
-    },
-    {
-      "name": "mw-omp",
-      "source": "./omp",
-      "description": "omp-only: wrap-up branch pre-flight, post-mr-review",
+      "description": "Git/PR workflow, branch wrap-up, MR review posting, docs, tooling-sync, UI taste skills",
       "category": "productivity"
     }
   ]

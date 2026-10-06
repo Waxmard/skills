@@ -4,8 +4,7 @@ Guidance for AI agents working in this repo.
 
 ## Layout
 - `skills/<name>/SKILL.md` — portable skills, shipped as the `mw-skills` plugin (root `.claude-plugin/plugin.json`).
-- `omp/skills/<name>/SKILL.md` — omp-only skills, shipped as the `mw-omp` plugin (`omp/.claude-plugin/plugin.json`).
-- `.claude-plugin/marketplace.json` lists `mw-skills`; `.omp-plugin/marketplace.json` lists both plugins.
+- `.claude-plugin/marketplace.json` and `.omp-plugin/marketplace.json` both list `mw-skills`.
 - Gitignored, local-only: `skills/monthly-resume-refresh/`, `skills/work-summary/`, `skills/ticket-draft/references/`, `local.md`.
 
 ## Conventions
@@ -13,4 +12,5 @@ Guidance for AI agents working in this repo.
 - A skill is its `SKILL.md`: frontmatter `name` + `description`, then the instructions. Run `scripts/check.sh` (tracked JSON + SKILL.md frontmatter) before committing; lefthook and CI run it too.
 - Adding, removing, or renaming a skill: update the Skills table in `README.md` in the same commit.
 - Keep the skills runnable on their own; `wrap-up` only orchestrates the others.
+- Skills are harness-neutral; put omp/Claude Code specifics in a `## Harness notes` table (see `wrap-up`).
 - Conventional Commits; see `.git-ai-instructions` for how types map here.
