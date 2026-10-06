@@ -169,7 +169,7 @@ Show the written file once; don't pause per-key. Mention it's part of what to co
 - **Never commit, never push, never `git add`** — global rule. Apply edits to the working tree only; the user commits.
 - **Never clobber a config wholesale** when the repo already has one — merge. Only Write a fresh file when none exists.
 - **Never run installs** (`npm install`, `uv add`, `pip install`) — surface them as follow-ups.
-- **Respect local overrides.** A documented or obviously-intentional divergence is flagged, not overwritten.
+- **Respect local overrides.** A documented or obviously-intentional divergence is flagged, not overwritten. A value the repo's own tests assert against — a viewport size, a port, a magic threshold — is positive evidence the value is intentional: aligning it to the canonical block leaves the test red, so classify the tool 🔧 `override` and record the reason instead of "fixing" it.
 - **The resolver owns scope.** Don't re-derive scope by hand-globbing or reading every page — trust `scope.py`'s plan. If a page exists but the resolver never considers it (missing from its output entirely), the manifest/frontmatter may be stale; tell the user to run `python3 scripts/build_manifest.py` in mw-kit. Never run either script *from* the consumer repo.
 - **The resolver owns incremental state too.** Don't hand-compute which pages changed or hand-edit `.tooling-sync.json`'s recall logic — read `state` off the plan, and only ever *write* the file in Step 6. To force a full re-compare, re-run the resolver with `--no-state` rather than deleting the file.
 
