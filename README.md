@@ -6,16 +6,16 @@ for Antigravity, Codex, Gemini CLI, and other agents.
 
 ## Install
 
-In omp, add the marketplace and install both plugins. `mw-omp` holds the
-omp-only skills.
+In omp, add the marketplace and install the plugin:
 
 ```text
 /marketplace add Waxmard/skills
 /marketplace install mw-skills@waxmard
-/marketplace install mw-omp@waxmard
 ```
 
-In Claude Code, add the marketplace and install the portable plugin:
+If you installed `mw-omp` earlier, uninstall it; its skills now ship in `mw-skills`.
+
+In Claude Code, add the marketplace and install the plugin:
 
 ```text
 /plugin marketplace add Waxmard/skills
@@ -31,21 +31,21 @@ npx skills add Waxmard/skills
 
 ## Skills
 
-| Skill | Plugin | What it does |
-|---|---|---|
-| `docs-style` | mw-skills | Applies Google developer documentation style to prose written into files. |
-| `fix-trivy-scan` | mw-skills | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
-| `free-disk-space` | mw-skills | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
-| `pr-review-toolkit` | mw-skills | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
-| `resolve-merge-conflicts` | mw-skills | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
-| `review-pr-comments` | mw-skills | Gives a read-only agree or disagree verdict on each review comment on the current PR or MR. |
-| `split-branch` | mw-skills | Splits a scope-crept branch into branches that merge in any order without conflicts. |
-| `ticket-draft` | mw-skills | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
-| `tooling-sync` | mw-skills | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
-| `triage-renovate-dependabot-prs` | mw-skills | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
-| `ui-taste` | mw-skills | Adds personal UI preferences on top of `frontend-design`. |
-| `post-mr-review` | mw-omp | Turns review findings into GitLab MR comments and posts only what you confirm. |
-| `wrap-up` | mw-omp | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
+| Skill | What it does |
+|---|---|
+| `docs-style` | Applies Google developer documentation style to prose written into files. |
+| `fix-trivy-scan` | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
+| `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
+| `post-mr-review` | Turns review findings into GitLab MR comments and posts only what you confirm. |
+| `pr-review-toolkit` | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
+| `resolve-merge-conflicts` | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
+| `review-pr-comments` | Gives a read-only agree or disagree verdict on each review comment on the current PR or MR. |
+| `split-branch` | Splits a scope-crept branch into branches that merge in any order without conflicts. |
+| `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
+| `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
+| `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
+| `ui-taste` | Adds personal UI preferences on top of `frontend-design`. |
+| `wrap-up` | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
 
 `tooling-sync` reads its playbook from
 [Waxmard/mw-kit](https://github.com/Waxmard/mw-kit). It uses `$MW_KIT` when

@@ -1,10 +1,10 @@
 ---
 name: wrap-up
 description: >
-  End-of-branch pre-flight for omp. Always runs pr-review-toolkit; cheaply
+  End-of-branch pre-flight. Always runs pr-review-toolkit; cheaply
   checks which of tooling-sync, ponytail-review, web-design-guidelines,
   interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
-  verdict, run order, and model tier (slow/smol/grunt) for each, lets
+  verdict, run order, and model tier (fast/strong) for each, lets
   the user pick, then runs read-only reviews as parallel tier-pinned
   subagents (only commits since the last wrap-up review on re-runs; `full`
   forces the whole branch), fixes their findings in-session one report at a time with a commit gate after
@@ -13,7 +13,7 @@ description: >
   fixes), and hand-offs. Trigger: "wrap up this
   branch", "I'm done with this branch", "end of branch", "pre-merge
   checklist", "what should I run before merging", "sync tooling and triage
-  renovate", "repo spa day", or /skill:wrap-up. Optional `lean` reply keyword
+  renovate", "repo spa day", or /wrap-up (omp: /skill:wrap-up). Optional `lean` reply keyword
   (suggested when other maintainers are detected) limits the run to definite
   improvements.
 ---
@@ -21,11 +21,24 @@ description: >
 Thin orchestrator. Owns only the pre-flight signals, the order, the model tiers, the gates and
 the hand-offs. All real logic stays in the underlying skills.
 
-Invocation: `/skill:wrap-up` runs pre-flight → report → pick → run. `/skill:wrap-up run <reply>`
-(e.g. `run go`, `run 3 6`, `run 2@smol`) re-runs pre-flight silently, skips the report and the
+Invocation: invoking wrap-up runs pre-flight → report → pick → run. Invoking wrap-up with `run <reply>`
+(e.g. `run go`, `run 3 6`, `run 2@fast`) re-runs pre-flight silently, skips the report and the
 pick, and goes straight to §3 with `<reply>` parsed as in §2. The trigger is the skill args or the
-first user message starting with `run `. Use it to run pre-flight in a cheap mode, then start a
-new session in a stronger mode and paste the `run` line.
+first user message starting with `run `. Use it to run pre-flight on a cheap model, then start a
+new session on a stronger model and paste the `run` line.
+
+## Harness notes
+
+Steps below use neutral verbs. Map them to your harness:
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:wrap-up run go` | `/wrap-up run go` | first message `run go` |
+| load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
+| spawn the wave | one Task call, `model: "@smol"` (fast) or `"@slow"` (strong) | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–5 inline in order, note "ran inline: no subagents" |
+| retrieve a report verbatim | `read agent://<id>:raw` (the `wait` snapshot and plain `read agent://<id>` truncate; `/report:raw` returns null for unstructured reports) | the Agent tool result | n/a |
+| progress list | `todo` `init` | TodoWrite | numbered checklist printed in chat |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
 
 ## 1. Pre-flight
 
@@ -76,23 +89,23 @@ Read-only: no edits, no installs. Runs before any skill.
    with `MW_KIT=<path>`, and pass the same value to tooling-sync in §3. `skip`: row 1 verdict
    `skip`, reason "MW_KIT not set". In `run <reply>` mode, ask only if `<reply>` is `go` or
    includes row 1.
-6. Verdict per skill. Row number = run order. Tier = model role.
+6. Verdict per skill. Row number = run order. Tier = subagent model class (Harness notes).
 
 | # | Skill | RUN when | Tier | Reason text |
 |---|---|---|---|---|
-| 1 | `tooling-sync` | `tooling-sync`'s Step 1 resolver block (same `MW_KIT` resolution, read-only) has `preflight.ok` true and `state.all_settled` not true | `inline · smol+` | "L live tools" (`in_scope` rows with `state.settled == false`), plus ", O orphaned" if `state.orphaned_tools` is non-empty. SKIP: "nothing new since last sync (`state.last_sync`)". If `preflight.ok` is false: SKIP with `preflight.error` |
-| 2 | `pr-review-toolkit` | always (not pickable) | `@smol` | Full: "N files, +A lines vs `<base>`". Delta: "delta: N files, +A lines since last review `<from short>`". If the changed-files list is empty: verdict `skip`, reason "no commits ahead of `<base>`" (full) or "no new commits since last review `<from short>`; reply `full` to re-review" (delta) — the only case it doesn't run |
-| 3 | `ponytail-review` | added lines ≥ 100 **or** a changed file's basename is one of `package.json pyproject.toml Cargo.toml go.mod Gemfile` or matches `requirements*.txt` | `@smol` | "+A lines" and/or "deps changed: `<files>`". SKIP: "small diff (+A), no manifest changes" |
-| 4 | `web-design-guidelines` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@smol` | "N UI files changed". SKIP: "no UI files in diff" |
-| 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@smol` | "N UI files changed". SKIP: "no UI files in diff" |
-| 6 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) and branch not protected (step 2) | `inline · smol+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches", or "protected branch: triage refuses on `<branch>`" |
+| 1 | `tooling-sync` | `tooling-sync`'s Step 1 resolver block (same `MW_KIT` resolution, read-only) has `preflight.ok` true and `state.all_settled` not true | `inline · fast+` | "L live tools" (`in_scope` rows with `state.settled == false`), plus ", O orphaned" if `state.orphaned_tools` is non-empty. SKIP: "nothing new since last sync (`state.last_sync`)". If `preflight.ok` is false: SKIP with `preflight.error` |
+| 2 | `pr-review-toolkit` | always (not pickable) | `fast` | Full: "N files, +A lines vs `<base>`". Delta: "delta: N files, +A lines since last review `<from short>`". If the changed-files list is empty: verdict `skip`, reason "no commits ahead of `<base>`" (full) or "no new commits since last review `<from short>`; reply `full` to re-review" (delta) — the only case it doesn't run |
+| 3 | `ponytail-review` | added lines ≥ 100 **or** a changed file's basename is one of `package.json pyproject.toml Cargo.toml go.mod Gemfile` or matches `requirements*.txt` | `fast` | "+A lines" and/or "deps changed: `<files>`". SKIP: "small diff (+A), no manifest changes" |
+| 4 | `web-design-guidelines` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `fast` | "N UI files changed". SKIP: "no UI files in diff" |
+| 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `fast` | "N UI files changed". SKIP: "no UI files in diff" |
+| 6 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) and branch not protected (step 2) | `inline · fast+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches", or "protected branch: triage refuses on `<branch>`" |
 
-If a listed skill is not in `skill://`, its verdict is SKIP with reason "not installed". For `ponytail-review`, append " — `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from `skill://` (see its dispatch note below).
+If a listed skill is not available to this session, its verdict is SKIP with reason "not installed". For `ponytail-review`, append " — `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from the model-invocable skills (see its dispatch note below).
 
-Tier rationale: defaults favour speed and cost. `@smol` for every review row, including
-web-design-guidelines (`@grunt` cited mismatched lines and wrong files). Nothing defaults to `@slow`:
-escalate per run with `2@slow` on a large or risky diff (auth, payments, data migrations). Triage
-is safe on smol because its per-merge confirmation gate keeps the user as the backstop.
+Tier rationale: defaults favour speed and cost. `fast` for every review row. Nothing defaults to
+`strong`: escalate per run with `2@strong` on a large or risky diff (auth, payments, data
+migrations). Triage is safe on `fast` because its per-merge confirmation gate keeps the user as
+the backstop.
 
 Bot-branch count. Use `while read`, never `for` word-splitting:
 
@@ -108,21 +121,21 @@ The redundancy analysis stays in the triage skill. Don't repeat it here.
 Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdicts `RUN`,
 `skip`, or `always` (row 2). Under it print:
 
-- Legend: "`@tier` = runs as a subagent pinned to that role of the active mode. `inline` = runs
+- Legend: "`fast`/`strong` = runs as a subagent on that model class (Harness notes). `inline` = runs
   in this session because it prompts you; the tier is the recommended strength for this
   session."
 - Parallelism: "Row 1 runs first, inline. Rows 2–5 then run in parallel (read-only, pinned to
   `<from short>`..`<head0 short>`; they may start while Gate A's commit is pending). Row 6 runs last,
   inline." Gate F then fixes the review findings before row 6 runs.
-- Always: "Pre-flight is cheap. To run the picks on a stronger mode, start a new session there
-  and send `/skill:wrap-up run <your reply>`."
+- Always: "Pre-flight is cheap. To run the picks on a stronger model, start a new session there
+  and invoke wrap-up with `run <your reply>`."
 - Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
   to limit changes to definite improvements. Your choice; it's off unless you type it."
   When it prints and row 1 or 6 is RUN, append " (lean: pick by number to include)" to that row's
   Why.
 
 Then ask in plain text: "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–6 (e.g. `3 6`),
-or `none` for only the review. Override a tier with `N@slow|smol|grunt` (rows 2–5). Add `lean` to
+or `none` for only the review. Override a tier with `N@fast|strong` (rows 2–5). Add `lean` to
 any reply (e.g. `go lean`) for minimal-change mode." Only when `mode=delta`, append: "Add `full`
 to re-review the whole branch instead of the delta."
 
@@ -131,7 +144,7 @@ Parse the reply:
   names only rows 1/6, and a row-2 wave already ran in this session). `none` = row 2 only. `go` =
   row 2 + RUN rows. Numbers = row 2 + those rows. A chosen `skip` row runs anyway.
 - `N@tier` on rows 2–5 replaces that row's tier. On rows 1 and 6 it's ignored; say "rows 1 and 6
-  run inline; switch the session mode instead".
+  run inline; switch the session's model instead".
 - Picked rows always run in ascending row number.
 - `lean` (any position, any reply, including `run <reply>` mode) turns lean mode on. It's off by
   default, with no auto-enable. In lean mode, `go` = row 2 + RUN rows **excluding rows 1 and 6**.
@@ -146,7 +159,7 @@ Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `
 ## 3. Run
 
 **Progress tracking.** Right after the reply is parsed (or immediately in `run <reply>` mode),
-call `todo` `init` with one item per phase, in run order:
+create the progress list (Harness notes) with one item per phase, in run order:
 - one item per picked row: `Row <N>: <skill>` (e.g. `Row 1: tooling-sync`);
 - right after the last review row, the item `Fix review findings`;
 - last item: `Close: completion summary`.
@@ -160,10 +173,10 @@ also check the review-fix commits and every triage merge. Reviews next, pinned t
 neither tooling commits nor triage merges enter the reviewed diff. Triage last, because it stacks
 merges on whatever the earlier rows committed.
 
-Walk the picked rows in order. The delegated rows (2–5) form one **wave**: spawn them in a single
-Task call as parallel subagents, each with `model: "@<tier>"` (default tier from the table, or
-the user's override). Inline rows (1, 6) run in this session by reading `skill://<name>` and
-following it.
+Walk the picked rows in order. The delegated rows (2–5) form one **wave**: spawn them in one
+batch as parallel subagents, each on its tier's model (Harness notes; default tier from the
+table, or the user's override). Inline rows (1, 6) run in this session by loading skill `<name>`
+and following it.
 
 **Lean mode** (only when the reply had `lean`):
 - Append to each delegated row's task text: "Lean mode: report only definite improvements (bugs,
@@ -175,7 +188,7 @@ following it.
   internals; picking them by number means the user wants them.
 
 Subagent task text (fill in literals; subagents don't share this conversation):
-> Read `skill://<name>` and follow it as a read-only review in repo `<toplevel>`. Review exactly
+> Load the `<name>` skill and follow it as a read-only review in repo `<toplevel>`. Review exactly
 > `git diff <from>..<head0>` (base `<base>`). <delta mode only: These are the commits since the
 > last review. For context only, the full branch diff is `git diff <mb>...<head0>`; report
 > findings only on lines changed in the first range, unless a change there breaks code elsewhere
@@ -187,17 +200,14 @@ Subagent task text (fill in literals; subagents don't share this conversation):
 - `ponytail-review`: bare name `ponytail-review`.
 - `web-design-guidelines`: always pass the UI file list from the current range (delta or full).
   It asks the user when no files are given, and a subagent can't ask.
-- `interface-review`: has `disable-model-invocation: true`, so it isn't in `skill://`. Replace the
+- `interface-review`: has `disable-model-invocation: true`, so it isn't model-invocable. Replace the
   first sentence with "Read `~/.claude/skills/interface-review/SKILL.md` and follow it with
   target `<from>...<head0>`; resolve its relative file references against that directory." The
   user chose to delegate it; the opt-out only stops the model picking it unprompted.
 
-When the wave finishes, print each report under a `### <skill> (@tier)` heading in row order.
-Retrieve each report verbatim with `read agent://<id>:raw` (`/report:raw` returns null for
-unstructured reports) — the `wait` snapshot truncates each report to a preview, and a plain
-`read agent://<id>` truncates every long line. If
-the Task tool or a model role fails to resolve, run that row inline in this session and note
-"ran inline: <reason>".
+When the wave finishes, print each report under a `### <skill> (<tier>)` heading in row order.
+Retrieve each report verbatim, never a truncated preview (Harness notes). If subagents or the
+tier's model are unavailable, run that row inline in this session and note "ran inline: <reason>".
 
 Once every wave row has returned a report (delegated or ran inline), record the reviewed head:
 `mkdir -p "$(dirname "$memo")" && printf '%s\n' "$head0" > "$memo"`. Skip the write if any row
@@ -220,7 +230,7 @@ stopping to fix is the default for all of wrap-up.
      order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
 2. Findings that need a user decision (two valid fixes with different shapes, a behavior change,
    a disputed finding, or two reports asking for opposite changes to the same code) go to the
-   user in one batched `ask` before any edit. Never skip them silently.
+   user in one batched question (Harness notes: ask the user) before any edit. Never skip them silently.
 3. Work through the reports in row order, one at a time. For each report with items left:
    1. Re-read each of this report's items against the current tree. If an earlier report's fix
       already resolved the item, or deleted or rewrote the code it targets, don't fix it. Mark it
@@ -241,7 +251,7 @@ stopping to fix is the default for all of wrap-up.
 
 Inline rows:
 
-1. `tooling-sync`: read `skill://tooling-sync` and follow it, then Gate A.
+1. `tooling-sync`: load skill `tooling-sync` and follow it, then Gate A.
 
    **Gate A — commit the tooling-sync changes**
 
@@ -270,7 +280,7 @@ Inline rows:
 
    Only continue once the tree is clean. If tooling-sync produced no changes, there's nothing to
    commit — just proceed.
-2. `triage-renovate-dependabot-prs`: read `skill://triage-renovate-dependabot-prs` and follow
+2. `triage-renovate-dependabot-prs`: load skill `triage-renovate-dependabot-prs` and follow
    it. It owns discovery, the per-branch risk read, the per-merge confirmation gate, post-merge
    checks, and the never-push rule. Don't second-guess its prompts — just let it drive. When
    triage offers fix / revert / accept after a failed check, recommend **fix in place**. Revert
@@ -327,7 +337,7 @@ Propose an edit only on real signal:
 - You repeated a manual workaround that belongs in the flow.
 - A pre-flight verdict was wrong (RUN on a skill that found nothing useful, or SKIP on one the
   user ran anyway and it mattered). Propose adjusting that row's threshold.
-- A tier was wrong (a `@grunt`/`@smol` review missed something a `@slow` re-run caught). Propose
+- A tier was wrong (a `fast` review missed something a `strong` re-run caught). Propose
   moving that row's default tier up.
 
 When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
