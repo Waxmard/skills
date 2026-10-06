@@ -6,7 +6,9 @@ description: >
   interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
   verdict, suggested order, and model tier (slow/smol/grunt) for each, lets
   the user pick, then runs read-only reviews as parallel tier-pinned
-  subagents and interactive skills inline with commit gates. Thin
+  subagents, fixes their findings in-session before moving on, runs
+  interactive skills inline with commit gates, and ends with a completion
+  summary. Thin
   orchestrator: no review/sync/merge logic of its own. Trigger: "wrap up this
   branch", "I'm done with this branch", "end of branch", "pre-merge
   checklist", "what should I run before merging", "sync tooling and triage
@@ -98,7 +100,8 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in suggested order, 
   in this session because it prompts you; the tier is the recommended strength for this
   session."
 - Parallelism: "Row 1 runs first, inline. Rows 2–5 then run in parallel (read-only, pinned to
-  `<base>`..`<head0 short>`). Row 6 runs last, inline."
+  `<base>`..`<head0 short>`). Row 6 runs last, inline." Gate F then fixes the wave's findings
+  before anything else runs.
 - Always: "Pre-flight is cheap. To run the picks on a stronger mode, start a new session there
   and send `/skill:wrap-up run <your reply>`."
 - Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
@@ -126,6 +129,17 @@ Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `
 
 ## 3. Run
 
+**Progress tracking.** Right after the reply is parsed (or immediately in `run <reply>` mode),
+call `todo` `init` with one item per phase, in run order:
+- one item per picked row: `Row <N>: <skill>` (e.g. `Row 1: tooling-sync`);
+- right after each wave's last row, the item `Fix review findings` (one per wave; with the
+  default order there is exactly one wave);
+- last item: `Close: completion summary`.
+
+Mark each item done as soon as its phase finishes. A row whose skill reports nothing to do still
+gets marked done. Wrap-up is done only when every item is done and the completion block (inline
+step 3) has printed. Never print the completion block while an item is pending.
+
 Default order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
 neither tooling commits nor triage merges enter the reviewed diff. Triage last, because it stacks
@@ -140,9 +154,8 @@ following it.
 - Append to each delegated row's task text: "Lean mode: report only definite improvements (bugs,
   correctness, security, regressions, clear contract violations). Omit style nits, refactors,
   naming, and speculative or optional suggestions. If nothing qualifies, say so."
-- Gate R asks "Fix findings now (definite improvements only), or continue?" From then on, every
-  fix in this session follows the same bar: the smallest change that fixes the finding, with no
-  adjacent cleanup.
+- Gate F uses the lean bar: definite improvements only. Every fix in this session follows the
+  same bar: the smallest change that fixes the finding, with no adjacent cleanup.
 - Explicitly picked rows 1 and 6 run unchanged. Lean doesn't filter tooling-sync or triage
   internals; picking them by number means the user wants them.
 
@@ -167,9 +180,34 @@ each report to a preview, and a plain `read agent://<id>` truncates every long l
 the Task tool or a model role fails to resolve, run that row inline in this session and note
 "ran inline: <reason>".
 
-**Gate R** (after a wave, only if an inline row follows): ask "Fix findings now, or continue to
-the next inline row?" If fixing now, stop and wait. Before continuing, `git status --short` must be
-empty after the user commits.
+**Gate F — fix findings (always, after every wave; never optional).** Runs after every wave's
+reports have printed, whether or not an inline row follows. Do not ask "fix or continue":
+stopping to fix is the default for all of wrap-up.
+
+1. Build the fix list from every report in the wave:
+   - Include every 🔴 Critical and 🟡 Important item, plus every 🔵 Suggestion that has a
+     concrete *Fix* line. In non-pr-review-toolkit reports (ponytail-review,
+     web-design-guidelines, interface-review), include every actionable finding.
+   - Exclude 🟢 strengths and **pure nits**: items the report labels nit/optional/taste that cite
+     no project rule (AGENTS.md/CLAUDE.md convention, lint config). A style item backed by a
+     project rule is not a nit, so it gets fixed.
+   - Drop exact duplicates that two reports raised for the same `file:line`.
+2. Findings that need a user decision (two valid fixes with different shapes, a behavior change,
+   a disputed finding) go to the user in one batched `ask` before any edit. Never skip them
+   silently.
+3. Apply every fix in this session, using the smallest change that resolves the finding. Then run
+   the repo's narrowest check that covers the touched files (from its AGENTS.md/Makefile/
+   package.json). If a check fails, fix that too before moving on.
+4. Print a fix table `Finding | File | Status`, where status is `fixed`, `skipped: <reason>`, or
+   `user-declined`. The only allowed skip reasons are a verified false positive (state the
+   evidence) or the user declining. Then show `git status --short`, stop, and wait for the user
+   to commit. Continue only when `git status --short` is empty.
+5. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
+   without stopping.
+
+Lean mode changes only the bar in step 1: definite improvements only (bugs, correctness,
+security, regressions, clear contract violations). Fixes stay smallest-change with no adjacent
+cleanup.
 
 Inline rows:
 
@@ -192,7 +230,8 @@ Inline rows:
       the next sync on this machine. triage's `git merge --no-ff` needs a clean tree, so an
       uncommitted tooling-sync tree would foul the merges. Once the user says it's committed, run
       `git show --stat HEAD` and confirm every follow-up from step 1 (e.g. a regenerated lockfile)
-      is in the commit. If one isn't, flag it before running triage.
+      is in the commit. If one isn't, add it now and wait for the user to amend or commit it
+      before running triage.
    3. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
       before continuing — the playbook page reads are dead weight from here, and triage reloads its
       own instructions on invocation. Their call, not a gate.
@@ -201,13 +240,31 @@ Inline rows:
    commit — just proceed.
 2. `triage-renovate-dependabot-prs`: read `skill://triage-renovate-dependabot-prs` and follow
    it. It owns discovery, the per-branch risk read, the per-merge confirmation gate, post-merge
-   checks, and the never-push rule. Don't second-guess its prompts — just let it drive.
-3. Close: the push is the user's.
+   checks, and the never-push rule. Don't second-guess its prompts — just let it drive. When
+   triage offers fix / revert / accept after a failed check, recommend **fix in place**. Revert
+   or accept only on the user's explicit choice.
+3. Close: print the completion block below, then mark `Close: completion summary` done. Then run
+   Retro.
+
+   ```
+   ## Wrap-up complete
+   - Ran: <row: skill — one-line outcome>, …
+   - Skipped: <row: skill — reason>, …   (omit line if none)
+   - Fixes: <N fixed, M skipped/declined> (Gate F)
+   - Tree: clean | <N uncommitted files — commit before pushing>
+   - Next: push is yours (`git push`), then open the MR/PR.
+   ```
+
+   The heading `## Wrap-up complete` is a fixed literal, so every run ends with the same marker.
 
 ## Hard rules
 
 - **Never commit, never push** — every commit between skills and the final push are the *user's*.
   This skill triggers none of them.
+- **Stop and fix is always the default.** When any phase surfaces a problem fixable in this
+  session (review findings, a failing check after Gate A follow-ups, a missing follow-up flagged
+  in Gate A step 2, a post-merge check failure in triage), fix it before the next phase. Never
+  present "continue anyway" as the recommended choice.
 - **Don't skip Gate A** when tooling-sync runs before triage. Running triage against an
   uncommitted tooling-sync tree fouls the merges.
 - **Don't duplicate the underlying skills.** If `pr-review-toolkit`, `ponytail-review`,
