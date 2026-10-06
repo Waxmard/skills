@@ -13,4 +13,4 @@ Guidance for AI agents working in this repo.
 - A skill is its `SKILL.md`: frontmatter `name` + `description`, then the instructions. Run `scripts/check.sh` (tracked JSON + SKILL.md frontmatter) before committing; lefthook and CI run it too.
 - Adding, removing, or renaming a skill: update the Skills table in `README.md` in the same commit.
 - Keep the skills runnable on their own; `wrap-up` only orchestrates the others.
-- Conventional Commits; see `.git-ai-instructions` for how types map here. release-please cuts releases from `feat`/`fix` on `main` and bumps `version` in both `plugin.json` files; never edit those versions by hand.
+- Conventional Commits; see `.git-ai-instructions` for how types map here.
