@@ -114,8 +114,9 @@ or `none` for only the review. Override a tier with `N@slow|smol|grunt` (rows 2�
 any reply (e.g. `go lean`) for minimal-change mode."
 
 Parse the reply:
-- Row 2 is always included (unless its verdict is `skip`). `none` = row 2 only. `go` = row 2 + RUN
-  rows. Numbers = row 2 + those rows. A chosen `skip` row runs anyway.
+- Row 2 is always included (unless its verdict is `skip`, or this is `run <reply>` mode, `<reply>`
+  names only rows 1/6, and a row-2 wave already ran in this session). `none` = row 2 only. `go` =
+  row 2 + RUN rows. Numbers = row 2 + those rows. A chosen `skip` row runs anyway.
 - `N@tier` on rows 2–5 replaces that row's tier. On rows 1 and 6 it's ignored; say "rows 1 and 6
   run inline; switch the session mode instead".
 - Picked rows always run in ascending row number.
@@ -172,8 +173,9 @@ Subagent task text (fill in literals; subagents don't share this conversation):
   user chose to delegate it; the opt-out only stops the model picking it unprompted.
 
 When the wave finishes, print each report under a `### <skill> (@tier)` heading in row order.
-Retrieve each report verbatim with `read agent://<id>/report:raw` — the `wait` snapshot truncates
-each report to a preview, and a plain `read agent://<id>` truncates every long line. If
+Retrieve each report verbatim with `read agent://<id>:raw` (`/report:raw` returns null for
+unstructured reports) — the `wait` snapshot truncates each report to a preview, and a plain
+`read agent://<id>` truncates every long line. If
 the Task tool or a model role fails to resolve, run that row inline in this session and note
 "ran inline: <reason>".
 
