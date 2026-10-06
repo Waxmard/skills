@@ -77,9 +77,9 @@ The resolver already told you, per page, which `targets` exist (`targets_present
 
 For each page needing a config read, compare its `targets` files against the page's canonical `## Config` block. Read the page body only for the in-scope ones.
 
-**Dispatch rule:** the per-page diff is independent and mostly mechanical (does the target exist, does its config match the canonical block). Count only the **live** (non-settled) pages:
-- **≤ 7 live pages** → compare inline yourself.
-- **≥ 8** → fan out one **Haiku** subagent per page (Agent tool, `model: haiku`), in parallel. Each subagent reads its page's canonical `## Config` block from the playbook + the repo's `targets` file(s), and returns a structured classification row (status, target file(s), headline delta, quoted deltas for drift). **When the target file is present but the subagent flags a sub-element as missing (an ecosystem block, a config table, a key), it must quote the lines it searched as proof — a present multi-block file (dependabot's per-ecosystem blocks, a multi-table `pyproject.toml`) is exactly where a fast skim false-flags an element that's actually there.** Escalate a page to **Sonnet** only when its config needs *semantic* merge reasoning (e.g. reconciling a hand-customized `biome.json` or a multi-section `pyproject.toml`) rather than a flat presence/equality check. You collect the rows and assemble the Step 3 report. **Apply (Step 5) stays inline in the parent** — it touches files and must stay coherent across confirmations.
+**Dispatch rule:** the per-page diff is independent and mostly mechanical (does the target exist, does its config match the canonical block). Count only the **live** (non-settled) pages that have at least one `targets_present` entry — those are the only ones needing a config read. Live pages with no targets present are classified from `tier` inline (see above) and never get a subagent, nor do target-less pages like `conventional-commits`:
+- **≤ 7 such pages** → compare inline yourself.
+- **≥ 8 such pages** → fan out one **Haiku** subagent per page (Agent tool, `model: haiku`), in parallel. Each subagent reads its page's canonical `## Config` block from the playbook + the repo's `targets` file(s), and returns a structured classification row (status, target file(s), headline delta, quoted deltas for drift). **When the target file is present but the subagent flags a sub-element as missing (an ecosystem block, a config table, a key), it must quote the lines it searched as proof — a present multi-block file (dependabot's per-ecosystem blocks, a multi-table `pyproject.toml`) is exactly where a fast skim false-flags an element that's actually there.** Escalate a page to **Sonnet** only when its config needs *semantic* merge reasoning (e.g. reconciling a hand-customized `biome.json` or a multi-section `pyproject.toml`) rather than a flat presence/equality check. You collect the rows and assemble the Step 3 report. **Apply (Step 5) stays inline in the parent** — it touches files and must stay coherent across confirmations.
 
 Each compare subagent is read-only: it reads the playbook page and the repo target, returns its row, writes nothing.
 
@@ -215,6 +215,7 @@ rather than editing here. Only fix the skill when the *process* (scope, compare,
 was wrong.
 
 When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is the skill source in the
-mw-kit repo (symlinked global), so an edit here is a repo change the user commits; never edit it
-silently. If nothing fired, say nothing — no "run went well" noise.
+one sentence of why. Apply only after the user says yes — this file is installed by copy from
+`skills/tooling-sync/SKILL.md` in the Waxmard/skills repo (`skills-refresh` / `npx skills add`),
+so make the edit in that repo source, not the installed copy; it's a repo change the user commits
+and then reinstalls; never edit it silently. If nothing fired, say nothing — no "run went well" noise.
