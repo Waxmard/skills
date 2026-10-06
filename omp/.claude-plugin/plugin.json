@@ -1,6 +1,5 @@
 {
   "name": "mw-omp",
-  "version": "0.2.0",
   "description": "omp-only: wrap-up branch pre-flight, post-mr-review",
   "author": {
     "name": "Maxwell Ward",
