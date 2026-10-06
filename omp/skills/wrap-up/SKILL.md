@@ -4,7 +4,7 @@ description: >
   End-of-branch pre-flight for omp. Always runs pr-review-toolkit; cheaply
   checks which of tooling-sync, ponytail-review, web-design-guidelines,
   interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
-  verdict, suggested order, and model tier (slow/smol/grunt) for each, lets
+  verdict, run order, and model tier (slow/smol/grunt) for each, lets
   the user pick, then runs read-only reviews as parallel tier-pinned
   subagents, fixes their findings in-session one report at a time with a commit gate after
   each, runs interactive skills inline with commit gates, and ends with a completion
@@ -64,7 +64,7 @@ Read-only: no edits, no installs. Runs before any skill.
    with `MW_KIT=<path>`, and pass the same value to tooling-sync in §3. `skip`: row 1 verdict
    `skip`, reason "MW_KIT not set". In `run <reply>` mode, ask only if `<reply>` is `go` or
    includes row 1.
-6. Verdict per skill. Row number = suggested run order. Tier = model role.
+6. Verdict per skill. Row number = run order. Tier = model role.
 
 | # | Skill | RUN when | Tier | Reason text |
 |---|---|---|---|---|
@@ -93,15 +93,15 @@ The redundancy analysis stays in the triage skill. Don't repeat it here.
 
 ## 2. Report and pick
 
-Print the table as `# | Skill | Verdict | Tier | Why`, rows in suggested order, verdicts `RUN`,
+Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdicts `RUN`,
 `skip`, or `always` (row 2). Under it print:
 
 - Legend: "`@tier` = runs as a subagent pinned to that role of the active mode. `inline` = runs
   in this session because it prompts you; the tier is the recommended strength for this
   session."
 - Parallelism: "Row 1 runs first, inline. Rows 2–5 then run in parallel (read-only, pinned to
-  `<base>`..`<head0 short>`). Row 6 runs last, inline." Gate F then fixes the wave's findings
-  before anything else runs.
+  `<base>`..`<head0 short>`). Row 6 runs last, inline." Gate F then fixes the review findings
+  before row 6 runs.
 - Always: "Pre-flight is cheap. To run the picks on a stronger mode, start a new session there
   and send `/skill:wrap-up run <your reply>`."
 - Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
@@ -110,20 +110,18 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in suggested order, 
   Why.
 
 Then ask in plain text: "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–6 (e.g. `3 6`),
-or `none` for only the review. Override a tier with `N@slow|smol|grunt` (rows 2–5). Override the
-order with `order: <numbers>`. Add `lean` to any reply (e.g. `go lean`) for minimal-change mode."
+or `none` for only the review. Override a tier with `N@slow|smol|grunt` (rows 2–5). Add `lean` to
+any reply (e.g. `go lean`) for minimal-change mode."
 
 Parse the reply:
 - Row 2 is always included (unless its verdict is `skip`). `none` = row 2 only. `go` = row 2 + RUN
   rows. Numbers = row 2 + those rows. A chosen `skip` row runs anyway.
 - `N@tier` on rows 2–5 replaces that row's tier. On rows 1 and 6 it's ignored; say "rows 1 and 6
   run inline; switch the session mode instead".
-- Without `order:`, the run order is ascending row number. With `order: a b c`, the listed order
-  wins. Picked rows that aren't listed, row 2 included, are appended in ascending order.
+- Picked rows always run in ascending row number.
 - `lean` (any position, any reply, including `run <reply>` mode) turns lean mode on. It's off by
   default, with no auto-enable. In lean mode, `go` = row 2 + RUN rows **excluding rows 1 and 6**.
-  Rows 1 and 6 still run when picked by number, or by `order:`, which counts as an explicit pick.
-  `none` is unchanged.
+  Rows 1 and 6 still run when picked by number. `none` is unchanged.
 
 Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
 
@@ -132,20 +130,19 @@ Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `
 **Progress tracking.** Right after the reply is parsed (or immediately in `run <reply>` mode),
 call `todo` `init` with one item per phase, in run order:
 - one item per picked row: `Row <N>: <skill>` (e.g. `Row 1: tooling-sync`);
-- right after each wave's last row, the item `Fix review findings` (one per wave; with the
-  default order there is exactly one wave);
+- right after the last review row, the item `Fix review findings`;
 - last item: `Close: completion summary`.
 
 Mark each item done as soon as its phase finishes, including rows that report nothing to do.
 Print the completion block (inline step 3) only when every item except
 `Close: completion summary` is done.
 
-Default order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
+Why this order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
 neither tooling commits nor triage merges enter the reviewed diff. Triage last, because it stacks
 merges on whatever the earlier rows committed.
 
-Walk the run order. Consecutive delegated rows (2–5) form one **wave**: spawn them in a single
+Walk the picked rows in order. The delegated rows (2–5) form one **wave**: spawn them in a single
 Task call as parallel subagents, each with `model: "@<tier>"` (default tier from the table, or
 the user's override). Inline rows (1, 6) run in this session by reading `skill://<name>` and
 following it.
@@ -180,7 +177,7 @@ each report to a preview, and a plain `read agent://<id>` truncates every long l
 the Task tool or a model role fails to resolve, run that row inline in this session and note
 "ran inline: <reason>".
 
-**Gate F — fix findings (always, after every wave; never optional).** Runs after every wave's
+**Gate F — fix findings (always, after the wave; never optional).** Runs after the wave's
 reports have printed, whether or not an inline row follows. Do not ask "fix or continue":
 stopping to fix is the default for all of wrap-up.
 
@@ -217,9 +214,7 @@ stopping to fix is the default for all of wrap-up.
 
 Inline rows:
 
-1. `tooling-sync`: read `skill://tooling-sync` and follow it, then Gate A. Gate A applies whenever
-   tooling-sync runs before triage in the run order. If the user's `order:` puts triage first, run
-   triage, then tooling-sync, and skip Gate A.
+1. `tooling-sync`: read `skill://tooling-sync` and follow it, then Gate A.
 
    **Gate A — commit the tooling-sync changes**
 
