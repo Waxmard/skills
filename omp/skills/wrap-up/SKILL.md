@@ -10,7 +10,9 @@ description: >
   orchestrator: no review/sync/merge logic of its own. Trigger: "wrap up this
   branch", "I'm done with this branch", "end of branch", "pre-merge
   checklist", "what should I run before merging", "sync tooling and triage
-  renovate", "repo spa day", or /skill:wrap-up.
+  renovate", "repo spa day", or /skill:wrap-up. Optional `lean` reply keyword
+  (suggested when other maintainers are detected) limits the run to definite
+  improvements.
 ---
 
 Thin orchestrator. Owns only the pre-flight signals, the order, the model tiers, the gates and
@@ -45,6 +47,13 @@ Read-only: no edits, no installs. Runs before any skill.
      `git diff --numstat "$mb"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
    - Uncommitted files: `git status --short`. If non-empty, put a note at the top of the report:
      "N uncommitted files: reviews below cover committed work only". Not a blocker.
+   - Other maintainers (skip if `git config user.email` is empty; no suggestion then):
+     ```bash
+     me=$(git config user.email); name=$(git config user.name)
+     git log --format=%ae -n 200 "$base" | sort -u | grep -vixF "$me" | grep -viF "+$name@users.noreply" \
+     | grep -viE '\[bot\]|renovate|dependabot' | wc -l
+     ```
+     If the count is ≥ 1, set `others=N`.
 5. `MW_KIT` stop (row 1 only). If `$MW_KIT` is empty, stop and ask: "`MW_KIT` isn't set, so
    tooling-sync would clone or pull Waxmard/mw-kit into `~/.cache/mw-kit`. Reply `cache` to use
    that, a path to use your own playbook, or `skip` to drop tooling-sync. Export `MW_KIT` in your
@@ -92,10 +101,14 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in suggested order, 
   `<base>`..`<head0 short>`). Row 6 runs last, inline."
 - Always: "Pre-flight is cheap. To run the picks on a stronger mode, start a new session there
   and send `/skill:wrap-up run <your reply>`."
+- Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
+  to limit changes to definite improvements. Your choice; it's off unless you type it."
+  When it prints and row 1 or 6 is RUN, append " (lean: pick by number to include)" to that row's
+  Why.
 
 Then ask in plain text: "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–6 (e.g. `3 6`),
 or `none` for only the review. Override a tier with `N@slow|smol|grunt` (rows 2–5). Override the
-order with `order: <numbers>`."
+order with `order: <numbers>`. Add `lean` to any reply (e.g. `go lean`) for minimal-change mode."
 
 Parse the reply:
 - Row 2 is always included (unless its verdict is `skip`). `none` = row 2 only. `go` = row 2 + RUN
@@ -104,6 +117,10 @@ Parse the reply:
   run inline; switch the session mode instead".
 - Without `order:`, the run order is ascending row number. With `order: a b c`, the listed order
   wins. Picked rows that aren't listed, row 2 included, are appended in ascending order.
+- `lean` (any position, any reply, including `run <reply>` mode) turns lean mode on. It's off by
+  default, with no auto-enable. In lean mode, `go` = row 2 + RUN rows **excluding rows 1 and 6**.
+  Rows 1 and 6 still run when picked by number, or by `order:`, which counts as an explicit pick.
+  `none` is unchanged.
 
 Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
 
@@ -118,6 +135,16 @@ Walk the run order. Consecutive delegated rows (2–5) form one **wave**: spawn 
 Task call as parallel subagents, each with `model: "@<tier>"` (default tier from the table, or
 the user's override). Inline rows (1, 6) run in this session by reading `skill://<name>` and
 following it.
+
+**Lean mode** (only when the reply had `lean`):
+- Append to each delegated row's task text: "Lean mode: report only definite improvements (bugs,
+  correctness, security, regressions, clear contract violations). Omit style nits, refactors,
+  naming, and speculative or optional suggestions. If nothing qualifies, say so."
+- Gate R asks "Fix findings now (definite improvements only), or continue?" From then on, every
+  fix in this session follows the same bar: the smallest change that fixes the finding, with no
+  adjacent cleanup.
+- Explicitly picked rows 1 and 6 run unchanged. Lean doesn't filter tooling-sync or triage
+  internals; picking them by number means the user wants them.
 
 Subagent task text (fill in literals; subagents don't share this conversation):
 > Read `skill://<name>` and follow it as a read-only review in repo `<toplevel>`. Review exactly
