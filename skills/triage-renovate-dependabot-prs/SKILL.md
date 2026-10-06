@@ -6,7 +6,8 @@ description: >
   risk assessment (changelog read + call-site cross-reference, not just
   semver), and auto-detected post-merge checks. Auto-advances through
   branches, automatically deferring stale-base conflicts for bot rebase and
-  preferring bounded upgrade repairs over skips. MEDIUM/HIGH decisions and
+  preferring bounded upgrade repairs over skips. Real merge conflicts get a
+  proposed resolution gated on user acceptance. MEDIUM/HIGH decisions and
   required merge permissions remain gated.
   Language-agnostic: handles JS/TS, Python, Rust, Go, Ruby, Java/Kotlin, and
   any other ecosystem the bots target. Trigger: "merge renovate prs",
@@ -73,7 +74,7 @@ If the three-dot delta is tiny and that exact bump is **already satisfied in HEA
 
 ## Per-branch loop
 
-Process branches automatically in discovery order, skipping redundant branches and automatically deferring stale-branch conflicts for bot rebase. For each remaining branch, show the change and assess the upgrade with any bounded compatibility repair before the step-3 gate. After checks pass, auto-advance. Actual conflicts and check failures still hand control back under steps 4 and 5.
+Process branches automatically in discovery order, skipping redundant branches and automatically deferring stale-branch conflicts for bot rebase. For each remaining branch, show the change and assess the upgrade with any bounded compatibility repair before the step-3 gate. After checks pass, auto-advance. Actual conflicts get a proposed resolution that waits for acceptance (step 4); check failures hand control back under step 5.
 
 ### 1. Show the change
 
@@ -191,7 +192,13 @@ git merge --no-ff "origin/${branch}" -m "Merge ${branch} into $(git rev-parse --
 ```
 
 - If `Already up to date.` → branch was already merged (race with platform UI). Skip silently, log it, move on.
-- If conflict → STOP. Show `git status --short` listing conflicts. Hand control to the user. Do NOT attempt auto-resolution. When the user signals resolved, verify with `git diff --check` and proceed to checks.
+- If conflict → propose a resolution, then STOP for acceptance. Don't ask the user to resolve it themselves. List the conflicted files from `git status --short`, then build the proposal in the working tree, leaving it **unstaged**:
+  - **Lockfiles** (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `uv.lock`, `poetry.lock`, `Cargo.lock`, `go.sum`, `Gemfile.lock`, …): never hand-merge the conflict markers. Take HEAD's lock (`git checkout --ours -- <lock>`), resolve the manifest first, then regenerate with the repo's lockfile toolchain from a clean state (see the `node_modules` and resolver-drift pitfalls).
+  - **Manifests**: keep both intents. For each conflicting dep, take the version the bot branch targets unless HEAD already pins a higher one. Keep HEAD's unrelated edits verbatim.
+  - **Modify/delete** (the bot bumped a dep HEAD removed): propose keeping the deletion and recommend aborting the merge as redundant.
+  - **Anything else** (source, config): propose a minimal resolution only when both sides' intent is clear from the diff. Otherwise say so and leave that file conflicted for the user.
+
+  Show the proposal: `git diff` per resolved file, plus a short rationale per hunk that names which side's intent survived and why. Then gate with `ask`: **accept** (`git add` the files, `git diff --check`, `git commit --no-edit`, then step 5), **edit** (the user adjusts or redirects, then re-show the diff), or **abort** (`git merge --abort`; choosing it is the confirmation). Never stage or commit a proposed resolution before the user accepts it.
 - If clean → proceed to step 5.
 
 ### 5. Auto-detected post-merge checks
@@ -265,7 +272,7 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 - **`git merge --no-ff` requires explicit current authorization.** An authorized local merge can create its merge commit; invoking this skill or classifying risk LOW is not authorization. No other `git commit` invocations.
 - **Never `git push`**, **never `git push --force`** — user pushes manually.
 - **Never `--no-verify`** on the merge — let pre-commit / commit-msg hooks run.
-- **Never auto-resolve conflicts** — hand back to the user every time. Conflicts in a renovate bump often mean two PRs touched the same lockfile, and silent resolution destroys version intent.
+- **Never apply a conflict resolution silently.** Always propose it as a diff and wait for explicit acceptance. Conflicts in a renovate bump often mean two PRs touched the same lockfile, and an unreviewed resolution destroys version intent. Regenerate lockfiles; never hand-merge them.
 - **Never reset / discard without explicit confirmation** — even on a failed merge, ask before `git reset --hard`.
 - **Refuse on protected branches** (`main`, `master`, `dev`, `develop`, `release/*`, `staging`) unless user overrides.
 - **Bot rebase is automatic when applicable; acceptance is repair-aware.** Defer stale-branch conflicts without a choice prompt. For other branches, prefer a bounded complete upgrade over skipping an incomplete bot payload. Preserve required merge authorization and per-branch MEDIUM/HIGH gates; never batch those approvals or lower risk without evidence.

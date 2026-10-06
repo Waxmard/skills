@@ -83,14 +83,14 @@ Read-only: no edits, no installs. Runs before any skill.
 | 1 | `tooling-sync` | `tooling-sync`'s Step 1 resolver block (same `MW_KIT` resolution, read-only) has `preflight.ok` true and `state.all_settled` not true | `inline · smol+` | "L live tools" (`in_scope` rows with `state.settled == false`), plus ", O orphaned" if `state.orphaned_tools` is non-empty. SKIP: "nothing new since last sync (`state.last_sync`)". If `preflight.ok` is false: SKIP with `preflight.error` |
 | 2 | `pr-review-toolkit` | always (not pickable) | `@smol` | Full: "N files, +A lines vs `<base>`". Delta: "delta: N files, +A lines since last review `<from short>`". If the changed-files list is empty: verdict `skip`, reason "no commits ahead of `<base>`" (full) or "no new commits since last review `<from short>`; reply `full` to re-review" (delta) — the only case it doesn't run |
 | 3 | `ponytail-review` | added lines ≥ 100 **or** a changed file's basename is one of `package.json pyproject.toml Cargo.toml go.mod Gemfile` or matches `requirements*.txt` | `@smol` | "+A lines" and/or "deps changed: `<files>`". SKIP: "small diff (+A), no manifest changes" |
-| 4 | `web-design-guidelines` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@grunt` | "N UI files changed". SKIP: "no UI files in diff" |
+| 4 | `web-design-guidelines` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@smol` | "N UI files changed". SKIP: "no UI files in diff" |
 | 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@smol` | "N UI files changed". SKIP: "no UI files in diff" |
 | 6 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) and branch not protected (step 2) | `inline · smol+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches", or "protected branch: triage refuses on `<branch>`" |
 
 If a listed skill is not in `skill://`, its verdict is SKIP with reason "not installed". For `ponytail-review`, append " — `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from `skill://` (see its dispatch note below).
 
-Tier rationale: defaults favour speed and cost. `@smol` for every judgment row, `@grunt` for
-checklist matching against fetched rules (web-design-guidelines). Nothing defaults to `@slow`:
+Tier rationale: defaults favour speed and cost. `@smol` for every review row, including
+web-design-guidelines (`@grunt` cited mismatched lines and wrong files). Nothing defaults to `@slow`:
 escalate per run with `2@slow` on a large or risky diff (auth, payments, data migrations). Triage
 is safe on smol because its per-merge confirmation gate keeps the user as the backstop.
 
