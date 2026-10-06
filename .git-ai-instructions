@@ -1,0 +1,7 @@
+User POV: people and agents who install these skills — the product is the agent behavior each SKILL.md produces.
+"User-facing" = anything that changes what an agent does when it runs a skill.
+
+- Editing a SKILL.md so the agent behaves differently (new step, gate, flag) → feat
+- Editing a SKILL.md to correct wrong or unsafe agent behavior → fix
+- Rewording a SKILL.md with no behavior change → docs
+- README, LICENSE, marketplace/plugin description text → docs

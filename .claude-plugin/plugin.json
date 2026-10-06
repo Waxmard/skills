@@ -1,5 +1,6 @@
 {
   "name": "mw-skills",
+  "version": "0.1.0",
   "description": "Git/PR workflow, docs, tooling-sync, UI taste skills",
   "author": {
     "name": "Maxwell Ward",
