@@ -6,7 +6,8 @@ description: >
   interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
   verdict, run order, and model tier (slow/smol/grunt) for each, lets
   the user pick, then runs read-only reviews as parallel tier-pinned
-  subagents, fixes their findings in-session one report at a time with a commit gate after
+  subagents (only commits since the last wrap-up review on re-runs; `full`
+  forces the whole branch), fixes their findings in-session one report at a time with a commit gate after
   each, runs interactive skills inline with commit gates, and ends with a completion
   summary. Orchestrator: its only logic is ordering, gates (including Gate F's
   fixes), and hand-offs. Trigger: "wrap up this
@@ -42,11 +43,22 @@ Read-only: no edits, no installs. Runs before any skill.
    git rev-parse --verify -q "$base" >/dev/null || base=origin/master
    mb=$(git merge-base HEAD "$base")
    head0=$(git rev-parse HEAD)
+   memo="$(git rev-parse --git-path wrap-up)/$branch"
+   last=$(cat "$memo" 2>/dev/null)
+   from=$mb; mode=full
+   if [ -n "$last" ] && git merge-base --is-ancestor "$mb" "$last" 2>/dev/null \
+      && git merge-base --is-ancestor "$last" "$head0" 2>/dev/null; then
+     from=$last; mode=delta
+   fi
    ```
+   `delta` means the last wrap-up review on this branch is still an ancestor of HEAD, so only
+   `<from>..<head0>` is new. A rebase, force-push, reset or missing memo falls back to `full`
+   (`from=mb`). The memo lives under `.git/` (per worktree via `--git-path`), so it's never
+   committed and never shows in `git status`.
 4. Collect the facts:
-   - Changed files: `git diff --name-only "$mb"..."$head0"`.
+   - Changed files: `git diff --name-only "$from"..."$head0"`.
    - Added lines without lockfiles: sum column 1 of
-     `git diff --numstat "$mb"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
+     `git diff --numstat "$from"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
    - Uncommitted files: `baseline=$(git status --short)`. If non-empty, put a note at the top of
      the report: "N uncommitted files: reviews below cover committed work only". Not a blocker.
    - Other maintainers (skip if `git config user.email` is empty; no suggestion then):
@@ -69,7 +81,7 @@ Read-only: no edits, no installs. Runs before any skill.
 | # | Skill | RUN when | Tier | Reason text |
 |---|---|---|---|---|
 | 1 | `tooling-sync` | `tooling-sync`'s Step 1 resolver block (same `MW_KIT` resolution, read-only) has `preflight.ok` true and `state.all_settled` not true | `inline · smol+` | "L live tools" (`in_scope` rows with `state.settled == false`), plus ", O orphaned" if `state.orphaned_tools` is non-empty. SKIP: "nothing new since last sync (`state.last_sync`)". If `preflight.ok` is false: SKIP with `preflight.error` |
-| 2 | `pr-review-toolkit` | always (not pickable) | `@smol` | "N files, +A lines vs `<base>`". If the changed-files list is empty: verdict `skip`, reason "no commits ahead of `<base>`" — the only case it doesn't run |
+| 2 | `pr-review-toolkit` | always (not pickable) | `@smol` | Full: "N files, +A lines vs `<base>`". Delta: "delta: N files, +A lines since last review `<from short>`". If the changed-files list is empty: verdict `skip`, reason "no commits ahead of `<base>`" (full) or "no new commits since last review `<from short>`; reply `full` to re-review" (delta) — the only case it doesn't run |
 | 3 | `ponytail-review` | added lines ≥ 100 **or** a changed file's basename is one of `package.json pyproject.toml Cargo.toml go.mod Gemfile` or matches `requirements*.txt` | `@smol` | "+A lines" and/or "deps changed: `<files>`". SKIP: "small diff (+A), no manifest changes" |
 | 4 | `web-design-guidelines` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@grunt` | "N UI files changed". SKIP: "no UI files in diff" |
 | 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `@smol` | "N UI files changed". SKIP: "no UI files in diff" |
@@ -100,7 +112,7 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdic
   in this session because it prompts you; the tier is the recommended strength for this
   session."
 - Parallelism: "Row 1 runs first, inline. Rows 2–5 then run in parallel (read-only, pinned to
-  `<base>`..`<head0 short>`; they may start while Gate A's commit is pending). Row 6 runs last,
+  `<from short>`..`<head0 short>`; they may start while Gate A's commit is pending). Row 6 runs last,
   inline." Gate F then fixes the review findings before row 6 runs.
 - Always: "Pre-flight is cheap. To run the picks on a stronger mode, start a new session there
   and send `/skill:wrap-up run <your reply>`."
@@ -111,7 +123,8 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdic
 
 Then ask in plain text: "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–6 (e.g. `3 6`),
 or `none` for only the review. Override a tier with `N@slow|smol|grunt` (rows 2–5). Add `lean` to
-any reply (e.g. `go lean`) for minimal-change mode."
+any reply (e.g. `go lean`) for minimal-change mode." Only when `mode=delta`, append: "Add `full`
+to re-review the whole branch instead of the delta."
 
 Parse the reply:
 - Row 2 is always included (unless its verdict is `skip`, or this is `run <reply>` mode, `<reply>`
@@ -123,6 +136,10 @@ Parse the reply:
 - `lean` (any position, any reply, including `run <reply>` mode) turns lean mode on. It's off by
   default, with no auto-enable. In lean mode, `go` = row 2 + RUN rows **excluding rows 1 and 6**.
   Rows 1 and 6 still run when picked by number. `none` is unchanged.
+- `full` (any position, any reply, including `run <reply>` mode) sets `from=mb`, `mode=full`, and
+  re-collects the changed files and UI file list against `mb` for the subagent task text. It does
+  not re-evaluate verdicts: `go` uses the printed RUN rows; pick rows by number to include ones
+  the delta skipped. `full` also makes row 2 run when its delta verdict was `skip`.
 
 Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
 
@@ -159,17 +176,20 @@ following it.
 
 Subagent task text (fill in literals; subagents don't share this conversation):
 > Read `skill://<name>` and follow it as a read-only review in repo `<toplevel>`. Review exactly
-> `git diff <mb>...<head0>` (base `<base>`). <web-design-guidelines only: Files: `<UI file
-> list>`.> Make no edits and no git writes (no checkout/switch/stash; read via git diff/show
-> only). Return the skill's report format verbatim.
+> `git diff <from>..<head0>` (base `<base>`). <delta mode only: These are the commits since the
+> last review. For context only, the full branch diff is `git diff <mb>...<head0>`; report
+> findings only on lines changed in the first range, unless a change there breaks code elsewhere
+> in the full range.> <web-design-guidelines only: Files: `<UI file list>`.> Make no edits and no
+> git writes (no checkout/switch/stash; read via git diff/show only). Return the skill's report
+> format verbatim.
 
 - `pr-review-toolkit`: its own "Local Branch" diff source, overridden by the pinned range above.
 - `ponytail-review`: bare name `ponytail-review`.
-- `web-design-guidelines`: always pass the pre-flight UI file list. It asks the user when no files
-  are given, and a subagent can't ask.
+- `web-design-guidelines`: always pass the UI file list from the current range (delta or full).
+  It asks the user when no files are given, and a subagent can't ask.
 - `interface-review`: has `disable-model-invocation: true`, so it isn't in `skill://`. Replace the
   first sentence with "Read `~/.claude/skills/interface-review/SKILL.md` and follow it with
-  target `<mb>...<head0>`; resolve its relative file references against that directory." The
+  target `<from>...<head0>`; resolve its relative file references against that directory." The
   user chose to delegate it; the opt-out only stops the model picking it unprompted.
 
 When the wave finishes, print each report under a `### <skill> (@tier)` heading in row order.
@@ -178,6 +198,11 @@ unstructured reports) — the `wait` snapshot truncates each report to a preview
 `read agent://<id>` truncates every long line. If
 the Task tool or a model role fails to resolve, run that row inline in this session and note
 "ran inline: <reason>".
+
+Once every wave row has returned a report (delegated or ran inline), record the reviewed head:
+`mkdir -p "$(dirname "$memo")" && printf '%s\n' "$head0" > "$memo"`. Skip the write if any row
+returned no report. Write it before Gate F, so Gate F's fix commits land in the next run's delta
+and get reviewed then. Rows 1 and 6 never touch the memo.
 
 **Gate F — fix findings (always, after the wave; never optional).** Runs after the wave's
 reports have printed, whether or not an inline row follows. Do not ask "fix or continue":
@@ -277,7 +302,8 @@ Inline rows:
   gates (including Gate F's fixes), and hand-offs.
 - **Pre-flight is read-only.** `scope.py` writes nothing. The only write is the `~/.cache/mw-kit`
   clone or pull, after the user replies `cache` at the `MW_KIT` stop. The `.tooling-sync.json`
-  write happens only inside tooling-sync.
+  write happens only inside tooling-sync. The memo write in §3 (`.git/wrap-up/<branch>`, after
+  the wave) is the only other write this skill makes; it is local git metadata, not a commit.
 - **Subagents are read-only.** Only rows 2–5 are ever delegated; tooling-sync and triage always
   run inline because they prompt and write.
 
