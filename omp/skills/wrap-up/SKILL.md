@@ -149,7 +149,8 @@ following it.
 Subagent task text (fill in literals; subagents don't share this conversation):
 > Read `skill://<name>` and follow it as a read-only review in repo `<toplevel>`. Review exactly
 > `git diff <mb>...<head0>` (base `<base>`). <web-design-guidelines only: Files: `<UI file
-> list>`.> Make no edits. Return the skill's report format verbatim.
+> list>`.> Make no edits and no git writes (no checkout/switch/stash; read via git diff/show
+> only). Return the skill's report format verbatim.
 
 - `pr-review-toolkit`: its own "Local Branch" diff source, overridden by the pinned range above.
 - `ponytail-review`: bare name `ponytail-review`.
