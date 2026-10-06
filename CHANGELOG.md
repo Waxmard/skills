@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/Waxmard/skills/compare/v0.2.0...v0.2.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* keep CI explanations out of posted review comments ([2272388](https://github.com/Waxmard/skills/commit/22723889eaec21f3fdf1cf6fb47b9e1b6325d272))
+
 ## [0.2.0](https://github.com/Waxmard/skills/compare/v0.1.0...v0.2.0) (2026-10-06)
 
 
