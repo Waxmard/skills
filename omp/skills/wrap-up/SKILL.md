@@ -191,19 +191,24 @@ stopping to fix is the default for all of wrap-up.
    - Exclude 🟢 strengths and **pure nits**: items the report labels nit/optional/taste that cite
      no project rule (AGENTS.md/CLAUDE.md convention, lint config). A style item backed by a
      project rule is not a nit, so it gets fixed.
-   - Drop exact duplicates that two reports raised for the same `file:line`. Keep the item under
-     the first report in row order.
+   - Merge overlapping items: the same `file:line`, or the same root cause in the same file or
+     symbol even when the lines or wording differ. Keep one item under the first report in row
+     order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
 2. Findings that need a user decision (two valid fixes with different shapes, a behavior change,
-   a disputed finding) go to the user in one batched `ask` before any edit. Never skip them
-   silently.
+   a disputed finding, or two reports asking for opposite changes to the same code) go to the
+   user in one batched `ask` before any edit. Never skip them silently.
 3. Work through the reports in row order, one at a time. For each report with items left:
-   1. Apply its fixes in this session, using the smallest change that resolves each finding. Then
+   1. Re-read each of this report's items against the current tree. If an earlier report's fix
+      already resolved the item, or deleted or rewrote the code it targets, don't fix it. Mark it
+      `skipped: resolved by <skill> fix` or `skipped: moot after <skill> fix`.
+   2. Apply its fixes in this session, using the smallest change that resolves each finding. Then
       run the repo's narrowest check that covers the touched files (from its AGENTS.md/Makefile/
       package.json). If a check fails, fix that too before moving on.
-   2. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
+   3. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
       `fixed`, `skipped: <reason>`, or `user-declined`. The only allowed skip reasons are a
-      verified false positive (state the evidence) or the user declining.
-   3. If anything changed, show `git status --short` and suggest a subject (e.g. `fix: address
+      verified false positive (state the evidence), the user declining, or resolved/moot after
+      an earlier report's fix (name that report).
+   4. If anything changed, show `git status --short` and suggest a subject (e.g. `fix: address
       <skill> findings`). Then stop and wait for the user to commit. Move to the next report only
       when `git status --short` matches the pre-flight `baseline`. If nothing changed, say so and
       go straight to the next report.
