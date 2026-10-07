@@ -72,7 +72,7 @@ For each conflicted file, present a row:
 | `src/OLD.ts` | UD | — | renamed-vs-edited | manual w/ reapply |
 
 **Special-case detections** that override the table:
-- **Lockfiles** (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `uv.lock`, `poetry.lock`, `Cargo.lock`, `go.sum`, `Gemfile.lock`, `composer.lock`): never hand-resolve. Pick one side, then **regenerate**. If the repo documents how to regenerate a lockfile (e.g. inside a Linux container), follow that.
+- **Lockfiles** (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `uv.lock`, `poetry.lock`, `Cargo.lock`, `go.sum`, `Gemfile.lock`, `composer.lock`): never hand-resolve. Pick one side, then **regenerate** against the merged manifest (e.g. `npm install --package-lock-only`, `uv lock`, `cargo update -w`). If the repo documents how to regenerate a lockfile (e.g. inside a Linux container), follow that.
 - **Generated files** (`dist/`, `build/`, `*.min.js`, snapshots): regenerate, don't hand-resolve.
 - **Binary files**: `git diff` shows "Binary files differ" — must pick a whole side with `--ours` or `--theirs`; markers are not applicable.
 
@@ -159,6 +159,8 @@ Run the **narrowest** project check that covers the touched file. Don't run the 
 | `*.json` | `python -m json.tool <file> > /dev/null` |
 | `*.yaml` / `*.yml` | `yamllint <file>` (or `yq . <file>`); Kustomize dir: also `kustomize build <dir>` |
 | Lockfiles | Regenerate (see lockfile section), then run the project's normal install/check |
+
+If the stop changed a dependency manifest or lockfile, sync installed deps first (`npm ci`, `uv sync`, …) — otherwise the check runs against stale `node_modules`/venv and can pass or fail for reasons unrelated to the resolution. During a rebase, errors that a later commit fixes (e.g. code needing a dependency bumped further down the todo) are expected at intermediate stops; confirm against the todo before treating them as a broken resolution.
 
 If verification fails:
 - Do **not** `git add` the file.
