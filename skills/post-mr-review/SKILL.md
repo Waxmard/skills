@@ -8,7 +8,7 @@ description: >
   and adds suggestion blocks for mechanical fixes. Use after a review has run.
   Trigger: "post these on the mr", "put the findings as comments", "post the
   review", "/post-mr-review". Not for judging existing comments (use
-  review-pr-comments).
+  address-review-comments).
 ---
 
 Turn review findings that are already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions. The user and you iterate on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
@@ -49,7 +49,7 @@ Normalize each discussion to:
 | `path` / `line` | `(notes[0].position or {}).get("new_path")` / `.get("new_line")` (null-safe, always) |
 | `resolved` | `notes[0].resolved` (`true` / `false` / `None` = non-resolvable) |
 | `body` | full `notes[0].body` |
-| `after_me` | notes after the user's last note in the thread |
+| `after_me` | non-system notes after the user's last note in the thread; pushes add `system: true` "changed this line in version N" notes that are not replies |
 
 Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
 
@@ -83,7 +83,7 @@ Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
   ````
   **OKF discovery always returns an empty catalog.**
 
-  `_build_okf_handlers` passes `okf_provider.list_sources` ([`main.py:468`](…)), which is hard-coded to `return []` ([`catalog_provider.py:46-47`](…)).
+  `_build_okf_handlers` passes `okf_provider.list_sources` [main.py:468](…), which is hard-coded to `return []` [catalog_provider.py:46-47](…).
 
   **Fix:** pass `catalog_registry.list_all_sources`.
 
@@ -100,10 +100,11 @@ Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
 - **Evidence block:** omit by default. Include only observed output the body does not already state: a repro table from a run, command or test output, a log excerpt. Restated rules or code, "not reproduced" disclaimers, and CI-green reasoning are not evidence. Never add the block just to have one. When included, collapse it in `<details><summary>Evidence</summary>` with blank lines inside the tags so GitLab renders the markdown. Never put long evidence in the visible body.
 - **Budget:** the visible body of each finding (excluding `<details>` and suggestion blocks) stays at or under ~60 words. Over budget → cut the cause block first.
 - **Several findings in one post:** separate with a line containing only `---`, blank lines around it, ordered by label severity.
-- **Several nits in one post:** one bold effect line `**<n> small cleanups.**`, then one bullet per nit: `<what> ([`file:line`](…)): <fix>`. No cause blocks for nits.
+- **Several nits in one post:** one bold effect line `**<n> small cleanups.**`, then one bullet per nit: `<what> [file:line](…): <fix>`. No cause blocks for nits.
 - **Follow-up replies** in an existing thread start with a one-line status before the template: `Still present at `<short_sha>`.`, `Half fixed: <done part> is in; <open part> is not.`, or `Resolved without a change.` The template for the remaining finding follows. Never re-explain what the thread already says; "see above" at most.
-- **File links** pin to `head_sha`: `[`<file>:<a>-<b>`](https://<host>/<project_path>/-/blob/<head_sha>/<path>#L<a>-<b>)`. Deleted files or removed code pin to `base_sha`. Link every `file:line` reference and every referenced symbol definition you can locate. Before posting, verify each linked line with `git show <sha>:<path>` and check the content matches the claim.
+- **File links** pin to `head_sha`: `[<file>:<a>-<b>](https://<host>/<project_path>/-/blob/<head_sha>/<path>#L<a>-<b>)`. Inline the link directly after the phrase it supports; never wrap it in parentheses. Deleted files or removed code pin to `base_sha`. Link every `file:line` reference and every referenced symbol definition you can locate. Before posting, verify each linked line with `git show <sha>:<path>` and check the content matches the claim.
 - **Suggestion blocks** (```` ```suggestion:-0+N ````) only for mechanical replacements on new inline comments anchored at `head_sha`: delete a line, swap an import, change a literal. Match source indentation exactly and stay within the repo line length (`line-length` in `pyproject.toml`). When one suggestion depends on another (e.g. an import), say so in both comments. Never put suggestions in replies to existing threads; they apply to the thread's original, possibly shifted, line.
+- **Code in backticks:** wrap each identifier, path, flag, literal, and command in its own backticks. Backtick the atoms, not whole expressions: write `` `user_id` is `None` ``, not `` `user_id is None` ``. Language keywords used as plain English words (match, if, async) stay unformatted.
 - **Tone:** concrete, practical effect first. No hedging filler, no praise, no "as discussed", no restating the reviewer's or author's words back to them.
 
 ## Confirm

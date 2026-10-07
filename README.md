@@ -33,13 +33,13 @@ npx skills add Waxmard/skills
 
 | Skill | What it does |
 |---|---|
+| `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR or MR, then drafts or posts replies once fixes land. |
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-trivy-scan` | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
 | `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
 | `post-mr-review` | Turns review findings into GitLab MR comments and posts only what you confirm. |
 | `pr-review-toolkit` | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
 | `resolve-merge-conflicts` | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
-| `review-pr-comments` | Gives a read-only agree or disagree verdict on each review comment on the current PR or MR. |
 | `split-branch` | Splits a scope-crept branch into branches that merge in any order without conflicts. |
 | `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |

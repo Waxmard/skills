@@ -1,13 +1,15 @@
 ---
-name: review-pr-comments
+name: address-review-comments
 description: >
   Fetch all review comments on the current branch's PR/MR (GitHub or GitLab,
   human + AI reviewers alike) and produce a terse agree/disagree verdict for
-  each by reading the referenced code. Read-only — never posts replies, never
-  resolves threads, never edits files. Use when the user wants a second
-  opinion on reviewer feedback before responding. Trigger: "review the pr
-  comments", "agree or disagree with the comments", "go through the reviewer
-  feedback", "/review-pr-comments".
+  each by reading the referenced code. Read-only by default; after fixes land
+  it can draft replies to copy-paste, or post them one by one with
+  confirmation. Never resolves threads or edits files. Use when the user wants
+  a second opinion on reviewer feedback before responding. Trigger: "review
+  the pr comments", "agree or disagree with the comments", "go through the
+  reviewer feedback", "/address-review-comments", "respond to the threads", "draft
+  replies".
 ---
 
 Pull every review comment on the current branch's open PR/MR and judge each one by reading the actual code. Output is a terse per-comment verdict list, each verdict worded so the user can paste it straight back onto the thread as a reply. No replies posted, no threads resolved, no code edits.
@@ -95,7 +97,7 @@ The canonical filter (apply ALL of these unless `--include-resolved` is passed):
 jq --arg me "$ME" '[.[]
   | select(.notes[0].system == false)              # drop "marked as draft", etc
   | select(.notes[0].author.username != $me)       # drop MR author's own notes
-  | select(.notes[-1].author.username != $me)      # drop threads the MR author already answered last
+  | select(([.notes[] | select(.system == false)] | last | .author.username) != $me)  # drop threads the MR author already answered last; system "changed this line" notes don't count
   | select(.notes[0].resolved != true)             # drop resolved; keep open AND non-resolvable
   | select((.notes[0].body // "") | test("Suggested MR title and description|BOT_STATUS_MARKERS") | not)
 ]' "$DISC"
@@ -105,7 +107,7 @@ Replace `BOT_STATUS_MARKERS` with the reviewer bot's status-marker regex from `r
 
 Note `resolved != true` (strict on `true` only): `true` = someone clicked Resolve (drop), `false` = open resolvable thread (keep), `null` = non-resolvable note, no thread state (keep).
 
-If `--include-resolved` is passed: drop the `resolved` select and the `notes[-1]` author select. If `--author <login>` is passed: add `| select(.notes[0].author.username == "<login>")`.
+If `--include-resolved` is passed: drop the `resolved` select and the last-human-note author select. If `--author <login>` is passed: add `| select(.notes[0].author.username == "<login>")`.
 
 ## Normalize
 
@@ -165,13 +167,15 @@ Be willing to push back on bots and humans equally. Past reviewers being usually
 
 Format (markdown, terse):
 
-```
+````
 **N. <verdict>** — `<file>:<line>` (@<author>)
 
+```markdown
 <reply, ≤ ~60 words (over budget → cut restated context first), per Reply style>
+```
 
 <url>
-```
+````
 
 For non-anchored comments, drop the `` `file:line` `` segment.
 
@@ -179,40 +183,47 @@ For non-anchored comments, drop the `` `file:line` `` segment.
 
 **Reply style**
 
-- **Code in backticks:** wrap every identifier, path, flag, literal, and command in backticks.
+- **Code in backticks:** wrap each identifier, path, flag, literal, and command in its own backticks. Backtick the atoms, not whole expressions: write `` `user_id` is `None` ``, not `` `user_id is None` ``. Language keywords used as plain English words (match, if, async) stay unformatted.
 - **Linked references:** link every `file:line` in the reply prose, and every referenced symbol definition you can locate.
-  - GitHub: ``[`<file>:<a>-<b>`](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)``, or `#L<a>` for a single line.
-  - GitLab: ``[`<file>:<a>-<b>`](<blob_base>/-/blob/<head_sha>/<path>#L<a>-<b>)``, or `#L<a>` for a single line.
+  - GitHub: `[<file>:<a>-<b>](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)`, or `#L<a>` for a single line.
+  - GitLab: `[<file>:<a>-<b>](<blob_base>/-/blob/<head_sha>/<path>#L<a>-<b>)`, or `#L<a>` for a single line.
+  - Inline the link directly after the phrase it supports; never wrap it in parentheses.
   - Removed code (e.g. in a `stale` reply): pin to `base_sha` instead.
   - Before emitting, run `git show <sha>:<path>` for each link and check the lines match the claim. Fix or drop a link that doesn't.
 - **Scaffolding stays plain:** the header `` `<file>:<line>` `` and the trailing `<url>` are for the user; keep them unlinked. Links go only in the reply prose.
 - **Tone:** concrete, practical effect first. No hedging filler, no praise beyond a short opener like "Good catch, but", no "as discussed", no restating the reviewer's words back to them.
 
-Emit the reply as bare text: no `>` blockquote, no leading indent. Both end up in the user's copy.
+Emit the reply inside a fenced block tagged `markdown`, with no blockquote and no indent inside it. Rendered markdown strips the backticks and link URLs the user needs to paste. Use a four-backtick fence if the reply contains a triple-backtick fence.
 
 Still **read-only** — writing reply-shaped text is not posting it. Never post it yourself.
 
 Examples:
 
-```
+````
 **3. disagree** — `_pr_render.py:94` (@review-bot)
 
-Duplicate `### Heading` collapse is already handled by the set-based diff in [`_pr_render.py:80-86`](https://github.com/o/r/blob/abc1234/_pr_render.py#L80-L86) — the set drops dup lines within a section before this runs. Real-world PR bodies don't carry duplicate H3s anyway.
+```markdown
+Duplicate `### Heading` collapse is already handled by the set-based diff [_pr_render.py:80-86](https://github.com/o/r/blob/abc1234/_pr_render.py#L80-L86) — the set drops dup lines within a section before this runs. Real-world PR bodies don't carry duplicate H3s anyway.
+```
 
 https://github.com/...
 
 **4. agree** — `_pr_render.py:112` (@pupcoder)
 
-Right on both counts — the `existing == updated` short-circuit belongs before `_parse_sections` ([`_pr_render.py:112`](https://github.com/o/r/blob/abc1234/_pr_render.py#L112)), and the empty-string case (`not existing.strip()`) returns `""` so `main()` prints no summary banner. Adding a stderr hint for that.
+```markdown
+Right on both counts — the `existing == updated` short-circuit belongs before `_parse_sections` [_pr_render.py:112](https://github.com/o/r/blob/abc1234/_pr_render.py#L112), and the empty-string case (`not existing.strip()`) returns `""` so `main()` prints no summary banner. Adding a stderr hint for that.
+```
 
 https://github.com/...
 
 **5. partial** — `_pr_render.py:38` (@claude)
 
-Agreed `n=9999` is a magic number. But `max(len(a), len(b))` still leaves a bounded window in [`_pr_render.py:38`](https://github.com/o/r/blob/abc1234/_pr_render.py#L38) — going with `n=sys.maxsize`, or dropping to a single-pass walk.
+```markdown
+Agreed `n=9999` is a magic number. But `max(len(a), len(b))` still leaves a bounded window [_pr_render.py:38](https://github.com/o/r/blob/abc1234/_pr_render.py#L38) — going with `n=sys.maxsize`, or dropping to a single-pass walk.
+```
 
 https://github.com/...
-```
+````
 
 ### 4. Tally at the end
 
@@ -223,16 +234,28 @@ Summary: N comments — agree X / disagree Y / partial Z / stale A / defer B / n
 
 Stop. Do not offer to apply fixes, post replies, or resolve threads. User asked for verdicts only.
 
-## Follow-up: replies after fixes land
+## Respond: replies after fixes land
 
-If the user later applies fixes and asks whether/how to respond, draft replies **only for
-Questions** (reviewer-bot `Question,` notes, human "why…?" notes — the non-resolvable ones). Findings
-get no reply: the fix plus Resolve is the response. Each reply is bare text: what changed, in one
-line, plus the *why* only where the fix differs from or goes past what the question implied
-(different mechanism, wider scope, a pre-existing bug found along the way). Tell the user to post
-after pushing, so replies don't claim "fixed" against the old diff. Follow-up replies use Reply
-style, linked to the new `head_sha` (`git rev-parse HEAD` after the push). Still read-only: never
-post or resolve.
+Run when the user asks to respond to the threads after applying fixes.
+
+1. **Pushed check.** `git status --short` must be clean and `git rev-parse HEAD` must equal the MR head (`.diff_refs.head_sha`). If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
+2. **Scope.** Re-fetch discussions with the canonical filter, which drops threads the user already answered. Reply to every remaining thread the fixes addressed, findings and Questions alike. Skip any thread the user says they're declining.
+3. **Content.** One reply per thread in Reply style, links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
+   - **Link the fix commit.** Find the commit that changed the cited code: `git log --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
+4. **Mode.** Ask once with the structured question tool: `Copy-paste` (recommended) or `Draft and post`.
+   - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL as a plain line:
+
+         **N.** `<file>:<line>` (@<author>)
+
+         ```markdown
+         <reply>
+         ```
+
+         <mr_web_url>#note_<notes[0].id>
+
+     If a reply itself contains a triple-backtick fence, use a four-backtick outer fence.
+
+   - **Draft and post:** confirm and post per `post-mr-review`'s **Confirm** and **Post** sections. Use one `Post`/`Skip` question per reply with the body as preview, then `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`, then re-fetch and verify the new note count. Never resolve or reopen threads.
 
 ## Args
 
@@ -242,7 +265,7 @@ post or resolve.
 
 ## Hard rules
 
-- **Read-only.** Never `gh pr review`, `gh pr comment`, `glab mr note`, `glab mr approve`, or any write API.
+- **Read-only unless the user picks Draft and post** in Respond, and then post only replies confirmed in that same turn. Never `gh pr review`, `glab mr approve`, or any other write API.
 - **Never resolve threads** — that's a write op too.
 - **Never edit files.** Even if you agree with the fix. User explicitly chose summary-only output.
 - **Never `git push`** or commit.
@@ -259,6 +282,7 @@ post or resolve.
 - **Bot summary comments**: many AI reviewers (coderabbit, claude) post one big "summary" review-level comment listing N findings as a bulleted list. Don't treat it as one comment — split each bullet into its own verdict line. Number them `5a`, `5b`, `5c` under the parent index.
 - **Threaded replies**: GH `in_reply_to_id` and GL `discussion_id` chain replies. Don't re-verdict each reply — judge the root comment, note if a reply changed the ask.
 - **GitLab resolved-state semantics**: a discussion's resolved state lives on each note as `notes[i].resolved` (`true` / `false` / `null`). `true` = explicitly closed; `false` = open, resolvable; `null` = non-resolvable (e.g. general MR-level note, reviewer-bot Question). Default scope drops only `true`. Don't infer resolved state from "the conversation looks settled" — only the boolean counts. The one exception is author-replied-last, which is filtered out (see filter).
+- **Push notes look like replies**: pushing a change to a commented line adds a `system: true` note "changed this line in version N of the diff", authored by the pusher. Judge "author answered last" on the last non-system note, or every fixed thread silently drops out.
 - **GitLab null `position`**: MR-level notes and reviewer-bot Questions have `position: null`, and the local `jq` errors on `.position.new_path` (`cannot use null as iterable`). Always read it as `(.position // {}).new_path` / `.new_line`.
 - **Reviewer-bot Questions**: posted as standalone notes marked with an HTML-comment key (exact marker in `references/local.md`), rendering `Question, 🛡️ *Security Architect*` above the body and a markdown file link (not a `position`) below it — so `file`/`line` come from that link, not the normalize table's `position.new_path`. They're `individual_note`, never resolvable, and don't gate approval. Verdict **answer**: reply with the fact the reviewer is missing, not a judgement of the question. Re-reviews re-post them keyed by text hash, so an unchanged question survives every run — if the thread already carries your reply, say so on one line instead of re-answering.
 - **Cross-repo PRs (forks)**: anchored file paths are relative to the fork's branch, which is what's checked out locally. No special handling needed, but be aware if reading fails.
