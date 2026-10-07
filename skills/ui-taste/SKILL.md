@@ -41,6 +41,7 @@ Run this when the skill is invoked with no build or restyle task, or when Maxwel
    In a full review, propose 3–5 concrete `Design` suggestions, each naming the element, the change, and the token or Fingerprint value it would use. A surface that passes the audit still gets suggestions: compliance isn't the ceiling. In a delta review, carry over the earlier suggestions and add new ones only for changed files.
 5. **Accessibility and usability.** Run `web-design-guidelines` on the surface's source files, then `better-interface` on the rendered surface. Use their checks, severities and cap. Drop their table and verdict formats; restate each finding in the format below. When both report the same issue, keep one finding. If either skill isn't installed, say which in **Coverage** and continue. In a delta review, run `web-design-guidelines` on the changed files only. Run `better-interface` on the whole rendered surface, but report only issues that come from changed files or are visible regressions.
 6. Emit **Review output**, write the memo, and stop.
+7. On a numbered reply, apply those findings, then run Review again; the memo makes it a delta review.
 
 Taste severity:
 - `HIGH`: breaks a Layout and stability rule, or an Avoid entry that runs through a shared component or token.

@@ -14,7 +14,7 @@ description: >
 
 Pull every review comment on the current branch's open PR/MR and judge each by reading the code, as a terse per-comment verdict the user can paste back onto the thread as a reply.
 
-No replies posted, no threads resolved, no code edits.
+The verdict run posts nothing, resolves nothing and edits nothing; replies are posted only through **Respond → Draft and post**.
 
 Works with **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in scope: bot reviewers (claude, pupcoder, coderabbit, copilot, the company review bot, etc.) and humans alike. No author filtering by default; user may pass an `--author <login>` filter to narrow.
 
@@ -185,7 +185,7 @@ For non-anchored comments, drop the `` `file:line` `` segment.
 
 **Reply style**
 
-- **Code in backticks:** wrap each identifier, path, flag, literal, and command in its own backticks. Backtick the atoms, not whole expressions: write `` `user_id` is `None` ``, not `` `user_id is None` ``. Language keywords used as plain English words (match, if, async) stay unformatted.
+- **Code in backticks:** wrap each identifier, path, flag, literal, and command in its own backticks. Backtick the atoms, not whole expressions: write `` `user_id` is `None` ``, not `` `user_id is None` ``. Language keywords used as plain English words (match, if, async) stay unformatted. Link text stays unformatted: `[<file>:<a>-<b>](…)`, not ``[`<file>`](…)``.
 - **Linked references:** link every `file:line` in the reply prose, and every referenced symbol definition you can locate.
   - GitHub: `[<file>:<a>-<b>](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)`, or `#L<a>` for a single line.
   - GitLab: `[<file>:<a>-<b>](<blob_base>/-/blob/<head_sha>/<path>#L<a>-<b>)`, or `#L<a>` for a single line.
@@ -198,7 +198,7 @@ For non-anchored comments, drop the `` `file:line` `` segment.
 
 Emit the reply inside a fenced block tagged `markdown`, with no blockquote and no indent inside it. Rendered markdown strips the backticks and link URLs the user needs to paste. Use a four-backtick fence if the reply contains a triple-backtick fence.
 
-Still **read-only** — writing reply-shaped text is not posting it. Never post it yourself.
+Writing reply-shaped text is not posting it; post only through **Respond → Draft and post**.
 
 Examples:
 
@@ -235,16 +235,16 @@ https://github.com/...
 Summary: N comments — agree X / disagree Y / partial Z / stale A / defer B / needs-info C / answer D
 ```
 
-Stop. Do not offer to apply fixes, post replies, or resolve threads. User asked for verdicts only.
+Stop. Offer **Respond** only after the user says fixes have landed.
 
 ## Respond: replies after fixes land
 
 Run when the user asks to respond to the threads after applying fixes.
 
-1. **Pushed check.** `git status --short` must be clean and `git rev-parse HEAD` must equal the MR head (`.diff_refs.head_sha`). If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
-2. **Scope.** Re-fetch discussions with the canonical filter, which drops threads the user already answered. Reply to every remaining thread the fixes addressed, findings and Questions alike. Skip any thread the user says they're declining.
+1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
+2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: the canonical filter), which drops threads the user already answered. Reply to every remaining thread the fixes addressed, findings and Questions alike. Skip any thread the user says they're declining.
 3. **Content.** One reply per thread in Reply style, links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
-   - **Link the fix commit.** Find the commit that changed the cited code: `git log --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
+   - **Link the fix commit.** Find the commit that changed the cited code: `git log -s --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
 4. **Mode.** Ask once with the structured question tool: `Copy-paste` (recommended) or `Draft and post`.
    - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL as a plain line:
 
@@ -254,11 +254,18 @@ Run when the user asks to respond to the threads after applying fixes.
          <reply>
          ```
 
-         <mr_web_url>#note_<notes[0].id>
+         <note_url>
+
+     `<note_url>` is the comment's `html_url` on GitHub and `<mr_web_url>#note_<notes[0].id>` on GitLab.
 
      If a reply itself contains a triple-backtick fence, use a four-backtick outer fence.
 
-   - **Draft and post:** confirm and post per `post-mr-review`'s **Confirm** and **Post** sections. Use one `Post`/`Skip` question per reply with the body as preview, then `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`, then re-fetch and verify the new note count. Never resolve or reopen threads.
+   - **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Write each body to a temp file, then post:
+     - GitLab: per `post-mr-review`'s **Post** section, `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`.
+     - GitHub inline comment: `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`).
+     - GitHub review summary or conversation comment: these have no thread, so `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>`, with the body opening on a link to the comment's `html_url`.
+
+     Then re-fetch and verify the new comment count. Never resolve or reopen threads.
 
 ## Args
 

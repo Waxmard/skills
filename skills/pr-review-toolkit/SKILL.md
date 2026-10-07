@@ -43,7 +43,8 @@ Perform comprehensive code reviews on Merge Requests (GitLab), Pull Requests (Gi
    GIT_INDEX_FILE="$idx" git -C "$top" add -A
    tree=$(GIT_INDEX_FILE="$idx" git -C "$top" write-tree)
    rm -f "$idx"
-   mb=$(git merge-base HEAD "$base")   # $base: the base branch resolved above
+   base=origin/<target_branch|baseRefName>   # MR/PR target branch; local branch: origin/main, else origin/master
+   mb=$(git merge-base HEAD "$base")
    ```
    The memo is `$(git rev-parse --git-path pr-review-toolkit)/<branch>/`: `state` holds `tree` and `mb` lines, and `findings.md` holds the last report verbatim. Run a **full** review if any of these is true:
    - there is no memo;
