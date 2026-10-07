@@ -152,7 +152,7 @@ Run the **narrowest** project check that covers the touched file. Don't run the 
 
 | File type | Check |
 |---|---|
-| `*.ts` / `*.tsx` | `npm run type-check` (this project) |
+| `*.ts` / `*.tsx` | the project's typecheck script — check `npm run` for the name (`type-check` vs `typecheck`) and run it from the package dir |
 | `*.py` | `uv run mypy <file>` or `uv run ruff check <file>` |
 | `*.rs` | `cargo check -p <crate>` |
 | `*.go` | `go vet ./<pkg>/...` |
