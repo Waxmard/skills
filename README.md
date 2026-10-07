@@ -1,7 +1,8 @@
 # skills
 
 Agent skills for Git and MR work, docs, tooling sync and UI, shipped as one
-plugin (`mw-skills`) for omp, Claude Code, and any agent `npx skills` supports.
+plugin (`mw-skills`). They run in Pi, Antigravity, Codex, Claude Code, omp,
+OpenCode, and many more agents.
 
 ```text
 branch grew too much ──▶ split-branch ──▶ one MR per theme
@@ -15,16 +16,22 @@ before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxma
 
 ## Install
 
+Pi, Antigravity, Codex, OpenCode, and
+[many more](https://github.com/vercel-labs/skills#supported-agents):
+
+```sh
+npx skills add Waxmard/skills                  # detects your installed agents and asks
+npx skills add Waxmard/skills -a pi -a codex   # just these; ids: pi, antigravity, codex, opencode
+```
+
+omp and Claude Code install it as a plugin:
+
 ```text
 /marketplace add Waxmard/skills                # omp
 /marketplace install mw-skills@waxmard
 
 /plugin marketplace add Waxmard/skills         # Claude Code
 /plugin install mw-skills@waxmard
-```
-
-```sh
-npx skills add Waxmard/skills                  # other agents; -a codex targets one
 ```
 
 If you installed `mw-omp` earlier, uninstall it. Its skills ship in `mw-skills`
