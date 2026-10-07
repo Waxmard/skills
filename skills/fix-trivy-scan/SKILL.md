@@ -13,7 +13,7 @@ description: >
 
 # Fix Trivy scan failures
 
-Get the repo's Trivy CI jobs back to green with the smallest correct change. Trivy pins go stale and new CVEs land every week, so treat every run as two jobs: bring trivy up to date, then clear the findings.
+Get the repo's Trivy CI jobs back to green with the smallest correct change: bring trivy up to date, then clear the findings.
 
 ## Pre-flight
 
@@ -59,7 +59,7 @@ Classify by the target **Type** column:
 Bump only the vulnerable package to at least the Fixed Version with the ecosystem's single-package lockfile upgrade (e.g. `uv lock --upgrade-package <pkg>`), and use its why/tree command (e.g. `uv tree --invert --package <pkg>`) to find what pins it.
 
 - Confirm the lockfile now holds a version ≥ Fixed Version. If the resolver held it back, a parent pins it (common for sibling packages released in lockstep, like `gcsfs` → `fsspec`). Upgrade the parent in the same command (`uv lock --upgrade-package <parent> --upgrade-package <pkg>`, and likewise for other tools). Use an override (`[tool.uv] override-dependencies`, npm `overrides`, pnpm `pnpm.overrides`, yarn `resolutions`) only if no parent release allows the fixed version, and only after the user confirms.
-- Don't raise the manifest floor (`pyproject.toml`, `package.json`) unless resolution needs it. The lockfile pin is enough.
+- Don't raise the manifest floor (`pyproject.toml`, `package.json`) unless resolution needs it.
 - If the bump crosses a major version, **ask before applying**. Show the changelog breaking-change notes and the repo's call sites (`git grep -n <import name>`).
 - Run the repo's test command afterward (Makefile `test` target, `uv run pytest`, `npm test`, `cargo test`, `go test ./...`).
 

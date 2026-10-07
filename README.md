@@ -1,82 +1,115 @@
 # skills
 
-Agent skills for Git and PR workflows, documentation, tooling sync, and UI work.
-The skills install as plugins in omp and Claude Code, and through `npx skills`
-for Antigravity, Codex, Gemini CLI, and other agents.
+Agent skills for Git and MR work, docs, tooling sync and UI, shipped as one
+plugin (`mw-skills`). They run in Pi, Antigravity, Codex, Claude Code, omp,
+OpenCode, and many more agents.
+
+```text
+branch grew too much ──▶ split-branch ──▶ one MR per theme
+reviewing an MR      ──▶ pr-review-toolkit ──▶ post-mr-review ──▶ MR threads
+review came back     ──▶ address-review-comments ──▶ verdicts, then replies
+before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxmard/mw-kit playbook
+                                  ├─▶ pr-review-toolkit, ponytail-review,
+                                  │   web-design-guidelines, interface-review
+                                  └─▶ triage-renovate-dependabot-prs
+```
 
 ## Install
 
-In omp, add the marketplace and install the plugin:
+Pi, Antigravity, Codex, OpenCode, and
+[many more](https://github.com/vercel-labs/skills#supported-agents):
 
-```text
-/marketplace add Waxmard/skills
-/marketplace install mw-skills@waxmard
+```sh
+npx skills add Waxmard/skills                  # detects your installed agents and asks
+npx skills add Waxmard/skills -a pi -a codex   # just these; ids: pi, antigravity, codex, opencode
 ```
 
-If you installed `mw-omp` earlier, uninstall it; its skills now ship in `mw-skills`.
-
-In Claude Code, add the marketplace and install the plugin:
+omp and Claude Code install it as a plugin:
 
 ```text
-/plugin marketplace add Waxmard/skills
+/marketplace add Waxmard/skills                # omp
+/marketplace install mw-skills@waxmard
+
+/plugin marketplace add Waxmard/skills         # Claude Code
 /plugin install mw-skills@waxmard
 ```
 
-For other agents, run `npx skills`. Pass `-a antigravity` or `-a codex` to
-target one agent.
-
-```bash
-npx skills add Waxmard/skills
-```
+If you installed `mw-omp` earlier, uninstall it. Its skills ship in `mw-skills`
+now.
 
 ## Skills
 
-| Skill | What it does |
+| Skill | What |
 |---|---|
+| `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR or MR, then drafts or posts replies once fixes land. |
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-trivy-scan` | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
 | `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
 | `post-mr-review` | Turns review findings into GitLab MR comments and posts only what you confirm. |
 | `pr-review-toolkit` | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
 | `resolve-merge-conflicts` | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
-| `review-pr-comments` | Gives a read-only agree or disagree verdict on each review comment on the current PR or MR. |
 | `split-branch` | Splits a scope-crept branch into branches that merge in any order without conflicts. |
 | `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
 | `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
-| `ui-taste` | Adds personal UI preferences on top of `frontend-design`. |
+| `ui-taste` | Adds personal UI preferences on top of `frontend-design`, and reviews a UI against them. |
 | `wrap-up` | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
 
 `tooling-sync` reads its playbook from
-[Waxmard/mw-kit](https://github.com/Waxmard/mw-kit). It uses `$MW_KIT` when
-set, and otherwise clones mw-kit to `~/.cache/mw-kit`.
+[Waxmard/mw-kit](https://github.com/Waxmard/mw-kit), using `$MW_KIT` when set
+and a clone in `~/.cache/mw-kit` otherwise.
+
+A `local.md` in a skill's directory holds machine-specific details such as
+hostnames or exemplar paths. Git ignores it, and the skill reads it
+first.
 
 ## Companions
 
-Some skills call or pair with skills from other repos. Install these
-companions for the full workflow. `wrap-up` skips a missing companion and
-prints its install line.
+`wrap-up` and `ui-taste` call skills from other repos. `wrap-up` skips a
+missing one and prints its install line.
 
-| Companion | Used by | Install |
-|---|---|---|
-| ponytail (`ponytail-review`) | `wrap-up` | omp: `/marketplace add DietrichGebert/ponytail`, then `/marketplace install ponytail@ponytail`; Claude Code: `/plugin marketplace add DietrichGebert/ponytail`, then `/plugin install ponytail@ponytail` |
-| `frontend-design` | `ui-taste` | `/plugin marketplace add anthropics/claude-plugins-official`, then `/plugin install frontend-design@claude-plugins-official` |
-| `web-design-guidelines` | `wrap-up`, `ui-taste` | `npx skills add vercel-labs/agent-skills` |
-| `better-*`, `interface-review` | `wrap-up`, `ui-taste` | `npx skills add jakubkrehel/skills` |
-| `interface-design` | `ui-taste` | `npx skills add dammyjay93/interface-design` |
-| `emil-design-eng` | `ui-taste` | `npx skills add emilkowalski/skills` |
-| `transitions-dev`, `transitions-polish` | `ui-taste` | `npx skills add Jakubantalik/transitions.dev` |
+| Companion | Used by |
+|---|---|
+| `ponytail-review` | `wrap-up` |
+| `frontend-design` | `ui-taste` |
+| `web-design-guidelines` | `wrap-up`, `ui-taste` |
+| `better-*`, `interface-review` | `wrap-up`, `ui-taste` |
+| `interface-design` | `ui-taste` |
+| `emil-design-eng` | `ui-taste` |
+| `transitions-dev`, `transitions-polish` | `ui-taste` |
 
-## Local overrides
+```text
+/marketplace add DietrichGebert/ponytail                 # ponytail-review, omp
+/marketplace install ponytail@ponytail
+/plugin marketplace add DietrichGebert/ponytail          # ponytail-review, Claude Code
+/plugin install ponytail@ponytail
+/plugin marketplace add anthropics/claude-plugins-official
+/plugin install frontend-design@claude-plugins-official  # frontend-design
+```
 
-A `local.md` file in a skill directory holds machine-specific details, such as
-hostnames or exemplar paths. Git ignores it, and the skill reads it
-first when present.
+```sh
+npx skills add vercel-labs/agent-skills        # web-design-guidelines
+npx skills add jakubkrehel/skills              # better-*, interface-review
+npx skills add dammyjay93/interface-design     # interface-design
+npx skills add emilkowalski/skills             # emil-design-eng
+npx skills add Jakubantalik/transitions.dev    # transitions-dev, transitions-polish
+```
+
+## Layout
+
+| Path | What |
+|---|---|
+| `skills/<name>/SKILL.md` | One skill: frontmatter `name` and `description`, then the instructions |
+| `.claude-plugin/`, `.omp-plugin/` | Marketplace and plugin manifests |
+| `scripts/check.sh` | Validates tracked JSON and SKILL.md frontmatter; lefthook and CI run it |
 
 ## Credits
 
 Adapted from:
 
+- [Jack Furton (Krog)](https://github.com/JackFurton): the README shape here
+  and in `docs-style`, and the hop-tracing and command-proof rules in
+  `post-mr-review`, `address-review-comments` and `pr-review-toolkit`.
 - [pr-review-toolkit](https://github.com/anthropics/claude-code/tree/main/plugins/pr-review-toolkit)
   by Anthropic: the `pr-review-toolkit` lens set.
 - [Google developer documentation style guide](https://developers.google.com/style):

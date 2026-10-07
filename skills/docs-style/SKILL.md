@@ -14,16 +14,15 @@ description: >
 # docs-style
 
 Google developer documentation style guide, distilled to the rules that
-actually change output. Full guide: https://developers.google.com/style
+change output. Full guide: https://developers.google.com/style
 
 ## Scope boundary
 
 Applies to **prose written into files**. Does not apply to chat responses,
-which keep whatever session style is active (caveman mode, etc.). Same
-carve-out as code and commit messages.
+which keep any session style. Same carve-out as code and commit messages.
 
-Does not apply to: code, code comments (global CLAUDE.md zero-comment policy
-wins), commit subjects, PR descriptions.
+Does not apply to: code, code comments (the repo's comment policy wins),
+commit subjects, PR descriptions.
 
 ## Rules
 
@@ -85,6 +84,28 @@ wins), commit subjects, PR descriptions.
     consistent placeholder format throughout.
 20. Never document intent as behavior. If it is not implemented, it does not
     belong in the docs.
+21. No present-tense status that goes stale ("still backfilling", "not
+    decided yet", "the feed stopped"). Write dated history ("No records
+    since 2026-07-30") or the command that checks the current state.
+
+## README shape
+
+For a project README, in this order:
+
+1. One or two sentences: what it is, what it's built with, and what it
+   deliberately leaves out. No "Welcome", no badges beyond one CI badge,
+   no emoji in headings.
+2. A small text diagram of the data or control flow
+   (`input ──▶ this repo ──▶ output`). Skip it for a single-file tool.
+3. The commands that run it, each with a trailing `# what you get back`
+   comment. The comments stand in for rule 14's introducing sentence.
+4. A `| Path | What |` table or an indented layout block, once the repo has
+   more than about five top-level paths.
+5. Pending work as a numbered **Open items** list: a bold one-line
+   constraint, then why it's open and what decides it.
+6. Past about 400 lines, or once a second audience appears (operators, data
+   consumers), split into `docs/` files and link them from a two-column
+   table.
 
 ## Anti-goals
 

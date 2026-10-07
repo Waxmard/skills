@@ -12,9 +12,9 @@ description: >
   /resolve-merge-conflicts.
 ---
 
-Walk the user through resolving merge conflicts in the **current in-progress operation** (merge, rebase, or cherry-pick) one file at a time. For each conflicted file, first check whether a mass-accept of one side is viable; if not, work through the conflict hunks together. After each file is resolved, run project-local type-checks or linters to catch broken resolutions before moving on.
+Resolve the conflicts of the **current in-progress operation** (merge, rebase, or cherry-pick) one file at a time, checking each resolution with project-local type-checks or linters before moving on.
 
-This skill assumes the user invoked it **mid-conflict** — i.e. there are already unmerged paths. If no conflict is in progress, stop and explain.
+The user must invoke this **mid-conflict**, with unmerged paths already present. If no conflict is in progress, stop and explain.
 
 ## Pre-flight
 
@@ -152,7 +152,7 @@ Run the **narrowest** project check that covers the touched file. Don't run the 
 
 | File type | Check |
 |---|---|
-| `*.ts` / `*.tsx` | `npm run type-check` (this project) |
+| `*.ts` / `*.tsx` | the project's typecheck script — check `npm run` for the name (`type-check` vs `typecheck`) and run it from the package dir |
 | `*.py` | `uv run mypy <file>` or `uv run ruff check <file>` |
 | `*.rs` | `cargo check -p <crate>` |
 | `*.go` | `go vet ./<pkg>/...` |
@@ -205,8 +205,8 @@ State:
 
 ## Common pitfalls
 
-- **Ours/theirs flipped during rebase**: in `git rebase`, `--ours` means the upstream you're rebasing **onto**, and `--theirs` means your own commits. The opposite of `git merge`. A skill-issued `--ours` suggestion that's correct for a merge becomes catastrophically wrong during a rebase. Always restate the mapping using branch names before suggesting either flag.
-- **Merge-preserving rebase flips ours/theirs back**: with `--rebase-merges`, the todo contains `merge` commands. When one conflicts, git runs a *real* merge (`MERGE_HEAD` present) and ours/theirs follow **merge** semantics, not the inverted pick-rebase rule. Detect the stopped command per stop: `MERGE_HEAD` present (or the last `done` line starts with `merge`) → merge semantics; otherwise pick-rebase inversion. A single rebase can interleave `pick` stops (inverted) and `merge` stops (not inverted), so re-derive on every `--continue`.
+- **Ours/theirs flipped during rebase**: in `git rebase`, `--ours` is the upstream you're rebasing **onto**, the opposite of `git merge`; restate the mapping with branch names before suggesting either flag.
+- **Merge-preserving rebase flips ours/theirs back**: a stop on a `merge` command (`MERGE_HEAD` present, or the last `done` line starts with `merge`) is a real merge with merge semantics, while `pick` stops stay inverted. One rebase can interleave both, so re-derive on every `--continue`.
 - **diff3 / zdiff3 conflict markers**: when `merge.conflictstyle = diff3` or `zdiff3`, the conflict block includes a `|||||||` base section showing the common ancestor. The marker grep in step 4 must include `\|{7}`, and the proposal in step 4 should reference the base to detect "both sides changed away from the same value" cases.
 - **Rename-vs-edit silent bugs**: `git status` shows `UD` / `DU`. Picking either side feels resolved, but you've either lost the edit or kept a dead reference. The post-resolve grep for the old identifier is essential.
 - **Lockfile hand-resolution**: never edit `package-lock.json` / `Cargo.lock` / etc. by hand. Pick one side, then regenerate. For npm specifically in this repo, regenerate in a Linux container (see `ui/CLAUDE.md`).
@@ -216,20 +216,12 @@ State:
 - **Operation finished externally**: user may run `git merge --continue` in another terminal. The sentinel file (`MERGE_HEAD`) disappears. Detect and stop — don't keep proposing edits to a clean tree.
 - **Re-conflict on `--continue` during rebase**: rebases can reconflict on each replayed commit. After the user runs `git rebase --continue`, conflicts may reappear on a different commit. Treat each reappearance as a fresh invocation of this skill — re-run pre-flight to re-derive ours/theirs (still inverted for rebase).
 
-## Retro — improve this skill
+## Retro
 
-This skill is **two-way**: after the run, spend one beat on whether the run exposed something the
-skill itself should encode. Most clean runs need no change — don't force it.
-
-Propose an edit only on real signal:
-
-- A conflict class these instructions didn't cover and you had to improvise (a `git status` code
-  not in Pitfalls, a lockfile/generated-file regen step not listed, a tool with non-obvious
-  ours/theirs semantics).
-- The user corrected a resolution or an ours/theirs mapping, or repeated an instruction.
-- A step here was wrong or stale (a marker grep missed a style, a sentinel-file name changed).
-- You repeated a manual workaround that belongs in the per-file cycle.
-
-When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is global and durable, never
-edit it silently. If nothing fired, say nothing — no "run went well" noise.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
+user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
+Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
+the Waxmard/skills source (`skills/resolve-merge-conflicts/SKILL.md`), never the installed copy. If
+nothing fired, say nothing. Typical signals here: a `git status` code not in Pitfalls, a
+lockfile/generated-file regen step not listed, a tool with non-obvious ours/theirs semantics, or a
+marker grep that missed a conflict style.

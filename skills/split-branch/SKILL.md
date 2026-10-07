@@ -28,19 +28,23 @@ allowed-tools: >
   Read Grep Glob
 ---
 
-The `allowed-tools` grant above covers the whole job, local and remote, so the run is not interrupted by a prompt per cherry-pick or per push. **That is exactly why the publish checkpoint in phase 3 is mandatory** — the grant replaced eleven context-free permission prompts with one confirmation that shows the full outward-facing manifest at once. Removing the prompts does not remove the confirmation; it relocates it somewhere the user can actually see what is about to happen.
+The `allowed-tools` grant covers the whole job, local and remote:
 
-Still excluded, and still prompting: `git rebase`, `git reset`, `git branch -D`, and bare `git push` — the grant is `git push -u origin *` only, so an arbitrary refspec, a branch deletion (`git push origin :branch`), or a push to another remote all stop. `--force` after a matching prefix would slip through the pattern, so the guardrail against it is a rule this skill follows, not something the allowlist enforces. The same caveat applies to `glab api` / `gh api`, granted for user lookup: the pattern cannot distinguish a `GET` from a `DELETE`, so the only writes this skill makes through them are the ones named in the checkpoint manifest. `glab mr update` is granted for one purpose — setting reviewers on the MRs this run just created — and is never pointed at a pre-existing MR.
+- The grant exists so there is one prompt-free run, not a prompt per cherry-pick or per push.
+- The phase-3 checkpoint is therefore mandatory: it replaces those prompts with one confirmation that shows the full outward-facing manifest.
+- `git rebase`, `git reset`, `git branch -D` and bare `git push` still prompt. The grant is `git push -u origin *` only, so an arbitrary refspec, a branch deletion (`git push origin :branch`), or a push to another remote also stops.
+- `--force` after a matching prefix would slip through the pattern, so this rule guards it, not the allowlist.
+- `glab api` / `gh api` are granted for user lookup, but the pattern cannot distinguish a `GET` from a `DELETE`: the only writes made through them are the ones named in the checkpoint manifest.
+- `glab mr update` is only for setting reviewers on the MRs this run just created, never a pre-existing MR.
+- The grant lasts only the turn the skill is invoked on and clears on the user's next message. Re-invoke `/split-branch execute` after approval to re-apply it, or expect a prompt per command.
 
-The grant lasts only the turn the skill is invoked on and clears on the user's next message, so the approval gate ends it: when handing off to phase 2, tell the user to re-invoke `/split-branch execute` to re-apply it, or expect a prompt per command.
+Take a branch that grew several unrelated changes and split it into correctly scoped branches, **each with its own MR/PR**.
 
-Take a branch that grew several unrelated changes and turn it into a set of correctly scoped branches, **each with its own MR/PR**.
+**The target shape: every branch sits directly on the current base and any two of them merge in either order without a conflict.** A reviewer merges whichever MR is ready, nobody rebases a chain, and no branch waits on another's review round.
 
-**The target shape: every branch sits directly on the current base and any two of them merge in either order without a conflict.** That is the property being engineered, and it is the one that makes the result usable — a reviewer merges whichever MR is ready, nobody rebases a chain, and no branch is blocked behind another's review round.
+Two themes that cannot be made conflict-free apart get **fused into one branch**, even if that branch then covers more than one topic: one slightly broad MR is cheaper than a second MR that needs a rebase and a conflict resolution the moment the first lands. Stacking is the escape hatch, not a co-equal option (see [When fusing is wrong](#when-fusing-is-wrong)).
 
-Everything else bends to it. Two themes that cannot be made conflict-free apart get **fused into one branch**, even though that branch then covers more than one topic. One slightly broad MR is cheaper than two MRs where the second needs a rebase and a conflict resolution the moment the first lands. Stacking is the escape hatch, not a co-equal option (see [When fusing is wrong](#when-fusing-is-wrong)).
-
-The hard part is not the git mechanics — it is deciding which themes can stand apart. Do that with evidence (shared hunks, symbol dependencies, pairwise merge simulation, trial cherry-picks), not with a guess from the commit subjects.
+Decide which themes can stand apart with evidence (shared hunks, symbol dependencies, pairwise merge simulation, trial cherry-picks), not a guess from the commit subjects.
 
 Three phases, with a **mandatory stop after phase 1**:
 
@@ -48,7 +52,7 @@ Three phases, with a **mandatory stop after phase 1**:
 2. **Execute.** Only after the user approves the plan. Create branches locally off the fetched base, verify the union reproduces the original tree and that every pair of branches merges cleanly.
 3. **Publish.** Push each branch, open its MR/PR, and comment on the original MR listing what it was split into.
 
-Phase 1's approval covers the **scope** of the split, including that MRs will be created — the plan must say so. Phase 3 then confirms the **manifest** at its checkpoint, once, immediately before anything leaves the machine. Two gates, different questions: "is this the right split?" then "here is precisely what is about to be pushed and opened."
+Phase 1's approval covers the **scope** of the split, including that MRs will be created — the plan must say so. Phase 3 then confirms the **manifest** once, immediately before anything leaves the machine. Two gates, two questions: "is this the right split?" then "here is precisely what is about to be pushed and opened."
 
 Never skip straight to phase 2, even if the user's request sounds like "just split it" — the plan is cheap and the decisions are the deliverable.
 
@@ -165,9 +169,9 @@ Docs touched by many commits (`AGENTS.md`, `CLAUDE.md`, `README.md`, changelogs)
 
 **Default: one shared doc file, one branch.** Give the whole file's diff to the branch with the strongest claim on it and let that branch document its siblings too. The doc says three things happened; the three things are separately reviewable in code regardless. Split a doc by hunk only when the hunks are in genuinely distant sections *and* check (d) says the pair is clean — never on the strength of "these paragraphs are unrelated", which is a statement about prose, not about git's merge granularity.
 
-Two things this rule exists to absorb, both learned the hard way:
+Two cases this rule absorbs:
 
-- **A wholesale rewrite of a doc section cannot be partitioned.** When one commit rewrites every bullet in a contiguous block while other commits each edit one bullet inside it, git's merge granularity is the *block*, not the bullet — the rewrite conflicts with every sibling no matter how carefully the hunks are assigned. The old answer was a separate docs branch that lands last behind a merge dependency, which blocks code review behind prose. The answer now is to fuse: the rewrite and every hunk inside its block ship on one branch.
+- **A wholesale rewrite of a doc section cannot be partitioned.** When one commit rewrites every bullet in a contiguous block while other commits each edit one bullet inside it, git's merge granularity is the *block*, not the bullet, so the rewrite conflicts with every sibling. Fuse: the rewrite and every hunk inside its block ship on one branch, not on a separate docs branch that lands last behind a merge dependency.
 - **Two branches inserting at the same anchor conflict even with disjoint content.** Git cannot order two insertions at one point, so two themes each adding a bullet to the same list conflict. Both bullets go on one branch.
 
 ### 5. Assign themes to branches
@@ -342,6 +346,7 @@ Rules:
 - `--target-branch` is the base for every MR. The one exception is a branch stacked under the [When fusing is wrong](#when-fusing-is-wrong) rule, whose target is its **parent branch** — get that wrong and the MR diff shows the parent's changes too, which is exactly the noise the split existed to remove. State each MR's target back to the user as you create it, and create the parent's MR first so the child's target exists on the remote.
 - Each description **opens with a link to the original MR**, not its branch name — `Split out of !141.` on GitLab, `Split out of #141.` on GitHub. The forge renders that as a live reference with the title on hover, so a reviewer landing cold gets one click to the full context; a bare branch name is a string they have to go look up, and it is dead the moment the branch is deleted. The iid is already in hand from pre-flight. Only when there was no original MR does the branch name appear instead.
 - Then say what the branch does. A fused branch's description names every topic it carries and says why they ship together, citing the evidence from phase 1 (the shared file and line ranges, the symbol one theme needs from another) — otherwise the next reviewer files it as scope creep, which is what this skill is for.
+- Write it as plain prose, mechanism first: no headings, no commit list. If merging deploys something, or the branch only works alongside another repo's MR, say so on its own last line (`No deploy needed.`, `Merging deploys to <env>.`, `Pairs with group/repo!14.`).
 - **No `## Testing` section.** The split ran the repo's gates on every branch already and reported the results to the user; repeating "635 passed" in the MR body is a claim the pipeline is about to verify for real, on the forge, in public. The commits and the diff are the content. This overrides any repo convention asking for test evidence in an MR description — that convention is for MRs whose author wrote new code, not for a mechanical re-slicing of code that was already tested as a whole.
 - Keep it short. These MRs are narrow by construction; a description longer than the diff it explains is its own kind of noise.
 - Capture each new MR's iid/number and URL from the create output — the breadcrumb comment needs them.

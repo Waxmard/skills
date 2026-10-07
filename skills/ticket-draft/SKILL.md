@@ -32,7 +32,7 @@ Two to five plain sentences. No headings, no Expected/Actual sections, no accept
 Include:
 1. What the user hit or wants, in one line. Credit the reporter by first name (e.g. "Sam asked…", "From Sam:"). Never write "a user" if the name is known; ask if unknown.
 2. Which repos will need changes, as paths from the monorepo root (the project's reference file lists the layout).
-3. A very rough summary of what was explored. Name the area, not the line numbers.
+3. A rough summary of what was explored. Name the area, not the line numbers.
 
 Do NOT include:
 - How to fix it, proposed changes, or option lists.
@@ -61,4 +61,4 @@ Then offer to post. If the user agrees, post one ticket at a time:
 2. Show the draft with its metadata and ask Post / Skip / Post without links.
 3. On Post, create it with every field the CLI can set, including the weight; link it; add it to the sprint; and report the key.
 
-Merges follow the same confirm-first flow: comment on the target, re-create the links, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation. Tracker commands are in the project's reference file.
+Merges follow the same confirm-first flow: comment on the target, re-create the links, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation.

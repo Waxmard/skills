@@ -1,15 +1,17 @@
 ---
 name: ui-taste
-description: Maxwell's personal UI design preferences, layered on top of frontend-design. Use whenever building, restyling, or reviewing UI in Maxwell's projects, alongside frontend-design.
+description: Maxwell's personal UI design preferences, layered on top of frontend-design. Use whenever building, restyling, or reviewing UI in Maxwell's projects, alongside frontend-design. Run with no build task to review a surface against these preferences.
 ---
 
 # UI Taste
 
-This is a preference layer, not a process. `frontend-design` owns the process: brief → token plan → review against defaults → build → critique. This file says what Maxwell likes, where that differs from frontend-design's defaults, and which other skills to load at each step.
+This is a preference layer. `frontend-design` owns the build process: brief → token plan → review against defaults → build → critique. This file says what Maxwell likes, where that differs from frontend-design's defaults, and which other skills to load at each step. The one process it owns is **Review**, below.
 
 Precedence: the brief > the repo's existing tokens or design system > this file > `interface-design` / `emil-design-eng` > frontend-design defaults.
 
 ## Workflow
+
+For building or restyling. With no build task, skip to **Review**.
 
 1. If `local.md` exists in this skill's directory, read it first. It holds repo-specific rules and exemplars, and it takes precedence over this file for the repos it names.
 2. Load `frontend-design` and follow its two-pass process.
@@ -20,7 +22,105 @@ Precedence: the brief > the repo's existing tokens or design system > this file 
 4. Classify the surface as a **tool** (dashboard, uploader, tracker, admin, companion app) or a **page** (landing, marketing, docs). For tools, also load `interface-design` for craft guidance. Don't create `.interface-design/system.md`; the project's token file is the system.
 5. Build the token plan from the Fingerprint below. When reviewing the plan against frontend-design's defaults, apply the Overrides.
 6. Build. Apply `emil-design-eng` for interaction craft, and follow the Motion section.
-7. Review in this order: `web-design-guidelines` on the changed files, then `better-interface` on the surface you built. If you changed an existing surface, ask Maxwell to run `interface-review` instead; it's user-invoked. Fix every HIGH finding and list MEDIUM/LOW findings for Maxwell. If one of these skills isn't installed, say which and continue.
+7. Review in this order: `web-design-guidelines` on the changed files, then `better-interface` on the surface you built. If you changed an existing surface, ask Maxwell to run `interface-review` instead; it's user-invoked. Fix every HIGH finding. List the MEDIUM/LOW findings for Maxwell in the **Review output** format below. If one of these skills isn't installed, say which and continue.
+
+## Review
+
+Run this when the skill is invoked with no build or restyle task, or when Maxwell asks for a review or critique. It edits nothing in the working tree until Maxwell picks findings by number; its only write is the memo under `.git` (see **Memo**).
+
+1. Do Workflow steps 1, 3 and 4: read `local.md`, find the repo's token source or brand system, and classify the surface. Load `frontend-design` for its calibration list and its restraint guidance. Then load the memo (see **Memo**) to decide between a full and a delta review.
+2. Resolve scope from the request: a screen, a flow, or the whole app. Render it at desktop, 390px and short landscape (667×375) and inspect the rendered result, not only the source. If nothing can be rendered, review from source and say so in **Coverage**.
+3. **Taste audit.** Walk every Fingerprint subsection, the Overrides, and the Avoid list against the surface (in a delta review, against the changed files only). Each deviation is a `Taste` finding that cites the rule it breaks, e.g. `Fingerprint › Tokens and color` or `Avoid › stock kit class strings`. In a review, the repo's existing tokens decide what the fix uses, not whether the deviation is reported. A repo already built on a kit (daisyUI etc.) still gets the finding, with the fix written in that repo's tokens. The only exemption is a brand design system named in `local.md`: its canvas, accent and font are never findings.
+4. **Design suggestions.** Judge the surface as a designer, not a checklist, using frontend-design's principles:
+   - Is the subject's world visible (palette, accent face, vernacular)?
+   - Is there one signature element, and is it spent in the right place?
+   - Do hierarchy and density fit the surface's main job?
+   - Does any of frontend-design's generic-default traits appear?
+   - Is there a missing motion moment that would show what changed?
+
+   Propose a `Design` suggestion only when one is worth making, each naming the element, the change, and the token or Fingerprint value it would use. In a delta review, carry over the earlier suggestions and add new ones only for changed files.
+5. **Accessibility and usability.** Run `web-design-guidelines` on the surface's source files, then `better-interface` on the rendered surface. Use their checks, severities and cap. Drop their table and verdict formats; restate each finding in the format below. When both report the same issue, keep one finding. If either skill isn't installed, say which in **Coverage** and continue. In a delta review, run `web-design-guidelines` on the changed files only. Run `better-interface` on the whole rendered surface, but report only issues that come from changed files or are visible regressions.
+6. Emit **Review output**, write the memo, and stop.
+7. On a numbered reply, apply those findings, then run Review again; the memo makes it a delta review.
+
+Taste severity:
+- `HIGH`: breaks a Layout and stability rule, or an Avoid entry that runs through a shared component or token.
+- `MEDIUM`: a Fingerprint deviation in a shared token, primitive or layout.
+- `LOW`: a deviation in one leaf component.
+
+Design suggestions carry `SUGGESTION` instead of a severity.
+
+### Memo
+
+The memo lets a rerun after fixes skip what hasn't changed. It lives at `$(git rev-parse --git-path ui-taste)/<branch>/` (per worktree, never committed): `state` holds `tree`, `scope` and `rules` lines, and `findings.md` holds the last Review output verbatim. Outside a git repo there is no memo: always run a full review and say `no memo: not a git repo` under **Coverage**.
+
+At the start of a review, take a snapshot of the working tree:
+
+```bash
+top=$(git rev-parse --show-toplevel)
+idx=$(mktemp)
+cp "$(git rev-parse --git-path index)" "$idx" 2>/dev/null
+GIT_INDEX_FILE="$idx" git -C "$top" add -A
+tree=$(GIT_INDEX_FILE="$idx" git -C "$top" write-tree)
+rm -f "$idx"
+```
+
+`rules` is `git hash-object` of this skill's `SKILL.md` and of `local.md` if it exists, joined by a space. `scope` is the resolved scope from step 2, written as the routes or components reviewed.
+
+Run a **full** review if any of these is true:
+- there is no memo;
+- `git cat-file -e <memo tree>` fails;
+- `scope` or `rules` differs;
+- the reply or request contains `full`;
+- the changed files include the repo's token source from Workflow step 3.
+
+Otherwise run a **delta** review over `git diff --name-only <memo tree> <tree>`, limited to files in scope. If that list is empty, re-emit the memo's findings renumbered, write `No changes since last review; reply `full` to re-review.` under **Coverage**, and stop.
+
+In a delta review, read `findings.md` and handle each earlier finding as follows:
+- **File unchanged:** carry it over as written, and append ` · carried` to its header line.
+- **File changed and the issue is gone:** drop it, and list its old number in a `Resolved since last review: #2, #4` line above **Coverage**.
+- **File changed and the issue is still there:** restate it with the current line number.
+
+Numbering restarts at 1 every run; old numbers appear only in the Resolved line. Start the **Coverage** line with `Mode: delta, N files re-reviewed; reply `full` for a full review.`
+
+After emitting the output, write the memo. Fill in the literals, because bash calls may not share a shell:
+`d="$(git rev-parse --git-path ui-taste)/<branch>" && mkdir -p "$d" && printf 'tree %s\nscope %s\nrules %s\n' <tree> '<scope>' '<rules>' > "$d/state"`. Then write the Review output verbatim to `$d/findings.md`.
+
+### Review output
+
+Number every finding 1..N in one sequence across both sections. Rank by severity within each section, and put Design suggestions after the Taste findings.
+
+````
+## Taste and design
+
+**1. HIGH · Taste** — `src/lib/components/ui/button/button.svelte:14`
+**Now:** every button variant is a daisyUI `btn-*` class string.
+**Change:** a token-themed button primitive whose variants derive from `--color-primary` with `color-mix()`.
+**Why:** Avoid › stock kit class strings.
+
+**2. SUGGESTION · Design** — `src/routes/+page.svelte:250`
+**Now:** …
+**Change:** …
+**Why:** …
+
+## Accessibility and usability
+
+**3. MEDIUM · Accessibility** — `src/routes/+page.svelte:497`
+**Now:** …
+**Change:** …
+**Why:** …
+````
+
+- The domain after `·` is `Taste`, `Design`, or the owning domain from `better-interface` (Accessibility, Layout, Writing, Typography, Color, Polish).
+- For a finding that spans files, name the file holding the shared fix and list the others in **Now**. Keep each block to the three labelled lines, one sentence each.
+- After the findings, add one **Coverage** line: the domains inspected, any `Not reviewed` and why, and anything not verified.
+- In a delta review, add ` / carried C / resolved R` to the end of the Summary line.
+- End with:
+  ```
+  ---
+  Summary: N findings — HIGH X / MEDIUM Y / LOW Z / suggestions S
+  Reply with the numbers to fix.
+  ```
 
 ## Fingerprint
 
@@ -112,4 +212,4 @@ When a rule needs a concrete reference, read the source:
 - Accent serif and the evolution flash: `https://github.com/Waxmard/pokemon-team-status/blob/main/src/components/PokemonPreview.vue`
 - Hexagon gem and wizard grids: `https://github.com/Waxmard/pokemon-team-status/blob/main/src/styles/draftPanel.css`
 - Touch plus drag-and-drop pinning and score overlays: `https://github.com/Waxmard/pokemon-team-status/blob/main/src/components/GymRow.vue`
-- Sliding pill indicator, stacked counters, FLIP list, fixed-height picker, and form-pairing rules: see `local.md` for exemplar paths, if it exists. The patterns themselves are fully described above.
+- Sliding pill indicator, stacked counters, FLIP list, fixed-height picker, and form-pairing rules: see `local.md` for exemplar paths, if it exists.
