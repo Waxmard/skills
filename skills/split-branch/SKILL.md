@@ -165,7 +165,7 @@ Classify each stray hunk: its own theme, or belongs to a different theme in this
 
 Only give generated churn its own branch when there is no housekeeping branch to join *and* the churn is semantically load-bearing (a genuine dependency bump, not a format rewrite). Verify which it is before deciding: for a lockfile, diff the package names and versions, not the line count — `git show <c> -- uv.lock | grep -E '^[+-]name = '` empty means pure format.
 
-Docs touched by many commits (`AGENTS.md`, `CLAUDE.md`, `README.md`, changelogs) are where the any-order goal is won or lost. They are usually not a theme — they are per-theme hunks that happen to share a file — and splitting them by hunk is the single most reliable way to manufacture a conflict.
+Docs touched by many commits (`AGENTS.md` or the harness's rules file, `README.md`, changelogs) are where the any-order goal is won or lost. They are usually not a theme — they are per-theme hunks that happen to share a file — and splitting them by hunk is the single most reliable way to manufacture a conflict.
 
 **Default: one shared doc file, one branch.** Give the whole file's diff to the branch with the strongest claim on it and let that branch document its siblings too. The doc says three things happened; the three things are separately reviewable in code regardless. Split a doc by hunk only when the hunks are in genuinely distant sections *and* check (d) says the pair is clean — never on the strength of "these paragraphs are unrelated", which is a statement about prose, not about git's merge granularity.
 
@@ -294,7 +294,7 @@ done; done
 
 Silence means the whole set merges in any order. Any output means the plan did not hold — name the pair and the conflicted paths, fuse them, and rebuild. Do not ship a set that fails this and mention it as a caveat; the caveat *is* the thing the split was for. (A branch stacked as the documented exception is excluded from this loop — it conflicts with its parent by construction.)
 
-**3. Each branch stands alone.** On every branch, run the repo's own gates — read them from `CLAUDE.md`/`AGENTS.md`/`Makefile`/`package.json`, do not invent commands. Typically lint + type-check + tests. A branch that only passes when its sibling is present has an edge the analysis missed; report it and fuse rather than quietly stacking.
+**3. Each branch stands alone.** On every branch, run the repo's own gates — read them from `AGENTS.md` (or the harness's rules file), `Makefile` or `package.json`, do not invent commands. Typically lint + type-check + tests. A branch that only passes when its sibling is present has an edge the analysis missed; report it and fuse rather than quietly stacking.
 
 **4. No branch is empty.** `git log --oneline "$BASE..<branch>"` non-empty for each.
 

@@ -134,12 +134,12 @@ Each comment is judged independently by reading the live code — there is no sh
 
 **Dispatch rule:**
 - **< 4 in-scope comments** → judge them inline yourself, in order. Spawn overhead beats the parallelism win below this count.
-- **≥ 4** → fan out one **Sonnet** subagent per comment (Agent tool, `model: sonnet`), launched in parallel (all tool calls in a single message). Each subagent runs steps 1–3 and returns **only** its one verdict line as its final message. Collect the lines, sort back into comment order, then do the tally (step 4) yourself.
+- **≥ 4** → fan out one subagent per comment on a mid-tier model, all spawned in parallel in one batch. Each subagent runs steps 1–3 and returns **only** its one verdict line as its final message. Collect the lines, sort back into comment order, then do the tally (step 4) yourself.
 - **Exception:** if every in-scope comment references the same file and you've already read it, judge inline regardless of count — subagents would re-read the same diff.
 
 Split a bot summary comment into its sub-bullets (`5a`, `5b`, …) **before** dispatch — each sub-bullet is its own unit of work and its own subagent.
 
-Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code, runs read-only `git show` / `git diff` to check its links, and returns a line). Subagents need `Read` plus that read-only git access.
+Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code, runs read-only `git show` / `git diff` to check its links, and returns a line). Subagents need file-read access plus that read-only git access.
 
 For each comment (inline or in a subagent), in order:
 

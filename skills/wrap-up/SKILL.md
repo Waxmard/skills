@@ -229,8 +229,8 @@ stopping to fix is the default for all of wrap-up.
      concrete *Fix* line. In non-pr-review-toolkit reports (ponytail-review,
      web-design-guidelines, interface-review), include every actionable finding.
    - Exclude **pure nits**: items the report labels nit/optional/taste that cite
-     no project rule (AGENTS.md/CLAUDE.md convention, lint config). A style item backed by a
-     project rule is not a nit, so it gets fixed.
+     no project rule (AGENTS.md or harness rules-file convention, lint config). A style item
+     backed by a project rule is not a nit, so it gets fixed.
    - Merge overlapping items: the same `file:line`, or the same root cause in the same file or
      symbol even when the lines or wording differ. Keep one item under the first report in row
      order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).

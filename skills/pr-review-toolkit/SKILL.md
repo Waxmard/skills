@@ -90,7 +90,7 @@ Analyze the diff across 6 specialized lenses:
 ## 3. Execution & Delegation
 
 - **Inline execution**: For small to medium diffs (< 10 files or < 300 lines changed), evaluate all applicable lenses sequentially.
-- **Subagent fan-out**: For large diffs, delegate individual lenses or file groups to parallel subagents (`flash` model):
+- **Subagent fan-out**: For large diffs, delegate individual lenses or file groups to parallel subagents on a fast, low-cost model:
   - Subagent 1: Bug & logic audit + project rule compliance
   - Subagent 2: Silent failure & error handling inspection
   - Subagent 3: Test coverage & edge case analysis
