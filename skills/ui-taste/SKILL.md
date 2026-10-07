@@ -112,4 +112,4 @@ When a rule needs a concrete reference, read the source:
 - Accent serif and the evolution flash: `https://github.com/Waxmard/pokemon-team-status/blob/main/src/components/PokemonPreview.vue`
 - Hexagon gem and wizard grids: `https://github.com/Waxmard/pokemon-team-status/blob/main/src/styles/draftPanel.css`
 - Touch plus drag-and-drop pinning and score overlays: `https://github.com/Waxmard/pokemon-team-status/blob/main/src/components/GymRow.vue`
-- Sliding pill indicator, stacked counters, FLIP list, fixed-height picker, and form-pairing rules: see `local.md` for exemplar paths, if it exists. The patterns themselves are fully described above.
+- Sliding pill indicator, stacked counters, FLIP list, fixed-height picker, and form-pairing rules: see `local.md` for exemplar paths, if it exists.

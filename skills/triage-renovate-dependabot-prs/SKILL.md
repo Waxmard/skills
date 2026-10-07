@@ -18,9 +18,9 @@ description: >
 
 # Triage dependency updates
 
-Walk the user through merging dep-bump branches into the **current branch** one at a time. The user's standard pattern: create a feature branch off the target (`dev`/`main`), drain bot branches into the feature branch first, then merge the feature branch into target as a single safer review. This skill assumes the feature branch already exists and is checked out.
+Merge dep-bump branches into the **current branch** one at a time. The user's pattern: create a feature branch off the target (`dev`/`main`), drain bot branches into it, then merge it into target as one safer review. The feature branch must already exist and be checked out.
 
-Works for both **Renovate** (GitLab, branches `renovate/*`) and **Dependabot** (GitHub, branches `dependabot/*`). No `gh`/`glab` CLI required — discovery is pure `git`. Stack-agnostic: the risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
+Covers **Renovate** (GitLab, `renovate/*`) and **Dependabot** (GitHub, `dependabot/*`). No `gh`/`glab` CLI required — discovery is pure `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
 
 ## Pre-flight
 
@@ -100,7 +100,7 @@ If the diff is small (<200 lines), show full diff. Otherwise show stat + manifes
 
 ### 2. Risk read
 
-Don't classify by semver label — that's a rule a linter could apply, and it's not what gets shown to the user. Claude can actually read the release and the repo, so every MEDIUM-or-above signal below is a trigger to go read, not a verdict to report. Compute it silently; never present a "nominal: HIGH" line — the user only sees the actual verdict in ## Reasoned verdict.
+Don't classify by semver label — a linter could apply that rule, and it isn't what the user sees. Read the release and the repo: every MEDIUM-or-above signal below is a trigger to go read, not a verdict to report. Compute it silently; never present a "nominal: HIGH" line — the user only sees the actual verdict in ## Reasoned verdict.
 
 #### Signal (internal trigger, not shown)
 
@@ -203,7 +203,7 @@ git merge --no-ff "origin/${branch}" -m "Merge ${branch} into $(git rev-parse --
 
 ### 5. Auto-detected post-merge checks
 
-**First, install the bumped deps — or the checks are hollow.** Right after a merge, the installed deps (`node_modules/`, `.venv/`, `target/`) still hold the *old* versions. Linters/type-checkers/builders run against what's installed, not what the manifest now says — so they pass against the pre-bump tree and give a **false green**. (A real example: linting under eslint 9 while the manifest says eslint 10 — the bump's actual rule changes never ran.) Sync the install from the bot's lockfile before checking:
+**First, install the bumped deps — or the checks are hollow.** Right after a merge, the installed deps (`node_modules/`, `.venv/`, `target/`) still hold the *old* versions. Linters/type-checkers/builders run against what's installed, not what the manifest now says — so they pass against the pre-bump tree and give a **false green** (e.g. linting under eslint 9 while the manifest says 10). Sync the install from the bot's lockfile before checking:
 
 | Ecosystem | Install-from-lock command |
 |---|---|
@@ -217,7 +217,7 @@ If that install **fails on a stale lockfile** (manifest bumped, lock not regener
 
 **A version pin repeated across files needs a post-merge sweep.** After merging, if the bump's pin recurs across files (an action tag in several workflows, a tool version in a `Dockerfile` and CI), run `git grep -n '<old>'` and fix stragglers as a working-tree edit for the user to commit, like a lockfile fix.
 
-**Private-registry 403 on install.** If the install fails with `403 Forbidden` against a private feed (Artifact Registry, CodeArtifact, Azure Artifacts, a self-hosted proxy), the token in `~/.npmrc` / `~/.config/pip` is usually just expired. Try refreshing it non-interactively first; if the cloud CLI can't mint a token either, the repo's own docs often document a local-build fallback (e.g. `npm install ../sibling-lib --no-save`, building the private package from a sibling checkout).
+**Private-registry 403 on install.** If the install fails with `403 Forbidden` against a private feed (Artifact Registry, CodeArtifact, Azure Artifacts, a self-hosted proxy), the token in `~/.npmrc` / `~/.config/pip` is usually expired. Try refreshing it non-interactively first; if the cloud CLI can't mint a token either, the repo's own docs often document a local-build fallback (e.g. `npm install ../sibling-lib --no-save`, building the private package from a sibling checkout).
 
 That fallback has a trap: **`--no-save` only spares `package.json` — it still rewrites `package-lock.json`.** Merge a second branch without restoring it and you silently commit a locally-resolved lock. So:
 
@@ -293,20 +293,12 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 - **Transitive→peer promotion in a major**: a major can move a bundled dep to a peer (e.g. `eslint-plugin-vue` 9→10 moved `vue-eslint-parser` from `dependencies` to `peerDependencies`). The bot bumps the parent but can't add the now-required peer — it was never in the manifest, so nothing to group or bump. Resolves on paper, then strict install fails on the unmet peer. Fix = manually add the peer (peer + dev) *with* the merge. On HIGH-risk majors, skim the changelog for "moved to peerDependencies" before merging. Beware OR-range peers the bot widens (`"^9 || ^10"`): the resolver can seat the *lower* major, dragging its old transitive peers into conflict — tighten to the major you actually adopt.
 - **Merging into a feature branch with unpushed commits**: harmless, but warn the user so they don't lose track of which merges are local vs pushed.
 
-## Retro — improve this skill
+## Retro
 
-This skill is **two-way**: after the run, spend one beat on whether the run exposed something the
-skill itself should encode. Most clean runs need no change — don't force it.
-
-Propose an edit only on real signal:
-
-- A case these instructions didn't cover and you had to improvise (a bot-branch ecosystem or
-  lockfile the post-merge checks didn't auto-detect, a risk-read pattern that recurred across
-  branches, a discovery quirk on this host/platform).
-- The user overrode a go/skip call or repeated an instruction.
-- A step here was wrong or stale (a check command changed, a branch-naming assumption broke).
-- You repeated a manual workaround that belongs in the per-branch flow.
-
-When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is global and durable, never
-edit it silently. If nothing fired, say nothing — no "run went well" noise.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
+user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
+Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
+the Waxmard/skills source (`skills/triage-renovate-dependabot-prs/SKILL.md`), never the installed
+copy. If nothing fired, say nothing. Typical signals here: a bot-branch ecosystem or lockfile the
+post-merge checks didn't auto-detect, a risk-read pattern that recurred across branches, or a
+discovery quirk on this host/platform.

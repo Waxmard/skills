@@ -82,7 +82,7 @@ With `vmType: vz` and a raw sparse `diffdisk`, the guest mounts with online disc
 
 So, cheapest first:
 - `docker image prune -af` + `docker builder prune -af` — non-destructive, only images with no container and dangling build cache.
-- `docker volume prune -f` removes **anonymous volumes only**. Named ones (`backend_postgres-data`) survive by design — good. But it also leaves orphaned `buildx_buildkit_<builder>0_state` volumes behind when the builder container is gone; those are pure build cache and often the single biggest line in `docker system df`. Check `docker buildx du --builder <name>`, and for builders whose container no longer exists, `docker volume rm buildx_buildkit_<name>0_state` directly.
+- `docker volume prune -f` removes **anonymous volumes only**; named ones (`backend_postgres-data`) survive by design. It leaves orphaned `buildx_buildkit_<builder>0_state` volumes behind when the builder container is gone; those are pure build cache and often the biggest line in `docker system df`. Check `docker buildx du --builder <name>`, and for builders whose container no longer exists, `docker volume rm buildx_buildkit_<name>0_state` directly.
 - Recreate the VM: `colima delete <profile>` then `colima start`. **Destroys all images, containers, and volumes in that profile.** Last resort — only if the backend can't shrink in place.
 - Rancher Desktop: Troubleshooting → Factory Reset, same caveat.
 

@@ -12,9 +12,11 @@ description: >
   replies".
 ---
 
-Pull every review comment on the current branch's open PR/MR and judge each one by reading the actual code. Output is a terse per-comment verdict list, each verdict worded so the user can paste it straight back onto the thread as a reply. No replies posted, no threads resolved, no code edits.
+Pull every review comment on the current branch's open PR/MR and judge each by reading the code, as a terse per-comment verdict the user can paste back onto the thread as a reply.
 
-Works with both **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in scope — bot reviewers (claude, pupcoder, coderabbit, copilot, the company review bot, etc.) and humans both. No author filtering by default; user may pass an `--author <login>` filter to narrow.
+No replies posted, no threads resolved, no code edits.
+
+Works with **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in scope: bot reviewers (claude, pupcoder, coderabbit, copilot, the company review bot, etc.) and humans alike. No author filtering by default; user may pass an `--author <login>` filter to narrow.
 
 ## Pre-flight
 
@@ -133,7 +135,7 @@ Each comment is judged independently by reading the live code — there is no sh
 **Dispatch rule:**
 - **< 4 in-scope comments** → judge them inline yourself, in order. Spawn overhead beats the parallelism win below this count.
 - **≥ 4** → fan out one **Sonnet** subagent per comment (Agent tool, `model: sonnet`), launched in parallel (all tool calls in a single message). Each subagent runs steps 1–3 and returns **only** its one verdict line as its final message. Collect the lines, sort back into comment order, then do the tally (step 4) yourself.
-- **Exception:** if every in-scope comment references the same file and you've already read it, judge inline regardless of count — subagents would just re-read the same diff.
+- **Exception:** if every in-scope comment references the same file and you've already read it, judge inline regardless of count — subagents would re-read the same diff.
 
 Split a bot summary comment into its sub-bullets (`5a`, `5b`, …) **before** dispatch — each sub-bullet is its own unit of work and its own subagent.
 
@@ -191,6 +193,7 @@ For non-anchored comments, drop the `` `file:line` `` segment.
   - Removed code (e.g. in a `stale` reply): pin to `base_sha` instead.
   - Before emitting, run `git show <sha>:<path>` for each link and check the lines match the claim. Fix or drop a link that doesn't.
 - **Scaffolding stays plain:** the header `` `<file>:<line>` `` and the trailing `<url>` are for the user; keep them unlinked. Links go only in the reply prose.
+- **Proof over assertion:** a `disagree` or `answer` that rests on behavior outside the diffed line traces the hops in one clause, with a link at each. One that rests on a command you ran quotes the command and the decisive output line.
 - **Tone:** concrete, practical effect first. No hedging filler, no praise beyond a short opener like "Good catch, but", no "as discussed", no restating the reviewer's words back to them.
 
 Emit the reply inside a fenced block tagged `markdown`, with no blockquote and no indent inside it. Rendered markdown strips the backticks and link URLs the user needs to paste. Use a four-backtick fence if the reply contains a triple-backtick fence.
@@ -288,19 +291,12 @@ Run when the user asks to respond to the threads after applying fixes.
 - **Cross-repo PRs (forks)**: anchored file paths are relative to the fork's branch, which is what's checked out locally. No special handling needed, but be aware if reading fails.
 - **No PR for branch**: user may be on a branch with no PR yet — fail clearly with `gh pr create` / `glab mr create` hint, don't silently fall back to `main`.
 
-## Retro — improve this skill
+## Retro
 
-This skill is **two-way**: after the run, spend one beat on whether the run exposed something the
-skill itself should encode. Most clean runs need no change — don't force it.
-
-Propose an edit only on real signal:
-
-- A case these instructions didn't cover and you had to improvise (a comment/thread type or
-  reviewer-bot format not handled, a platform quirk in the GH/GL fetch the pitfalls miss).
-- The user disagreed with how you verdicted or scoped, or repeated an instruction.
-- A step here was wrong or stale (a `gh`/`glab` field changed, a filter rule misfired).
-- You repeated a manual workaround that belongs in the fetch/verdict flow.
-
-When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is global and durable, never
-edit it silently. If nothing fired, say nothing — no "run went well" noise.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
+user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
+Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
+the Waxmard/skills source (`skills/address-review-comments/SKILL.md`), never the installed copy. If
+nothing fired, say nothing. Skill-specific signals: a comment/thread type or reviewer-bot format not
+handled, a platform quirk in the GH/GL fetch the pitfalls miss, a `gh`/`glab` field that changed, or
+a filter rule that misfired.

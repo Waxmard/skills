@@ -11,7 +11,7 @@ description: >
   address-review-comments).
 ---
 
-Turn review findings that are already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions. The user and you iterate on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
+Turn review findings already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions, iterating with the user on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
 
 GitLab only (`glab`); the user's repos live on self-hosted GitLab.
 
@@ -95,9 +95,9 @@ Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
   ````
 
 - **Effect line (line 1):** bold, one sentence of at most ~15 words stating the **practical consequence**, not the code mechanism: what breaks, for whom, or what an attacker or user can now do ("Any private-network caller can list and call MCP tools without auth." not "The `/mcp/admin/` prefix check is too broad."). If the effect is conditional, append the condition in the same sentence ("…when `auth.mode` is on.").
-- **Cause block:** at most 2 sentences, with linked `file:line` references. Don't restate the effect.
+- **Cause block:** at most 2 sentences, with linked `file:line` references. Don't restate the effect. When the effect lands outside the diffed file (another service, a consumer, a later job), trace the hops in one sentence with a link at each hop (`upload` → `_move` → clean bucket) instead of citing only the diffed line.
 - **Fix line:** `**Fix:**` plus one line of prose or inline code, or a suggestion block in its place when one applies. Omit only when the fix is genuinely "decide X", and then state the decision needed.
-- **Evidence block:** omit by default. Include only observed output the body does not already state: a repro table from a run, command or test output, a log excerpt. Restated rules or code, "not reproduced" disclaimers, and CI-green reasoning are not evidence. Never add the block just to have one. When included, collapse it in `<details><summary>Evidence</summary>` with blank lines inside the tags so GitLab renders the markdown. Never put long evidence in the visible body.
+- **Evidence block:** omit by default. Include only observed output the body does not already state: a repro table from a run, command or test output, a log excerpt. Restated rules or code, "not reproduced" disclaimers, and CI-green reasoning are not evidence. Never add the block just to have one. When included, collapse it in `<details><summary>Evidence</summary>` with blank lines inside the tags so GitLab renders the markdown. Never put long evidence in the visible body. For a command you ran, put the exact command line above its raw output.
 - **Budget:** the visible body of each finding (excluding `<details>` and suggestion blocks) stays at or under ~60 words. Over budget → cut the cause block first.
 - **Several findings in one post:** separate with a line containing only `---`, blank lines around it, ordered by label severity.
 - **Several nits in one post:** one bold effect line `**<n> small cleanups.**`, then one bullet per nit: `<what> [file:line](…): <fix>`. No cause blocks for nits.
@@ -154,20 +154,6 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 - **Bot "looks good"** summaries are not verification.
 - **Throwaway repros** go in a `git worktree add /tmp/<name> <sha>` checkout with `uv sync`. Remove it afterwards with `git worktree remove --force`.
 
-## Retro — improve this skill
+## Retro
 
-This skill is **two-way**: after the run, spend one beat on whether the run exposed something the
-skill itself should encode. Most clean runs need no change — don't force it.
-
-Propose an edit only on real signal:
-
-- A case these instructions didn't cover and you had to improvise (a thread type, bot format, or
-  GitLab position/API quirk the pitfalls miss).
-- The user rewrote drafts in a consistent direction, overrode the dedupe/target rules, or repeated
-  an instruction.
-- A step here was wrong or stale (a `glab` field or endpoint changed, a position rule misfired).
-- You repeated a manual workaround that belongs in the fetch/plan/post flow.
-
-When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is global and durable, never
-edit it silently. If nothing fired, say nothing — no "run went well" noise.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated. Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in the Waxmard/skills source (`skills/post-mr-review/SKILL.md`), never the installed copy. If nothing fired, say nothing. Signals specific to this skill: a thread type, bot format, or GitLab position/API quirk the pitfalls miss; drafts the user rewrote in a consistent direction; or an override of the dedupe/target rules.

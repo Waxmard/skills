@@ -18,8 +18,8 @@ description: >
   improvements.
 ---
 
-Thin orchestrator. Owns only the pre-flight signals, the order, the model tiers, the gates and
-the hand-offs. All real logic stays in the underlying skills.
+Orchestrates the end-of-branch reviews and hand-offs. It owns only the pre-flight signals, the
+order, the model tiers, the gates and the hand-offs; all real logic stays in the underlying skills.
 
 Invocation: invoking wrap-up runs pre-flight → report → pick → run. Invoking wrap-up with `run <reply>`
 (e.g. `run go`, `run 3 6`, `run 2@fast`) re-runs pre-flight silently, skips the report and the
@@ -225,10 +225,10 @@ reports have printed, whether or not an inline row follows. Do not ask "fix or c
 stopping to fix is the default for all of wrap-up.
 
 1. Build the fix list from every report in the wave:
-   - Include every 🔴 Critical and 🟡 Important item, plus every 🔵 Suggestion that has a
+   - Include every Critical and Important item, plus every Suggestion that has a
      concrete *Fix* line. In non-pr-review-toolkit reports (ponytail-review,
      web-design-guidelines, interface-review), include every actionable finding.
-   - Exclude 🟢 strengths and **pure nits**: items the report labels nit/optional/taste that cite
+   - Exclude **pure nits**: items the report labels nit/optional/taste that cite
      no project rule (AGENTS.md/CLAUDE.md convention, lint config). A style item backed by a
      project rule is not a nit, so it gets fixed.
    - Merge overlapping items: the same `file:line`, or the same root cause in the same file or
@@ -285,10 +285,10 @@ Inline rows:
       own instructions on invocation. Their call, not a gate.
 
    Only continue once the tree is clean. If tooling-sync produced no changes, there's nothing to
-   commit — just proceed.
+   commit, so proceed.
 2. `triage-renovate-dependabot-prs`: load skill `triage-renovate-dependabot-prs` and follow
    it. It owns discovery, the per-branch risk read, the per-merge confirmation gate, post-merge
-   checks, and the never-push rule. Don't second-guess its prompts — just let it drive. When
+   checks, and the never-push rule. Don't second-guess its prompts: let it drive. When
    triage offers fix / revert / accept after a failed check, recommend **fix in place**. Revert
    or accept only on the user's explicit choice.
 3. Close: print the completion block below, then mark `Close: completion summary` done. Then run
@@ -323,31 +323,20 @@ Inline rows:
 - **Subagents are read-only.** Only rows 2–5 are ever delegated; tooling-sync and triage always
   run inline because they prompt and write.
 
-## Retro — improve this skill
+## Retro
 
-This skill is **two-way**: after the run, spend one beat on whether the run exposed something the
-skill itself should encode. Most clean runs need no change — don't force it.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover,
+a user correction or repeated instruction, a wrong or stale step, or a manual workaround you
+repeated. Name the section, show before/after lines, give one sentence of why, and apply only after
+a yes, in the Waxmard/skills source (`skills/wrap-up/SKILL.md`), never the installed copy. If
+nothing fired, say nothing.
 
-Scope: this Retro also covers the delegated reviews (rows 2–5). Their subagents can't propose
-edits, so a review that ignored the pinned range, broke its report format or missed the scope is
-raised here. tooling-sync and triage run their own Retros inline; don't repeat what those raised.
+This Retro also covers the delegated reviews (rows 2–5), whose subagents can't propose edits: a
+review that ignored the pinned range, broke its report format or missed the scope is raised here.
+tooling-sync and triage run their own Retros inline; don't repeat what those raised.
 
-Propose an edit only on real signal:
-
-- A case these instructions didn't cover and you had to improvise (e.g. the gate needed a step
-  not listed — stash, submodule sync, a follow-up install tooling-sync flagged that wasn't
-  runnable).
-- The user corrected the ordering or hand-off, or repeated an instruction.
-- A step here was wrong, stale, or contradicted what you found (e.g. triage's protected-branch
-  list changed, or a gate precondition no longer holds).
-- You repeated a manual workaround that belongs in the flow.
-- A pre-flight verdict was wrong (RUN on a skill that found nothing useful, or SKIP on one the
-  user ran anyway and it mattered). Propose adjusting that row's threshold.
-- A tier was wrong (a `fast` review missed something a `strong` re-run caught). Propose
-  moving that row's default tier up.
-
-When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is global and durable, never
-edit it silently. If the change really belongs in `pr-review-toolkit`, `ponytail-review`,
-`web-design-guidelines`, `interface-review`, `tooling-sync` or `triage-renovate-dependabot-prs`,
-point there instead (this is a thin wrapper). If nothing fired, say nothing — no "run went well" noise.
+A pre-flight verdict that was wrong (RUN on a skill that found nothing useful, or SKIP on one the
+user ran anyway and it mattered) is a signal to adjust that row's threshold. A tier that was wrong
+(a `fast` review missed something a `strong` re-run caught) is a signal to move that row's default
+tier up. If the change belongs in `pr-review-toolkit`, `ponytail-review`, `web-design-guidelines`,
+`interface-review`, `tooling-sync` or `triage-renovate-dependabot-prs`, point there instead.

@@ -44,6 +44,7 @@ Analyze the diff across 6 specialized lenses:
 - **Logic errors & regressions**: Null/undefined checks, race conditions, off-by-one errors, memory leaks, security vulnerabilities.
 - **Project guidelines**: Strict compliance with repository rules and patterns.
 - **Confidence scoring (0-100)**: Filter out pedantic nitpicks and false positives. Report only high-confidence issues (≥80).
+- **Cross-boundary effects**: For each changed producer (API handler, writer, job, config), follow the data to its consumers (DB, queue, sidecar, downstream service, UI) and report breakage that lands outside the diff.
 
 ### B. Silent Failure & Error Handling Audit
 - **Zero tolerance for swallowed errors**: Catch blocks that silently log and continue, empty catch/except blocks, unhandled promise rejections.
@@ -84,28 +85,25 @@ Present findings in a structured, actionable report:
 ```markdown
 # MR/PR Review Summary
 
-## 🔴 Critical Issues (Must fix before merge)
+## Critical (must fix before merge)
 - **`<file>:<line>`**: [Lens: Bug/Error Handling] Description of issue.
-  - *Problem*: Why this breaks or fails.
+  - *Problem*: Mechanism in ≤2 sentences. When the effect lands outside the diffed file, trace the hops with a file:line at each.
   - *Fix*: Concrete code suggestion.
 
-## 🟡 Important Issues (Should fix)
+## Important (should fix)
 - **`<file>:<line>`**: [Lens: Tests/Types] Description of issue.
   - *Problem*: Why this poses a risk or regression.
   - *Fix*: Suggested improvement.
 
-## 🔵 Suggestions & Nits (Optional)
+## Suggestions (optional)
 - **`<file>:<line>`**: [Lens: Simplification/Comments] Description and suggestion.
-
-## 🟢 Strengths & Highlights
-- Summary of what was done well (clean abstractions, thorough tests, etc.).
 ```
 
 If no issues meet the confidence threshold:
 ```markdown
 # MR/PR Review Summary
 
-✅ No critical or high-confidence issues found. Code adheres to project standards.
+No high-confidence issues found.
 ```
 
 ## 5. Hard Rules

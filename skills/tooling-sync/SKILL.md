@@ -11,7 +11,7 @@ description: >
   playbook", "what's my playbook say vs this repo", or /tooling-sync.
 ---
 
-Compare the **current repo** (CWD) against the mw-kit playbook and apply chosen updates. The playbook is the user's curated source-of-truth; this repo is the consumer being checked. The flow is **scope → compare → report → decide → apply**, and it is strictly read-only until the user chooses what to apply.
+Compare the **current repo** (CWD) against the mw-kit playbook, the user's curated source of truth, and apply chosen updates. The flow is **scope → compare → report → decide → apply**, strictly read-only until the user chooses what to apply.
 
 **Source of truth:** the mw-kit playbook at `$MW_KIT` if set; otherwise a clone of `https://github.com/Waxmard/mw-kit` at `~/.cache/mw-kit`, which the Step 1 block auto-clones and pulls. To use your own playbook, fork mw-kit and set `MW_KIT`. The index is `playbook/MANIFEST.md` there; each row points at a page whose `## Config` block is the canonical config to diff against.
 
@@ -44,13 +44,13 @@ The plan JSON:
 
 ### Incremental sync (`.tooling-sync.json`)
 
-The consumer repo carries a committed `.tooling-sync.json` recording each tool's last decision and the mw-kit commit the page was at when it was made. The resolver reads it and, per tool, checks whether that page has changed in mw-kit since — so a settled decision isn't re-litigated every run. **You don't compute any of this; read it off the plan.**
+The consumer repo carries a committed `.tooling-sync.json` recording each tool's last decision and the mw-kit commit the page was at when it was made. The resolver checks per tool whether that page has changed since, so a settled decision isn't re-litigated every run. **Read it off the plan; don't compute it.**
 
-- A row with `state.settled: true` means the prior decision (`synced` / `declined` / `override`) still holds *and the governing page hasn't changed*. **Skip its compare** (Step 2) — fold it into a collapsed "settled" line. This is what makes declines stay quiet until their page moves and saves the per-page reads.
+- A row with `state.settled: true` means the prior decision (`synced` / `declined` / `override`) still holds *and the governing page hasn't changed*. **Skip its compare** (Step 2) and fold it into a collapsed "settled" line.
 - A row with `state.settled: false` is **live**: either new (`decision: "new"`), or its page changed since the decision (`page_changed_since_decision: true`). Compare these normally.
 - **Fast path:** if `state.all_settled` is true (every in-scope tool settled, nothing new or stale), there is nothing to compare. Report "Nothing new since last sync (`last_sync`, playbook @ `playbook_commit_at_last_sync` short). N tools settled." and stop — unless the user asks for a full re-check, in which case re-run the resolver with `--no-state` and compare everything.
 - If `state.present` is false, this is a first sync (or `--no-state`): compare every in-scope tool and write the file at the end.
-- **`state.orphaned_tools`** are recorded decisions whose playbook page no longer exists (deleted or renamed upstream). They produce no `in_scope` or `skipped` row — the record is the only trace left — so name them in the report and **drop them from the file in Step 6**. They don't block the fast path; on an otherwise all-settled run, report the fast path *and* the orphan cleanup. An orphan is also a **repo-artifact** question: the page is gone, but whatever it governed may still be sitting in the repo (a workflow, a config file, a script it installed). For each orphan, check whether the repo still carries that artifact and surface its removal as a proposal in the report — dropping the record is not the cleanup. Don't delete it unilaterally; the user decides, then you apply it like any other Step 5 change.
+- **`state.orphaned_tools`** are recorded decisions whose playbook page no longer exists (deleted or renamed upstream). They produce no `in_scope` or `skipped` row, so name them in the report and **drop them from the file in Step 6**. They don't block the fast path; on an otherwise all-settled run, report the fast path *and* the orphan cleanup. Also check whether the repo still carries what the page governed (a workflow, a config file, a script it installed) and propose its removal in the report; dropping the record is not the cleanup. Don't delete it unilaterally; the user decides, then you apply it like any other Step 5 change.
 
 Then:
 
@@ -196,26 +196,13 @@ The apply phase uses `Edit` / `Write` on the consumer repo's own config files. T
 - **Copied-from-upstream repos: match the upstream's formatter, not the playbook's.** When the repo's files are copies of another repo's (templates, vendored skills) and are periodically `diff -r`'d against it, adopting the playbook's `line-length`/`target-version` reformats every file and buries real upstream changes in noise. Probe first (`ruff check --config <tmp> . && ruff format --check --config <tmp> .`); if the canonical values churn files, take the upstream project's values and record the tool as `override`.
 - **`COPY .` images ship new root configs.** Before creating a whole-file config at the root (`ruff.toml`, `renovate.json`, `lefthook.yml`), check the Dockerfile. If it copies the build context wholesale, add the new files to `.dockerignore` in the same apply, or they land in the image.
 
-## Retro — improve this skill
+## Retro
 
-This skill is **two-way**: after the run, spend one beat on whether the run exposed something the
-skill itself should encode. Most clean runs need no change — don't force it.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
+user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
+Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
+the Waxmard/skills source (`skills/tooling-sync/SKILL.md`), never the installed copy. If nothing
+fired, say nothing.
 
-Propose an edit only on real signal:
-
-- A scope/merge case these instructions didn't cover and you had to improvise (a config-merge
-  shape not in Pitfalls, a repo layout the path-remap didn't anticipate, a new alternative pair).
-- The user corrected a recommendation or repeated an instruction.
-- A step here was wrong or stale (resolver flag changed, a permission no longer needed).
-- You repeated a manual workaround that belongs in the skill.
-
-Distinguish skill drift from **playbook** drift: a missing/stale *tool choice or `## Config`
-snippet* belongs in the mw-kit playbook page, not this skill — note it as "update mw-kit"
-rather than editing here. Only fix the skill when the *process* (scope, compare, merge, apply)
-was wrong.
-
-When a signal fires, **propose** the concrete edit: name the section, show before/after lines,
-one sentence of why. Apply only after the user says yes — this file is installed by copy from
-`skills/tooling-sync/SKILL.md` in the Waxmard/skills repo (`skills-refresh` / `npx skills add`),
-so make the edit in that repo source, not the installed copy; it's a repo change the user commits
-and then reinstalls; never edit it silently. If nothing fired, say nothing — no "run went well" noise.
+A missing or stale tool choice or `## Config` snippet is playbook drift: note "update mw-kit" instead
+of editing here, and fix the skill only when the process (scope, compare, merge, apply) was wrong.
