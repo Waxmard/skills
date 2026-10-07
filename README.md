@@ -52,7 +52,7 @@ now.
 | `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
 | `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
-| `ui-taste` | Adds personal UI preferences on top of `frontend-design`. |
+| `ui-taste` | Adds personal UI preferences on top of `frontend-design`, and reviews a UI against them. |
 | `wrap-up` | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
 
 `tooling-sync` reads its playbook from

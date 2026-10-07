@@ -1,15 +1,17 @@
 ---
 name: ui-taste
-description: Maxwell's personal UI design preferences, layered on top of frontend-design. Use whenever building, restyling, or reviewing UI in Maxwell's projects, alongside frontend-design.
+description: Maxwell's personal UI design preferences, layered on top of frontend-design. Use whenever building, restyling, or reviewing UI in Maxwell's projects, alongside frontend-design. Run with no build task to review a surface against these preferences.
 ---
 
 # UI Taste
 
-This is a preference layer, not a process. `frontend-design` owns the process: brief → token plan → review against defaults → build → critique. This file says what Maxwell likes, where that differs from frontend-design's defaults, and which other skills to load at each step.
+This is a preference layer. `frontend-design` owns the build process: brief → token plan → review against defaults → build → critique. This file says what Maxwell likes, where that differs from frontend-design's defaults, and which other skills to load at each step. The one process it owns is **Review**, below.
 
 Precedence: the brief > the repo's existing tokens or design system > this file > `interface-design` / `emil-design-eng` > frontend-design defaults.
 
 ## Workflow
+
+For building or restyling. With no build task, skip to **Review**.
 
 1. If `local.md` exists in this skill's directory, read it first. It holds private, repo-specific rules and exemplars, and it takes precedence over this file for the repos it names.
 2. Load `frontend-design` and follow its two-pass process.
@@ -20,7 +22,67 @@ Precedence: the brief > the repo's existing tokens or design system > this file 
 4. Classify the surface as a **tool** (dashboard, uploader, tracker, admin, companion app) or a **page** (landing, marketing, docs). For tools, also load `interface-design` for craft guidance. Don't create `.interface-design/system.md`; the project's token file is the system.
 5. Build the token plan from the Fingerprint below. When reviewing the plan against frontend-design's defaults, apply the Overrides.
 6. Build. Apply `emil-design-eng` for interaction craft, and follow the Motion section.
-7. Review in this order: `web-design-guidelines` on the changed files, then `better-interface` on the surface you built. If you changed an existing surface, ask Maxwell to run `interface-review` instead; it's user-invoked. Fix every HIGH finding and list MEDIUM/LOW findings for Maxwell. If one of these skills isn't installed, say which and continue.
+7. Review in this order: `web-design-guidelines` on the changed files, then `better-interface` on the surface you built. If you changed an existing surface, ask Maxwell to run `interface-review` instead; it's user-invoked. Fix every HIGH finding. List the MEDIUM/LOW findings for Maxwell in the **Review output** format below. If one of these skills isn't installed, say which and continue.
+
+## Review
+
+Run this when the skill is invoked with no build or restyle task, or when Maxwell asks for a review or critique. It's read-only: change nothing until Maxwell picks findings by number.
+
+1. Do Workflow steps 1, 3 and 4: read `local.md`, find the repo's token source or brand system, and classify the surface. Load `frontend-design` for its calibration list and its restraint guidance.
+2. Resolve scope from the request: a screen, a flow, or the whole app. Render it at desktop, 390px and short landscape (667×375) and inspect the rendered result, not only the source. If nothing can be rendered, review from source and say so under **Not verified**.
+3. **Taste audit.** Walk every Fingerprint subsection, the Overrides, and the Avoid list against the surface. Each deviation is a `Taste` finding that cites the rule it breaks, e.g. `Fingerprint › Tokens and color` or `Avoid › stock kit class strings`. In a review, the repo's existing tokens decide what the fix uses, not whether the deviation is reported. A repo already built on a kit (daisyUI etc.) still gets the finding, with the fix written in that repo's tokens. The only exemption is a brand design system named in `local.md`: its canvas, accent and font are never findings.
+4. **Design suggestions.** Judge the surface as a designer, not a checklist, using frontend-design's principles:
+   - Is the subject's world visible (palette, accent face, vernacular)?
+   - Is there one signature element, and is it spent in the right place?
+   - Do hierarchy and density fit the surface's main job?
+   - Does any of frontend-design's generic-default traits appear?
+   - Is there a missing motion moment that would show what changed?
+
+   Propose 3–5 concrete `Design` suggestions, each naming the element, the change, and the token or Fingerprint value it would use. A surface that passes the audit still gets suggestions: compliance isn't the ceiling.
+5. **Accessibility and usability.** Run `web-design-guidelines` on the surface's source files, then `better-interface` on the rendered surface. Use their checks, severities and cap. Drop their table and verdict formats; restate each finding in the format below. When both report the same issue, keep one finding. If either skill isn't installed, say which in **Coverage** and continue.
+6. Emit **Review output** and stop.
+
+Taste severity:
+- `HIGH`: breaks a Layout and stability rule, or an Avoid entry that runs through a shared component or token.
+- `MEDIUM`: a Fingerprint deviation in a shared token, primitive or layout.
+- `LOW`: a deviation in one leaf component.
+
+Design suggestions carry `SUGGESTION` instead of a severity.
+
+### Review output
+
+Number every finding 1..N in one sequence across both sections. Rank by severity within each section, and put Design suggestions after the Taste findings.
+
+````
+## Taste and design
+
+**1. HIGH · Taste** — `src/lib/components/ui/button/button.svelte:14`
+**Now:** every button variant is a daisyUI `btn-*` class string.
+**Change:** a token-themed button primitive whose variants derive from `--color-primary` with `color-mix()`.
+**Why:** Avoid › stock kit class strings.
+
+**2. SUGGESTION · Design** — `src/routes/+page.svelte:250`
+**Now:** …
+**Change:** …
+**Why:** …
+
+## Accessibility and usability
+
+**3. MEDIUM · Accessibility** — `src/routes/+page.svelte:497`
+**Now:** …
+**Change:** …
+**Why:** …
+````
+
+- The domain after `·` is `Taste`, `Design`, or the owning domain from `better-interface` (Accessibility, Layout, Writing, Typography, Color, Polish).
+- For a finding that spans files, name the file holding the shared fix and list the others in **Now**. Keep each block to the three labelled lines, one sentence each.
+- After the findings, add **Coverage** (one line per domain: what was inspected, or `Not reviewed` and why) and **Not verified** (one line).
+- End with:
+  ```
+  ---
+  Summary: N findings — HIGH X / MEDIUM Y / LOW Z / suggestions S
+  Reply with the numbers to fix.
+  ```
 
 ## Fingerprint
 
