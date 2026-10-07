@@ -26,11 +26,11 @@ For building or restyling. With no build task, skip to **Review**.
 
 ## Review
 
-Run this when the skill is invoked with no build or restyle task, or when Maxwell asks for a review or critique. It's read-only: change nothing until Maxwell picks findings by number.
+Run this when the skill is invoked with no build or restyle task, or when Maxwell asks for a review or critique. It edits nothing in the working tree until Maxwell picks findings by number; its only write is the memo under `.git` (see **Memo**).
 
-1. Do Workflow steps 1, 3 and 4: read `local.md`, find the repo's token source or brand system, and classify the surface. Load `frontend-design` for its calibration list and its restraint guidance.
+1. Do Workflow steps 1, 3 and 4: read `local.md`, find the repo's token source or brand system, and classify the surface. Load `frontend-design` for its calibration list and its restraint guidance. Then load the memo (see **Memo**) to decide between a full and a delta review.
 2. Resolve scope from the request: a screen, a flow, or the whole app. Render it at desktop, 390px and short landscape (667×375) and inspect the rendered result, not only the source. If nothing can be rendered, review from source and say so under **Not verified**.
-3. **Taste audit.** Walk every Fingerprint subsection, the Overrides, and the Avoid list against the surface. Each deviation is a `Taste` finding that cites the rule it breaks, e.g. `Fingerprint › Tokens and color` or `Avoid › stock kit class strings`. In a review, the repo's existing tokens decide what the fix uses, not whether the deviation is reported. A repo already built on a kit (daisyUI etc.) still gets the finding, with the fix written in that repo's tokens. The only exemption is a brand design system named in `local.md`: its canvas, accent and font are never findings.
+3. **Taste audit.** Walk every Fingerprint subsection, the Overrides, and the Avoid list against the surface (in a delta review, against the changed files only). Each deviation is a `Taste` finding that cites the rule it breaks, e.g. `Fingerprint › Tokens and color` or `Avoid › stock kit class strings`. In a review, the repo's existing tokens decide what the fix uses, not whether the deviation is reported. A repo already built on a kit (daisyUI etc.) still gets the finding, with the fix written in that repo's tokens. The only exemption is a brand design system named in `local.md`: its canvas, accent and font are never findings.
 4. **Design suggestions.** Judge the surface as a designer, not a checklist, using frontend-design's principles:
    - Is the subject's world visible (palette, accent face, vernacular)?
    - Is there one signature element, and is it spent in the right place?
@@ -38,9 +38,9 @@ Run this when the skill is invoked with no build or restyle task, or when Maxwel
    - Does any of frontend-design's generic-default traits appear?
    - Is there a missing motion moment that would show what changed?
 
-   Propose 3–5 concrete `Design` suggestions, each naming the element, the change, and the token or Fingerprint value it would use. A surface that passes the audit still gets suggestions: compliance isn't the ceiling.
-5. **Accessibility and usability.** Run `web-design-guidelines` on the surface's source files, then `better-interface` on the rendered surface. Use their checks, severities and cap. Drop their table and verdict formats; restate each finding in the format below. When both report the same issue, keep one finding. If either skill isn't installed, say which in **Coverage** and continue.
-6. Emit **Review output** and stop.
+   In a full review, propose 3–5 concrete `Design` suggestions, each naming the element, the change, and the token or Fingerprint value it would use. A surface that passes the audit still gets suggestions: compliance isn't the ceiling. In a delta review, carry over the earlier suggestions and add new ones only for changed files.
+5. **Accessibility and usability.** Run `web-design-guidelines` on the surface's source files, then `better-interface` on the rendered surface. Use their checks, severities and cap. Drop their table and verdict formats; restate each finding in the format below. When both report the same issue, keep one finding. If either skill isn't installed, say which in **Coverage** and continue. In a delta review, run `web-design-guidelines` on the changed files only. Run `better-interface` on the whole rendered surface, but report only issues that come from changed files or are visible regressions.
+6. Emit **Review output**, write the memo, and stop.
 
 Taste severity:
 - `HIGH`: breaks a Layout and stability rule, or an Avoid entry that runs through a shared component or token.
@@ -48,6 +48,42 @@ Taste severity:
 - `LOW`: a deviation in one leaf component.
 
 Design suggestions carry `SUGGESTION` instead of a severity.
+
+### Memo
+
+The memo lets a rerun after fixes skip what hasn't changed. It lives at `$(git rev-parse --git-path ui-taste)/<branch>/` (per worktree, never committed): `state` holds `tree`, `scope` and `rules` lines, and `findings.md` holds the last Review output verbatim. Outside a git repo there is no memo: always run a full review and say `no memo: not a git repo` under **Coverage**.
+
+At the start of a review, take a snapshot of the working tree:
+
+```bash
+top=$(git rev-parse --show-toplevel)
+idx=$(mktemp)
+cp "$(git rev-parse --git-path index)" "$idx" 2>/dev/null
+GIT_INDEX_FILE="$idx" git -C "$top" add -A
+tree=$(GIT_INDEX_FILE="$idx" git -C "$top" write-tree)
+rm -f "$idx"
+```
+
+`rules` is `git hash-object` of this skill's `SKILL.md` and of `local.md` if it exists, joined by a space. `scope` is the resolved scope from step 2, written as the routes or components reviewed.
+
+Run a **full** review if any of these is true:
+- there is no memo;
+- `git cat-file -e <memo tree>` fails;
+- `scope` or `rules` differs;
+- the reply or request contains `full`;
+- the changed files include the repo's token source from Workflow step 3.
+
+Otherwise run a **delta** review over `git diff --name-only <memo tree> <tree>`, limited to files in scope. If that list is empty, re-emit the memo's findings renumbered, write `No changes since last review; reply `full` to re-review.` under **Coverage**, and stop.
+
+In a delta review, read `findings.md` and handle each earlier finding as follows:
+- **File unchanged:** carry it over as written, and append ` · carried` to its header line.
+- **File changed and the issue is gone:** drop it, and list its old number in a `Resolved since last review: #2, #4` line above **Coverage**.
+- **File changed and the issue is still there:** restate it with the current line number.
+
+Numbering restarts at 1 every run; old numbers appear only in the Resolved line. Add `Mode: delta, N files re-reviewed; reply `full` for a full review` as the first **Coverage** line.
+
+After emitting the output, write the memo. Fill in the literals, because bash calls may not share a shell:
+`d="$(git rev-parse --git-path ui-taste)/<branch>" && mkdir -p "$d" && printf 'tree %s\nscope %s\nrules %s\n' <tree> '<scope>' '<rules>' > "$d/state"`. Then write the Review output verbatim to `$d/findings.md`.
 
 ### Review output
 
@@ -77,6 +113,7 @@ Number every finding 1..N in one sequence across both sections. Rank by severity
 - The domain after `·` is `Taste`, `Design`, or the owning domain from `better-interface` (Accessibility, Layout, Writing, Typography, Color, Polish).
 - For a finding that spans files, name the file holding the shared fix and list the others in **Now**. Keep each block to the three labelled lines, one sentence each.
 - After the findings, add **Coverage** (one line per domain: what was inspected, or `Not reviewed` and why) and **Not verified** (one line).
+- In a delta review, add ` / carried C / resolved R` to the end of the Summary line.
 - End with:
   ```
   ---

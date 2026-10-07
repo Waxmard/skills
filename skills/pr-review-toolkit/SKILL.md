@@ -35,6 +35,23 @@ Perform comprehensive code reviews on Merge Requests (GitLab), Pull Requests (Gi
      git diff HEAD
      ```
 3. Read project rules: Inspect `CLAUDE.md` / `GEMINI.md` / `AGENTS.md` at repo root or relevant directories for project-specific conventions.
+4. **Memo.** Skip this step entirely, with no snapshot and no memo read or write, when the caller names an exact range to review (as `wrap-up` does) or when the current branch isn't the MR/PR head branch (`source_branch` / `headRefName`). Otherwise take a snapshot of the working tree:
+   ```bash
+   top=$(git rev-parse --show-toplevel)
+   idx=$(mktemp)
+   cp "$(git rev-parse --git-path index)" "$idx" 2>/dev/null
+   GIT_INDEX_FILE="$idx" git -C "$top" add -A
+   tree=$(GIT_INDEX_FILE="$idx" git -C "$top" write-tree)
+   rm -f "$idx"
+   mb=$(git merge-base HEAD "$base")   # $base: the base branch resolved above
+   ```
+   The memo is `$(git rev-parse --git-path pr-review-toolkit)/<branch>/`: `state` holds `tree` and `mb` lines, and `findings.md` holds the last report verbatim. Run a **full** review if any of these is true:
+   - there is no memo;
+   - `git cat-file -e <memo tree>` fails;
+   - the memo's `mb` differs from `$mb` (rebase, or base merged in);
+   - the request contains `full`.
+
+   Otherwise run a **delta** review: review `git diff <memo tree> <tree>`, using the full diff only as context. Report findings only on lines in the delta, unless a change there breaks code elsewhere in the full diff. If the delta is empty, re-print `findings.md` under the line `No changes since last review; reply `full` to re-review.` and stop.
 
 ## 2. Review Aspects
 
@@ -106,8 +123,16 @@ If no issues meet the confidence threshold:
 No high-confidence issues found.
 ```
 
+In a delta review, handle each item in the memo's `findings.md` as follows:
+- **File unchanged:** carry it into its severity section and append ` · carried` to its bullet.
+- **File changed and fixed:** drop it, and list it in a final `Resolved since last review:` line as `file:line` entries.
+- **File changed and not fixed:** restate it at the current line.
+
+After printing the report (full or delta, unless step 1.4 was skipped), write the memo. Fill in the literals:
+`d="$(git rev-parse --git-path pr-review-toolkit)/<branch>" && mkdir -p "$d" && printf 'tree %s\nmb %s\n' <tree> <mb> > "$d/state"`. Then write the report verbatim to `$d/findings.md`.
+
 ## 5. Hard Rules
 
-- **Read-only**: Never edit files, commit, push, or approve/merge MR/PRs automatically.
+- **Read-only**: Never edit working-tree files, commit, push, or approve/merge MR/PRs automatically. The only write is the memo under `.git` (step 1.4).
 - **Cite live code**: Reference exact `file:line` locations and symbol names.
 - **No false positives**: Verify assumptions by reading surrounding code context, not just the isolated diff hunk.
