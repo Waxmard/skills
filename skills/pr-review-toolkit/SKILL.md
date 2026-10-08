@@ -3,7 +3,7 @@ name: pr-review-toolkit
 description: >-
   Comprehensive MR/PR code review using specialized audit lenses. Analyzes code
   diffs from GitLab MRs (glab), GitHub PRs (gh), or local branches for bugs,
-  silent failures/error handling, test coverage gaps, type design invariants,
+  silent failures/error handling, missing domain-logic tests and low-value tests, type design invariants,
   comment rot, and code simplification. Trigger: "review this PR", "review this
   MR", "review MR", "review PR", "review the diff", "code review",
   "/pr-review-toolkit", or /review-pr.
@@ -70,10 +70,12 @@ Analyze the diff across 6 specialized lenses:
 - **Actionable errors**: Ensuring user-facing or log messages include context, error codes, and recovery steps.
 - **Inappropriate fallbacks**: Masking failure states with fake data or silent defaults in production code.
 
-### C. Test Coverage & Edge Cases
-- **Behavioral coverage**: Test behavior and contracts rather than brittle implementation details.
-- **Critical gaps**: Untested error handling branches, missing boundary condition tests, absent negative test cases, async/concurrency edge cases.
-- **Test quality**: Resilience to refactoring, clear assertions (DAMP principles).
+### C. Test Value
+- **Gaps (Important)**: a changed branch of domain or boundary logic with no test: parsing an external format, a data rule, an error or edge condition, concurrency, or a bug fix without its regression test. Do not report missing tests for wiring, forwarding, rendering, or glue code.
+- **Tests to delete (Important, *Fix*: delete the test)**: tests added or modified in the diff whose expected values are copied from or computed with the code under test, that assert only mock call arguments or snapshots of current output, or that only check something renders, starts, or does not throw.
+- **New e2e/browser specs (Important, *Fix*: delete unless the user asked for this spec; confirm with the user)**: any Playwright, Cypress, or mocked-fixture e2e spec added in the diff.
+- **Test quality**: assertions on behavior and contracts, resilient to refactoring, clear (DAMP).
+- Review only tests and code in the diff; never flag pre-existing tests outside it.
 
 ### D. Type Design & Invariant Strength
 - **Encapsulation & Invariants**: Are illegal states unrepresentable? Are constructors validating invariants?
@@ -93,7 +95,7 @@ Analyze the diff across 6 specialized lenses:
 - **Subagent fan-out**: For large diffs, delegate individual lenses or file groups to parallel subagents on a fast, low-cost model:
   - Subagent 1: Bug & logic audit + project rule compliance
   - Subagent 2: Silent failure & error handling inspection
-  - Subagent 3: Test coverage & edge case analysis
+  - Subagent 3: Test value (domain-logic gaps, tests to delete)
   - Subagent 4: Type design & invariant review
 
 ## 4. Output Format
