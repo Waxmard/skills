@@ -56,7 +56,23 @@ Phase 1's approval covers the **scope** of the split, including that MRs will be
 
 Never skip straight to phase 2, even if the user's request sounds like "just split it" — the plan is cheap and the decisions are the deliverable.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `glab` (GitLab) or `gh` (GitHub), logged in to the origin host, for the open-MR lookup (step 5) and phase 3 (publish)
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight
+
+Before step 1, check the prerequisites:
+```bash
+command -v git >/dev/null || echo "missing: git"
+command -v glab >/dev/null || command -v gh >/dev/null || echo "missing: glab or gh"
+```
+Missing git: stop. Missing glab and gh: continue, skip the MR/PR lookup in step 5, and say in the phase 1 report that phase 3 can't run.
 
 1. Confirm CWD is in a git repo: `git rev-parse --git-dir`. If not, stop.
 2. `git status --porcelain` must be empty. Uncommitted work would be silently stranded by the branch surgery. If dirty, stop and tell the user to commit or stash.

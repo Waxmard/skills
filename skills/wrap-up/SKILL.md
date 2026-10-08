@@ -40,9 +40,24 @@ Steps below use neutral verbs. Map them to your harness:
 | progress list | `todo` `init` | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `python3`, for row 1's tooling-sync resolver
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## 1. Pre-flight
 
 Read-only: no edits, no installs. Runs before any skill.
+
+Before step 1, check the prerequisites:
+```bash
+for t in git python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
+```
+Missing git: stop. Missing python3: row 1 verdict `skip`, reason "python3 missing"; evaluate the other rows as normal.
 
 1. `git rev-parse --git-dir`. If it fails, stop: "not a git repo".
 2. `branch=$(git rev-parse --abbrev-ref HEAD)`. If it matches

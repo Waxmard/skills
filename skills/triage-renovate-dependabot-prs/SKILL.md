@@ -22,13 +22,30 @@ Merge dep-bump branches into the **current branch** one at a time. The user's pa
 
 Covers **Renovate** (GitLab, `renovate/*`) and **Dependabot** (GitHub, `dependabot/*`). No `gh`/`glab` CLI required — discovery is pure `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git` (discovery is pure git; no `gh` or `glab` needed)
+- The package manager and check tools of each ecosystem in the repo (the install and check commands in step 5 of the per-branch loop)
+- `npx` / `uvx` (optional), to run a bumped linter or formatter at its new version
+- `crane` (optional), to compare container-image bumps
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight
+
+Before step 1, check the prerequisites:
+```bash
+command -v git >/dev/null || echo "missing: git"
+```
+If it prints, stop and tell the user to install git.
 
 1. Confirm CWD is inside a git repo (`git rev-parse --git-dir`). If not, stop and ask.
 2. Read `git rev-parse --abbrev-ref HEAD`. If it is `main`, `master`, `dev`, `develop`, `release/*`, or `staging` → **refuse** and explain: the pattern requires a feature branch as a buffer. Ask the user to switch or override.
 3. Note the likely target branch (heuristic: whichever of `dev` / `main` exists locally and is not HEAD). Use it only for context messages, not for actions.
 4. `git fetch origin --prune` — refresh remote refs and drop deleted bot branches.
-5. Detect the ecosystem(s) present in the repo root. The same repo can mix several (e.g. a Rust binary with a JS frontend in a subdir). Note them for steps 2 and 5 of the per-branch loop.
+5. Detect the ecosystem(s) present in the repo root. The same repo can mix several (e.g. a Rust binary with a JS frontend in a subdir). Note them for steps 2 and 5 of the per-branch loop. For each detected ecosystem, `command -v` the package manager its install-from-lock command uses (step 5 of the per-branch loop); if one is missing, stop and name it, because post-merge checks can't run without it.
 
 ## Discovery
 

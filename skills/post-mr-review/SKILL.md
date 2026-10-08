@@ -15,7 +15,24 @@ Turn review findings already in the conversation (from reviewer subagents or the
 
 GitLab only (`glab`).
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `glab`, logged in to the MR's host
+- `python3` (MR fetches and posts run from Python; omp's eval tool can stand in)
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight
+
+Before step 1, check the prerequisites:
+```bash
+for t in git glab python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
+glab auth status >/dev/null 2>&1 || echo "glab: not logged in"
+```
+If anything prints, stop and tell the user what to install or log in to. A missing python3 is fine when the harness has a Python eval tool (omp).
 
 1. If the conversation has no review findings, stop and tell the user to run a review first. Do not run one yourself.
 2. Detect the MR. Use `--mr <iid>` if given. Otherwise run `glab mr list --source-branch <branch> -F json` for the branch that was reviewed (not necessarily HEAD) and take `.iid`. If there's no MR, stop.

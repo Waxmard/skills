@@ -18,7 +18,24 @@ The verdict run posts nothing, resolves nothing and edits nothing; replies are p
 
 Works with **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in scope: bot reviewers (claude, coderabbit, copilot, etc.) and humans alike. No author filtering by default; user may pass an `--author <login>` filter to narrow.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `gh` (GitHub) or `glab` (GitLab), logged in to the PR/MR's host
+- `jq`, for GitLab MRs
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight
+
+Before step 1, check the prerequisites:
+```bash
+command -v git >/dev/null || echo "missing: git"
+command -v gh >/dev/null || command -v glab >/dev/null || echo "missing: gh or glab"
+```
+If anything prints, stop and tell the user what to install. Step 4 checks the platform CLI's login.
 
 1. Confirm CWD is in a git repo: `git rev-parse --git-dir`. If not, stop.
 2. Read current branch: `git rev-parse --abbrev-ref HEAD`. Any branch is allowed regardless of its base/target — the gate is whether a PR/MR exists (step 5), not the branch name. A branch like `dev` may have an open `dev → main` PR; review it the same as any other.
@@ -28,7 +45,7 @@ Works with **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in scope:
    - Otherwise (self-hosted host with neither substring) probe the CLIs before asking: run `glab auth status` and `gh auth status` and pick the one logged in to the remote's host. Only ask the user if both fail or both match.
 4. Verify CLI is installed and authed:
    - GitHub: `gh auth status` (must succeed).
-   - GitLab: `glab auth status` (must succeed).
+   - GitLab: `glab auth status` (must succeed) and `command -v jq` (the GitLab steps parse JSON with it).
 5. Resolve PR/MR number for current branch:
    - GitHub: `gh pr view --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`).
    - GitLab: `glab mr view --output json` → fail if no MR. Record `head_sha` = `.diff_refs.head_sha` (`.sha` if `diff_refs` is null), `base_sha` = `.diff_refs.base_sha`, and `blob_base` = `.web_url` minus the trailing `/-/merge_requests/<iid>`.

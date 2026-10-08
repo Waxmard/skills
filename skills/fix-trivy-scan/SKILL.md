@@ -15,7 +15,32 @@ description: >
 
 Get the repo's Trivy CI jobs back to green with the smallest correct change: bring trivy up to date, then clear the findings.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `gh`, logged in (Step 1 looks up trivy releases with `gh api`, on any forge; GitHub repos also read run logs with it)
+- `glab`, logged in, and `jq`, for GitLab CI logs
+- `trivy` at the CI-pinned version, or `docker` to run the pinned trivy image
+- `docker`, for `trivy image` jobs that need a local build
+- `crane` (optional; `docker buildx imagetools inspect` works instead)
+- The repo's package manager for lockfile bumps (uv, npm, pnpm, yarn, poetry, cargo, go, or bundler)
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight
+
+Before step 1, check the prerequisites:
+```bash
+for t in git gh; do command -v "$t" >/dev/null || echo "missing: $t"; done
+gh auth status >/dev/null 2>&1 || echo "gh: not logged in"
+command -v trivy >/dev/null || command -v docker >/dev/null || echo "missing: trivy (or docker)"
+# GitLab repos only:
+for t in glab jq; do command -v "$t" >/dev/null || echo "missing: $t"; done
+glab auth status >/dev/null 2>&1 || echo "glab: not logged in"
+```
+If anything prints, stop and tell the user what to install or log in to. Check `docker` and the package manager when a step first needs them; if one is missing then, stop and name it.
 
 1. Confirm CWD is a git repo. Find every trivy invocation and pin:
    ```bash

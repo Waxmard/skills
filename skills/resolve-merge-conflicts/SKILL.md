@@ -16,7 +16,22 @@ Resolve the conflicts of the **current in-progress operation** (merge, rebase, o
 
 The user must invoke this **mid-conflict**, with unmerged paths already present. If no conflict is in progress, stop and explain.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- For per-file verification, the repo's own check tools (step 5 table); a missing one is reported, never installed
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight
+
+Before step 1, check the prerequisites:
+```bash
+command -v git >/dev/null || echo "missing: git"
+```
+If it prints, stop and tell the user to install git.
 
 1. Confirm CWD is inside a git repo (`git rev-parse --git-dir`). If not, stop.
 2. Detect the in-progress operation by checking which sentinel file exists in `.git/`. **Check for a rebase directory first** — a merge-preserving rebase (`--rebase-merges`) has *both* a `rebase-merge` dir and `MERGE_HEAD` while replaying a `merge` command, so testing `MERGE_HEAD` first misclassifies it as an ordinary merge.

@@ -5,6 +5,14 @@ description: Reclaim disk space on macOS by auditing and clearing dev caches, co
 
 # Free disk space (macOS)
 
+## Prerequisites & Required Tools
+
+Runs on macOS only.
+
+- Built in: `df`, `du`, `tmutil`, `rsync`, `trash` (in `/usr/bin` on current macOS; on older versions, `brew install trash`)
+- `git`, for the worktree audit (step 7)
+- Every cleanup tool (brew, go, cargo, npm, pnpm, yarn, uv, pip, docker, colima, mise, nvm, rbenv, conda, ollama) is optional; ground rule 5 guards each one
+
 ## Ground rules
 
 1. **Measure the data volume**: `df -h /System/Volumes/Data`. Plain `df /` reports the sealed system snapshot and is misleading.
@@ -18,6 +26,12 @@ description: Reclaim disk space on macOS by auditing and clearing dev caches, co
 ## Workflow
 
 ### 1. Assess
+
+Before step 1, check the prerequisites:
+```bash
+for t in df du tmutil rsync trash git; do command -v "$t" >/dev/null || echo "missing: $t"; done
+```
+If anything prints, stop and name what's missing.
 
 ```bash
 df -h /System/Volumes/Data

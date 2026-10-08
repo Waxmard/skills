@@ -15,9 +15,24 @@ Compare the **current repo** (CWD) against the mw-kit playbook, the user's curat
 
 **Source of truth:** the mw-kit playbook at `$MW_KIT` if set; otherwise a clone of `https://github.com/Waxmard/mw-kit` at `~/.cache/mw-kit`, which the Step 1 block auto-clones and pulls. To use your own playbook, fork mw-kit and set `MW_KIT`. The index is `playbook/MANIFEST.md` there; each row points at a page whose `## Config` block is the canonical config to diff against.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git` (also clones and pulls the mw-kit playbook)
+- `python3`, to run the playbook's `scope.py` resolver (stdlib only)
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Pre-flight & Step 1 — Scope (run the resolver)
 
 The deterministic half — repo validation, platform + structure detection, glob-based scoping, alternative resolution, and target presence — lives in a script in the playbook. **Run it and parse its JSON; do not re-derive any of it by hand** (no per-page Glob sweeps, no manual platform/monorepo reasoning).
+
+Before step 1, check the prerequisites:
+```bash
+for t in git python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
+```
+If anything prints, stop and tell the user what to install or log in to.
 
 ```bash
 if [ -z "$MW_KIT" ]; then

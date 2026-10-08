@@ -9,6 +9,14 @@ This is a preference layer. `frontend-design` owns the build process: brief → 
 
 Precedence: the brief > the repo's existing tokens or design system > this file > `interface-design` / `emil-design-eng` > frontend-design defaults.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`, for the review memo (without it, every review is full)
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Workflow
 
 For building or restyling. With no build task, skip to **Review**.
@@ -53,6 +61,11 @@ Design suggestions carry `SUGGESTION` instead of a severity.
 ### Memo
 
 The memo lets a rerun after fixes skip what hasn't changed. It lives at `$(git rev-parse --git-path ui-taste)/<branch>/` (per worktree, never committed): `state` holds `tree`, `scope` and `rules` lines, and `findings.md` holds the last Review output verbatim. Outside a git repo there is no memo: always run a full review and say `no memo: not a git repo` under **Coverage**.
+
+```bash
+command -v git >/dev/null || echo "missing: git"
+```
+If it prints, skip the snapshot and memo, run a full review, and say `no memo: git missing` under **Coverage**.
 
 At the start of a review, take a snapshot of the working tree:
 

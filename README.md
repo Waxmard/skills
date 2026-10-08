@@ -14,6 +14,14 @@ before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxma
                                   └─▶ triage-renovate-dependabot-prs
 ```
 
+## Prerequisites
+
+Skills run on macOS and Linux; on Windows, use WSL. `free-disk-space` is
+macOS only. Most skills need `git`, plus `gh` or `glab` logged in to your
+forge for PR and MR work; some also need `jq` or `python3`. Each skill lists
+its exact tools under `## Prerequisites & Required Tools` and checks them
+before it starts.
+
 ## Install
 
 Pi, Antigravity, Codex, OpenCode, and

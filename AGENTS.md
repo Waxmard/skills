@@ -10,6 +10,7 @@ Guidance for AI agents working in this repo.
 ## Conventions
 - Author new skills with Anthropic's [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator) (omp: `omp plugin install skill-creator@claude-plugins-official`; Claude Code: `/plugin install skill-creator@claude-plugins-official`), then apply the layout and README rules here.
 - A skill is its `SKILL.md`: frontmatter `name` + `description`, then the instructions. Run `scripts/check.sh` (tracked JSON + SKILL.md frontmatter) before committing; lefthook and CI run it too.
+- A skill that runs commands has a `## Prerequisites & Required Tools` section listing every CLI it needs, and its pre-flight checks them first (`command -v`, plus `gh auth status` / `glab auth status` when it uses them) and stops naming what's missing.
 - Adding, removing, or renaming a skill: update the Skills table in `README.md` in the same commit.
 - Keep the skills runnable on their own; `wrap-up` only orchestrates the others.
 - Skills are harness-neutral; put omp/Claude Code specifics in a `## Harness notes` table (see `wrap-up`).

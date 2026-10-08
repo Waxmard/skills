@@ -11,7 +11,22 @@ description: >-
 
 Perform comprehensive code reviews on Merge Requests (GitLab), Pull Requests (GitHub), or local branch diffs using structured audit lenses.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `glab` (GitLab MR source) or `gh` (GitHub PR source), logged in; not needed for a local branch review
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## 1. Pre-flight & Diff Resolution
+
+Before step 1, check the prerequisites:
+```bash
+command -v git >/dev/null || echo "missing: git"
+```
+Missing git: stop. For an MR/PR source, step 2 needs `glab` or `gh` installed and logged in (`glab auth status` / `gh auth status`); if it isn't, use the Local Branch diff source and say once that the MR/PR diff was skipped and why.
 
 1. Confirm repo: `git rev-parse --git-dir`
 2. Determine diff source:

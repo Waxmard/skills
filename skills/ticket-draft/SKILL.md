@@ -7,9 +7,17 @@ description: Draft a ticket title, description, and suggested weight from a bug,
 
 Tickets are short planning records. Write like Maxwell writes them: terse, casual, consumer-facing.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- The tracker's CLI, as named in its `references/<tracker>-<project>.md`: `jira` (ankitpokhrel/jira-cli, configured with `jira init`), `glab` or `gh` (logged in), or whatever the reference names for Linear
+
+Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Calibrate first
 
-Find out which tracker and project the ticket goes to. If it's unclear, ask. Then pull 10–20 recent tickets the user wrote there, so the voice and weights match. Tracker commands, known scales, title examples, and repo path conventions live in `references/<tracker>-<project>.md`. Those files are local to this machine and never synced; read the matching one.
+Find out which tracker and project the ticket goes to. If it's unclear, ask. Then pull 10–20 recent tickets the user wrote there, so the voice and weights match. Tracker commands, known scales, title examples, and repo path conventions live in `references/<tracker>-<project>.md`. Those files are local to this machine and never synced; read the matching one. Before pulling them, check the tracker's CLI with `command -v <cli>` (plus `glab auth status` or `gh auth status` for GitLab or GitHub issues). If it fails, stop and tell the user what to install, configure, or log in to.
 
 No reference for the tracker yet? Use its CLI (`glab issue list`, `gh issue list`, etc.) to read recent tickets, then add a `references/<tracker>-<project>.md` with what you learned.
 
