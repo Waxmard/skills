@@ -18,9 +18,10 @@ before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxma
 
 Skills run on macOS and Linux; on Windows, use WSL. `free-disk-space` is
 macOS only. Most skills need `git`, plus `gh` or `glab` logged in to your
-forge for PR and MR work; some also need `jq` or `python3`. Each skill lists
-its exact tools under `## Prerequisites & Required Tools` and checks them
-before it starts.
+forge for PR and MR work; some also need `jq` or `python3`. Each skill that
+runs commands lists its exact tools under `## Prerequisites & Required Tools`
+and checks them before it starts; the rest name the harness capabilities they
+rely on.
 
 ## Install
 
@@ -74,12 +75,9 @@ first.
 ## Companions
 
 `wrap-up` and `ui-taste` can use skills from other repos. `wrap-up` skips a
-missing one and prints its install line. `ui-taste` loads companions only when the
-selected task needs them: `frontend-design` for a genuinely new direction or
-build, `interface-design` for interaction questions, and `emil-design-eng` for
-selected interaction polish. It uses targeted `better-*` or guideline checks only
-for a demonstrated question or repository requirement. Motion companions apply
-only when selected work includes motion.
+missing one and prints its install line. The table below is the authority on which
+companion loads for what; `ui-taste` loads one only when the selected task needs
+it, never as a cascade.
 
 | Companion | Used by |
 |---|---|
@@ -130,25 +128,23 @@ Adapted from:
 - [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
   by Anthropic: used to author these skills.
 
-Builds on:
+Builds on — load conditions for each companion are in [Companions](#companions):
 
 - [ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert:
   `ponytail-review` in `wrap-up`.
 - [frontend-design](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/frontend-design)
-  by Anthropic: direction-setting for genuinely new UI work in `ui-taste`.
+  by Anthropic: direction-setting in `ui-taste`.
 - [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills):
-  `web-design-guidelines` in `wrap-up` and targeted checks in `ui-taste` when a
-  demonstrated question or repository requirement calls for them.
+  `web-design-guidelines` in `wrap-up` and `ui-taste`.
 - [jakubkrehel/skills](https://github.com/jakubkrehel/skills): `better-*` and
-  `interface-review` in `wrap-up`; targeted `better-*` checks in `ui-taste` when
-  a demonstrated question or repository requirement calls for them.
+  `interface-review` in `wrap-up` and `ui-taste`.
 - [interface-design](https://github.com/Dammyjay93/interface-design):
-  interaction guidance in `ui-taste` when needed.
+  interaction guidance in `ui-taste`.
 - [emilkowalski/skills](https://github.com/emilkowalski/skills):
-  `emil-design-eng` for selected interaction polish in `ui-taste`.
+  `emil-design-eng` in `ui-taste`.
 - [transitions.dev](https://transitions.dev)
   ([repo](https://github.com/Jakubantalik/transitions.dev)): optional motion
-  guidance in `ui-taste` when selected work includes motion.
+  guidance in `ui-taste`.
 
 ## License
 

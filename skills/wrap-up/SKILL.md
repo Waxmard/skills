@@ -99,7 +99,7 @@ Missing git: stop. Missing python3: row 1 verdict `skip`, reason "python3 missin
      ```
      If the count is ≥ 1, set `others=N`.
 5. `MW_KIT` stop (row 1 only). If `$MW_KIT` is empty, stop and ask: "`MW_KIT` isn't set, so
-   tooling-sync would clone or pull the default mw-kit playbook into `~/.cache/mw-kit`. Reply `cache` to use
+   tooling-sync would clone or pull the default mw-kit playbook (`Waxmard/mw-kit`) into `~/.cache/mw-kit`. Reply `cache` to use
    that, a path to use your own playbook, or `skip` to drop tooling-sync. Export `MW_KIT` in your
    shell profile to skip this question next time." The answer only decides row 1, and every
    other row is evaluated as normal. `cache`: run the resolver as is. A path: prefix the resolver

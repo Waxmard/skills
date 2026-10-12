@@ -5,7 +5,7 @@ description: Draft a ticket title, description, and suggested weight from a bug,
 
 # Ticket drafting
 
-Tickets are short planning records. Write the way the user writes there: terse, casual, consumer-facing.
+Tickets are short planning records. Write the way the user writes tickets: terse, casual, consumer-facing.
 
 ## Prerequisites & Required Tools
 
