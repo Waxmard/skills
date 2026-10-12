@@ -277,12 +277,16 @@ Run when the user asks to respond to the threads after applying fixes.
 
      If a reply itself contains a triple-backtick fence, use a four-backtick outer fence.
 
+    Terminal copy hard-wraps long lines and puts a newline inside link URLs, which GitLab and GitHub then don't render as links. So also write every reply to one temp file, `/tmp/<proj_id>-<n>-replies.md`, with the same fenced blocks, and give the user its path to copy from. Before emitting, check that no `](...)` target in any reply contains a newline.
+
    - **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Write each body to a temp file, then post:
      - GitLab: per `post-mr-review`'s **Post** section, `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`.
      - GitHub inline comment: `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`).
      - GitHub review summary or conversation comment: these have no thread, so `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>`, with the body opening on a link to the comment's `html_url`.
 
      Then re-fetch and verify the new comment count. Never resolve or reopen threads.
+
+     To fix a reply the user already posted (e.g. its links broke), edit it in place instead of posting a second one. GitLab: `PUT projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes/<note_id>` with `{"body"}`; GitHub: `gh api -X PATCH repos/<owner_repo>/pulls/comments/<id> -F body=@<file>`. On a 403, POST the body as a new reply and tell the user to delete the old note by hand. Re-fetch afterwards and check the thread's note count is unchanged.
 
 ## Args
 
