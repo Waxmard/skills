@@ -250,6 +250,11 @@ stopping to fix is the default for all of wrap-up.
    - Exclude **pure nits**: items the report labels nit/optional/taste that cite
      no project rule (AGENTS.md or harness rules-file convention, lint config). A style item
      backed by a project rule is not a nit, so it gets fixed.
+   - Exclude **retired-concept removals**: a `Regression` finding that a removed element was
+     left unreplaced only holds while the concept it served still exists. When the same diff
+     also deleted the data field, API type or schema that element rendered from, the removal is
+     a cutover with nothing to replace — a false positive, not a finding. Cite the deleted
+     counterpart as the evidence in step 3's skip status.
    - Merge overlapping items: the same `file:line`, or the same root cause in the same file or
      symbol even when the lines or wording differ. Keep one item under the first report in row
      order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
