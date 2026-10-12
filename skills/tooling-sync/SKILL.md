@@ -217,7 +217,7 @@ The apply phase uses `Edit` / `Write` on the consumer repo's own config files. T
 After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
 user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
 Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
-the Waxmard/skills source (`skills/tooling-sync/SKILL.md`), never the installed copy. If nothing
+the skills repo source (`skills/tooling-sync/SKILL.md`), never the installed copy. If nothing
 fired, say nothing.
 
 A missing or stale tool choice or `## Config` snippet is playbook drift: note "update mw-kit" instead

@@ -238,7 +238,7 @@ State:
 After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
 user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
 Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
-the Waxmard/skills source (`skills/resolve-merge-conflicts/SKILL.md`), never the installed copy. If
+the skills repo source (`skills/resolve-merge-conflicts/SKILL.md`), never the installed copy. If
 nothing fired, say nothing. Typical signals here: a `git status` code not in Pitfalls, a
 lockfile/generated-file regen step not listed, a tool with non-obvious ours/theirs semantics, or a
 marker grep that missed a conflict style.

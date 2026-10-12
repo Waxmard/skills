@@ -315,7 +315,7 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
 user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
 Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
-the Waxmard/skills source (`skills/triage-renovate-dependabot-prs/SKILL.md`), never the installed
+the skills repo source (`skills/triage-renovate-dependabot-prs/SKILL.md`), never the installed
 copy. If nothing fired, say nothing. Typical signals here: a bot-branch ecosystem or lockfile the
 post-merge checks didn't auto-detect, a risk-read pattern that recurred across branches, or a
 discovery quirk on this host/platform.
