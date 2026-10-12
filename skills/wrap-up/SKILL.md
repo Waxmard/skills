@@ -215,6 +215,10 @@ Subagent task text (fill in literals; subagents don't share this conversation):
 
 `<start>` is `<from>` for row 2 and `<mb>` for rows 3–5.
 
+Rows 2–3 review every changed file in their pinned range, not just UI files. Pass the UI
+file list only to rows 4–5; it scopes the interface reviews and must not narrow the
+general code or simplification reviews.
+
 - `pr-review-toolkit`: its own "Local Branch" diff source, overridden by the pinned range above.
 - `ponytail-review`: bare name `ponytail-review`.
 - `web-design-guidelines`: always pass the UI file list from `<mb>...<head0>`. It asks the user
