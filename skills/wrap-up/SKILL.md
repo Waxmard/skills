@@ -99,7 +99,7 @@ Missing git: stop. Missing python3: row 1 verdict `skip`, reason "python3 missin
      ```
      If the count is ≥ 1, set `others=N`.
 5. `MW_KIT` stop (row 1 only). If `$MW_KIT` is empty, stop and ask: "`MW_KIT` isn't set, so
-   tooling-sync would clone or pull Waxmard/mw-kit into `~/.cache/mw-kit`. Reply `cache` to use
+   tooling-sync would clone or pull the default mw-kit playbook (`Waxmard/mw-kit`) into `~/.cache/mw-kit`. Reply `cache` to use
    that, a path to use your own playbook, or `skip` to drop tooling-sync. Export `MW_KIT` in your
    shell profile to skip this question next time." The answer only decides row 1, and every
    other row is evaluated as normal. `cache`: run the resolver as is. A path: prefix the resolver
@@ -269,8 +269,10 @@ stopping to fix is the default for all of wrap-up.
       an earlier report's fix (name that report).
    4. If anything changed, show `git status --short` and suggest a subject (e.g. `fix: address
       <skill> findings`). Then stop and wait for the user to commit. Move to the next report only
-      when `git status --short` matches the pre-flight `baseline`. If nothing changed, say so and
-      go straight to the next report.
+      when `git status --short` matches the pre-flight `baseline`. When the next report's fixes
+      touch the same files, carry straight on instead and suggest one subject covering both
+      reports — pausing there would commit the same file twice with nothing reviewed between. If
+      nothing changed, say so and go straight to the next report.
 4. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
    without stopping.
 
@@ -347,7 +349,7 @@ Inline rows:
 After the run, propose an edit to this skill only on real signal: a case these steps didn't cover,
 a user correction or repeated instruction, a wrong or stale step, or a manual workaround you
 repeated. Name the section, show before/after lines, give one sentence of why, and apply only after
-a yes, in the Waxmard/skills source (`skills/wrap-up/SKILL.md`), never the installed copy. If
+a yes, in the skills repo source (`skills/wrap-up/SKILL.md`), never the installed copy. If
 nothing fired, say nothing.
 
 This Retro also covers the delegated reviews (rows 2–5), whose subagents can't propose edits: a

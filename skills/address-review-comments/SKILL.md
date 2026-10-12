@@ -319,7 +319,7 @@ Run when the user asks to respond to the threads after applying fixes.
 After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
 user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
 Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
-the Waxmard/skills source (`skills/address-review-comments/SKILL.md`), never the installed copy. If
+the skills repo source (`skills/address-review-comments/SKILL.md`), never the installed copy. If
 nothing fired, say nothing. Skill-specific signals: a comment/thread type or reviewer-bot format not
 handled, a platform quirk in the GH/GL fetch the pitfalls miss, a `gh`/`glab` field that changed, or
 a filter rule that misfired.

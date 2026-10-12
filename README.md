@@ -18,9 +18,10 @@ before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxma
 
 Skills run on macOS and Linux; on Windows, use WSL. `free-disk-space` is
 macOS only. Most skills need `git`, plus `gh` or `glab` logged in to your
-forge for PR and MR work; some also need `jq` or `python3`. Each skill lists
-its exact tools under `## Prerequisites & Required Tools` and checks them
-before it starts.
+forge for PR and MR work; some also need `jq` or `python3`. Each skill that
+runs commands lists its exact tools under `## Prerequisites & Required Tools`
+and checks them before it starts; the rest name the harness capabilities they
+rely on.
 
 ## Install
 
@@ -60,7 +61,7 @@ now.
 | `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
 | `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
-| `ui-taste` | Adds personal UI preferences on top of `frontend-design`, and reviews a UI against them. |
+| `ui-taste` | Reviews existing interfaces with preserve-first, ranked suggestions; explores larger redesigns separately and implements only requested or selected changes. |
 | `wrap-up` | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
 
 `tooling-sync` reads its playbook from
@@ -73,18 +74,20 @@ first.
 
 ## Companions
 
-`wrap-up` and `ui-taste` call skills from other repos. `wrap-up` skips a
-missing one and prints its install line.
+`wrap-up` and `ui-taste` can use skills from other repos. `wrap-up` skips a
+missing one and prints its install line. The table below is the authority on which
+companion loads for what; `ui-taste` loads one only when the selected task needs
+it, never as a cascade.
 
 | Companion | Used by |
 |---|---|
 | `ponytail-review` | `wrap-up` |
-| `frontend-design` | `ui-taste` |
-| `web-design-guidelines` | `wrap-up`, `ui-taste` |
-| `better-*`, `interface-review` | `wrap-up`, `ui-taste` |
-| `interface-design` | `ui-taste` |
-| `emil-design-eng` | `ui-taste` |
-| `transitions-dev`, `transitions-polish` | `ui-taste` |
+| `frontend-design` | `ui-taste` for a genuinely new direction or build |
+| `web-design-guidelines` | `wrap-up`; `ui-taste` only for a demonstrated question or repository requirement |
+| `better-*`, `interface-review` | `wrap-up`; targeted `better-*` checks for a demonstrated `ui-taste` question or repository requirement |
+| `interface-design` | `ui-taste` for interaction questions |
+| `emil-design-eng` | `ui-taste` for selected interaction polish |
+| `transitions-dev`, `transitions-polish` | `ui-taste` only when selected work includes motion |
 
 ```text
 /marketplace add DietrichGebert/ponytail                 # ponytail-review, omp
@@ -125,23 +128,23 @@ Adapted from:
 - [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
   by Anthropic: used to author these skills.
 
-Builds on:
+Builds on — load conditions for each companion are in [Companions](#companions):
 
 - [ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert:
   `ponytail-review` in `wrap-up`.
 - [frontend-design](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/frontend-design)
-  by Anthropic: the process `ui-taste` layers on.
+  by Anthropic: direction-setting in `ui-taste`.
 - [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills):
   `web-design-guidelines` in `wrap-up` and `ui-taste`.
 - [jakubkrehel/skills](https://github.com/jakubkrehel/skills): `better-*` and
   `interface-review` in `wrap-up` and `ui-taste`.
 - [interface-design](https://github.com/Dammyjay93/interface-design):
-  craft guidance in `ui-taste`.
+  interaction guidance in `ui-taste`.
 - [emilkowalski/skills](https://github.com/emilkowalski/skills):
   `emil-design-eng` in `ui-taste`.
 - [transitions.dev](https://transitions.dev)
-  ([repo](https://github.com/Jakubantalik/transitions.dev)): motion
-  snippets and timing in `ui-taste`.
+  ([repo](https://github.com/Jakubantalik/transitions.dev)): optional motion
+  guidance in `ui-taste`.
 
 ## License
 
