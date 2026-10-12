@@ -269,8 +269,10 @@ stopping to fix is the default for all of wrap-up.
       an earlier report's fix (name that report).
    4. If anything changed, show `git status --short` and suggest a subject (e.g. `fix: address
       <skill> findings`). Then stop and wait for the user to commit. Move to the next report only
-      when `git status --short` matches the pre-flight `baseline`. If nothing changed, say so and
-      go straight to the next report.
+      when `git status --short` matches the pre-flight `baseline`. When the next report's fixes
+      touch the same files, carry straight on instead and suggest one subject covering both
+      reports — pausing there would commit the same file twice with nothing reviewed between. If
+      nothing changed, say so and go straight to the next report.
 4. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
    without stopping.
 
