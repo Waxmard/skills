@@ -254,6 +254,7 @@ Then detect the stack from repo root files and **run** the matching checks (not 
 
 | Detection | Commands |
 |---|---|
+| `package.json` with `scripts.ci` | `npm run ci` (the repo's own aggregate) |
 | `package.json` with `scripts.lint` AND `scripts.type-check` | `npm run lint && npm run type-check` |
 | `package.json` with only `scripts.build` | `npm run build` |
 | `pyproject.toml` + `uv.lock` | `uv run ruff check .` (+ `uv run mypy .` if mypy configured) |
