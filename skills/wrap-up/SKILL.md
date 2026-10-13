@@ -35,7 +35,7 @@ Steps below use neutral verbs. Map them to your harness:
 |---|---|---|---|
 | invoke with args | `/skill:wrap-up run go` | `/wrap-up run go` | first message `run go` |
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
-| spawn the wave | one Task call, `model: "@smol"` (fast) or `"@slow"` (strong) | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–4 inline in order, note "ran inline: no subagents" |
+| spawn the wave | one `task` call, `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400) | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–4 inline in order, note "ran inline: no subagents" |
 | retrieve a report verbatim | `read agent://<id>:raw` (the `wait` snapshot and plain `read agent://<id>` truncate; `/report:raw` returns null for unstructured reports) | the Agent tool result | n/a |
 | progress list | `todo` `init` | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
@@ -69,6 +69,11 @@ Missing git: stop. Missing python3: row 1 verdict `skip`, reason "python3 missin
    git fetch origin --prune
    base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
    git rev-parse --verify -q "$base" >/dev/null || base=origin/master
+   if [ "$branch" != "dev" ] && git rev-parse --verify -q origin/dev >/dev/null \
+      && git merge-base --is-ancestor "$base" origin/dev 2>/dev/null \
+      && git merge-base --is-ancestor origin/dev HEAD 2>/dev/null; then
+     base=origin/dev
+   fi
    mb=$(git merge-base HEAD "$base")
    head0=$(git rev-parse HEAD)
    memo="$(git rev-parse --git-path wrap-up)/$branch"
