@@ -257,9 +257,9 @@ Then detect the stack from repo root files and **run** the matching checks (not 
 | `package.json` with `scripts.ci` | `npm run ci` (the repo's own aggregate) |
 | `package.json` with `scripts.lint` AND `scripts.type-check` | `npm run lint && npm run type-check` |
 | `package.json` with only `scripts.build` | `npm run build` |
-| `pyproject.toml` + `uv.lock` | `uv run ruff check .` (+ `uv run mypy .` if mypy configured) |
-| `pyproject.toml` + `poetry.lock` | `poetry run ruff check .` (+ `poetry run mypy .` if configured) |
-| `pyproject.toml`, plain | `ruff check .` (+ `mypy .` if configured) |
+| `pyproject.toml` + `uv.lock` | `uv run ruff check .` (+ `uv run mypy .` and `uv run pytest` if configured) |
+| `pyproject.toml` + `poetry.lock` | `poetry run ruff check .` (+ `poetry run mypy .` and `poetry run pytest` if configured) |
+| `pyproject.toml`, plain | `ruff check .` (+ `mypy .` and `pytest` if configured) |
 | `Cargo.toml` | `cargo check --all-targets && cargo clippy --all-targets -- -D warnings` |
 | `go.mod` | `go build ./... && go vet ./...` |
 | `Gemfile` | `bundle exec rubocop` (if configured) and `bundle exec rspec` only if user opts in (tests are slow) |
@@ -271,6 +271,8 @@ Then detect the stack from repo root files and **run** the matching checks (not 
 | None of the above | Skip checks, tell the user. |
 
 Respect project-specific overrides — if the repo has an `AGENTS.md` (or the harness's rules file), `Makefile`, or script like `./pre-commit.sh` / `./scripts/check.sh` that bundles the canonical checks, prefer that.
+
+When **merge + repair** edits source files, run the verification commands only *after* the edit call has succeeded (never in the same parallel tool batch as the edit), and run the tests covering every file the repair touched — not just the test that failed on the un-repaired branch.
 
 Failure handling:
 
