@@ -3,13 +3,13 @@ name: address-review-comments
 description: >
   Fetch all review comments on the current branch's PR/MR (GitHub or GitLab,
   human + AI reviewers alike) and produce a terse agree/disagree verdict for
-  each by reading the referenced code. Read-only by default; after fixes land
-  it can draft replies to copy-paste, or post them one by one with
-  confirmation. Never resolves threads or edits files. Use when the user wants
-  a second opinion on reviewer feedback before responding. Trigger: "review
-  the pr comments", "agree or disagree with the comments", "go through the
-  reviewer feedback", "/address-review-comments", "respond to the threads", "draft
-  replies".
+  each by reading the referenced code. Read-only by default; can also draft
+  or post replies to the PR/MR threads with confirmation. Never resolves
+  threads or edits files. Use when the user wants a second opinion on
+  reviewer feedback before responding. Trigger: "review the pr comments",
+  "agree or disagree with the comments", "go through the reviewer feedback",
+  "/address-review-comments", "respond to the threads", "draft replies",
+  "post replies".
 ---
 
 Pull every review comment on the current branch's open PR/MR and judge each by reading the code, as a terse per-comment verdict the user can paste back onto the thread as a reply.
@@ -252,17 +252,17 @@ https://github.com/...
 Summary: N comments — agree X / disagree Y / partial Z / stale A / defer B / needs-info C / answer D
 ```
 
-Stop. Offer **Respond** only after the user says fixes have landed.
+Remind the user in one line that you can post these replies to the PR/MR threads (now or after fixes land) if they ask.
 
-## Respond: replies after fixes land
+## Respond: post or draft replies
 
-Run when the user asks to respond to the threads after applying fixes.
+Run when the user asks to post or respond to the threads (either immediately with the verdict replies or after applying fixes).
 
 1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
-2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: the canonical filter), which drops threads the user already answered. Reply to every remaining thread the fixes addressed, findings and Questions alike. Skip any thread the user says they're declining.
-3. **Content.** One reply per thread in Reply style, links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
-   - **Link the fix commit.** Find the commit that changed the cited code: `git log -s --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
-4. **Mode.** Ask once with the structured question tool: `Copy-paste` (recommended) or `Draft and post`.
+2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: the canonical filter), which drops threads the user already answered. Reply to every remaining in-scope thread (or the subset the user asked to post). Skip any thread the user says they're declining.
+3. **Content.** If posting a verdict reply as-is (no code change for that thread), reuse the reply already drafted in the verdict run. If fixes landed for the thread, draft a reply in Reply style with links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
+   - **Link the fix commit** (when a fix landed). Find the commit that changed the cited code: `git log -s --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
+4. **Mode.** If the user explicitly asked to post (e.g. "post it", "post the replies"), use **Draft and post** directly. Otherwise ask once with the structured question tool: `Copy-paste` (recommended) or `Draft and post`.
    - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL as a plain line:
 
          **N.** `<file>:<line>` (@<author>)
