@@ -18,9 +18,27 @@ The author is asking "did I make this worse?". Report what the change caused and
 
 Read the change before forming an opinion of it. The stated intent decides what counts as incomplete, and a skimmed diff produces findings about code the next hunk already fixed.
 
+## Prerequisites & Required Tools
+
+Runs on macOS and Linux (on Windows, use WSL).
+
+- `git`
+- `gh` (logged in), for `pr <n>` targets, default-branch fallback, and open-PR checks; not needed when reviewing a local branch or range with `origin/HEAD` set
+- Companion skills: `better-interface` and the `better-*` domain skills (`npx skills add jakubkrehel/skills`)
+
+Install missing CLI tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
 ## Core principles
 
 ### 1. Resolve the change scope first
+
+Before step 1, check the prerequisites:
+
+```bash
+command -v git >/dev/null || echo "missing: git"
+```
+
+Missing `git`: stop. For a `pr <n>` target, also check `command -v gh >/dev/null && gh auth status`; if missing or unauthenticated, stop and name what's missing.
 
 The whole invocation is the target, so `/interface-review pr 482` reviews pull request 482. [Scope resolution](scope-resolution.md) holds the accepted targets and how each resolves.
 

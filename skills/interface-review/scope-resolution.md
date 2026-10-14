@@ -69,7 +69,7 @@ Exclude these and name what you excluded in the scope block. They are machine-au
 
 Two exceptions stay in scope. A **font file** added or swapped is a `better-typography` change. An **image** added to a component is a `better-ui` and `better-accessibility` change, through its `alt` text and its outline. Review the code that references them, not the bytes.
 
-Apply the exclusions as pathspecs so the file count in the scope block is the reviewed count. Two traps under-exclude silently. `*.lock` catches `yarn.lock` and `Cargo.lock` but not `package-lock.json` or `pnpm-lock.yaml`, so cover every suffix in the table. And `**` needs `glob` magic: without it `*` never crosses `/`, so `**/dist/**` excludes `packages/a/dist/` but misses a root-level `dist/`. Run the diff with and without the pathspecs and confirm the count dropped by exactly the files you named.
+Apply the exclusions as pathspecs so the file count in the scope block is the reviewed count. Two traps under-exclude silently. `*.lock` catches `yarn.lock` and `Cargo.lock` but not `package-lock.json` or `pnpm-lock.yaml`, so cover every suffix in the table. And `**` needs `:(glob,exclude)` magic: without `glob`, `**` is just two `*` wildcards rather than zero-or-more directories, so `:(exclude)**/dist/**` requires a leading `/` and misses a root-level `dist/`. Run the diff with and without the pathspecs and confirm the count dropped by exactly the files you named.
 
 ## Expanding to consumers
 
