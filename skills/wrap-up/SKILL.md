@@ -103,7 +103,7 @@ Missing git: stop. Missing python3: row 1 verdict `skip`, reason "python3 missin
      | grep -viE '\[bot\]|renovate|dependabot' | wc -l
      ```
      If the count is ≥ 1, set `others=N`.
-5. `MW_KIT` stop (row 1 only). If `$MW_KIT` is empty, stop and ask: "`MW_KIT` isn't set, so
+5. `MW_KIT` stop (row 1 only). Check `$MW_KIT` via the shell (`bash` tool), never omp's `eval` kernel (`eval` spawns with a stripped 24-variable allowlist that omits custom shell exports). If `$MW_KIT` is empty, stop and ask: "`MW_KIT` isn't set, so
    tooling-sync would clone or pull the default mw-kit playbook (`Waxmard/mw-kit`) into `~/.cache/mw-kit`. Reply `cache` to use
    that, a path to use your own playbook, or `skip` to drop tooling-sync. Export `MW_KIT` in your
    shell profile to skip this question next time." The answer only decides row 1, and every
