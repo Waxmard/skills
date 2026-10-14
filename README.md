@@ -54,6 +54,7 @@ now.
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-trivy-scan` | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
 | `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
+| `interface-review` | Reviews UI, typography, layout, color, copy, and accessibility changes across the affected surfaces. |
 | `post-mr-review` | Turns review findings into GitLab MR comments and posts only what you confirm. |
 | `pr-review-toolkit` | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
 | `resolve-merge-conflicts` | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
@@ -79,7 +80,7 @@ first.
 |---|---|
 | `ponytail-review` | `wrap-up` |
 | `web-design-guidelines` | `wrap-up` |
-| `better-*`, `interface-review` | `wrap-up` |
+| `better-*` | `interface-review` |
 
 ```text
 /marketplace add DietrichGebert/ponytail                 # ponytail-review, omp
@@ -90,7 +91,7 @@ first.
 
 ```sh
 npx skills add vercel-labs/agent-skills        # web-design-guidelines
-npx skills add jakubkrehel/skills              # better-*, interface-review
+npx skills add jakubkrehel/skills              # better-*
 ```
 
 ## Layout
@@ -114,6 +115,8 @@ Adapted from:
   the rules in `docs-style`.
 - [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator)
   by Anthropic: used to author these skills.
+- [jakubkrehel/skills](https://github.com/jakubkrehel/skills) by Jakub Krehel:
+  `interface-review`.
 
 Builds on — load conditions for each companion are in [Companions](#companions):
 
@@ -121,8 +124,8 @@ Builds on — load conditions for each companion are in [Companions](#companions
   `ponytail-review` in `wrap-up`.
 - [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills):
   `web-design-guidelines` in `wrap-up`.
-- [jakubkrehel/skills](https://github.com/jakubkrehel/skills): `better-*` and
-  `interface-review` in `wrap-up`.
+- [jakubkrehel/skills](https://github.com/jakubkrehel/skills) by Jakub Krehel:
+  `better-*` in `interface-review`.
 
 ## License
 
