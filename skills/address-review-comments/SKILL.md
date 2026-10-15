@@ -3,8 +3,9 @@ name: address-review-comments
 description: >
   Fetch all review comments on the current branch's PR/MR (GitHub or GitLab,
   human + AI reviewers alike) and produce a terse agree/disagree verdict for
-  each by reading the referenced code. Read-only by default; can also draft
-  or post replies to the PR/MR threads with confirmation. Never resolves
+  each by reading the code. Read-only by default; can also post replies
+  with confirmation: answers to reviewer questions first, then fix replies
+  once fixes land. Never resolves
   threads or edits files. Use when the user wants a second opinion on
   reviewer feedback before responding. Trigger: "review the pr comments",
   "agree or disagree with the comments", "go through the reviewer feedback",
@@ -12,7 +13,7 @@ description: >
   "post replies".
 ---
 
-Pull every review comment on the current branch's open PR/MR and judge each by reading the code, as a terse per-comment verdict the user can paste back onto the thread as a reply.
+Pull every review comment on the current branch's open PR/MR and judge each by reading the code, as a terse per-comment verdict with a reply ready to post on the thread.
 
 The verdict run posts nothing, resolves nothing and edits nothing; replies are posted only through **Respond → Draft and post**.
 
@@ -151,7 +152,7 @@ Each comment is judged independently by reading the live code — there is no sh
 
 **Dispatch rule:**
 - **< 4 in-scope comments** → judge them inline yourself, in order. Spawn overhead beats the parallelism win below this count.
-- **≥ 4** → fan out one subagent per comment on a mid-tier model, all spawned in parallel in one batch. Each subagent runs steps 1–3 and returns **only** its one verdict line as its final message. Collect the lines, sort back into comment order, then do the tally (step 4) yourself.
+- **≥ 4** → fan out one subagent per comment on a mid-tier model, all spawned in parallel in one batch. Each subagent runs steps 1–3 and returns **only** its one verdict line as its final message. Collect the lines, group and order them per step 3, then do the tally (step 4) yourself.
 - **Exception:** if every in-scope comment references the same file and you've already read it, judge inline regardless of count — subagents would re-read the same diff.
 
 Split a bot summary comment into its sub-bullets (`5a`, `5b`, …) **before** dispatch — each sub-bullet is its own unit of work and its own subagent.
@@ -183,6 +184,8 @@ Pick one verdict per comment:
 Be willing to push back on bots and humans equally. Past reviewers being usually-right doesn't make this comment right.
 
 ### 3. Emit one line
+
+Emit `answer` verdicts first under a `### Questions` heading, then every other verdict under `### Findings`. Within each group keep comment order and the original numbers (`2`, `5b`). Omit an empty group's heading.
 
 Format (markdown, terse):
 
@@ -252,37 +255,59 @@ https://github.com/...
 Summary: N comments — agree X / disagree Y / partial Z / stale A / defer B / needs-info C / answer D
 ```
 
-Remind the user in one line that you can post these replies to the PR/MR threads (now or after fixes land) if they ask.
+Then run **Respond → Stage 1**. With no `answer` verdicts it skips straight to the fix list.
 
 ## Respond: post or draft replies
 
-Run when the user asks to post or respond to the threads (either immediately with the verdict replies or after applying fixes).
+Replies go out in two stages: answers to reviewer questions first, then fix replies once fixes land. Question answers claim no code change, so they don't wait for a push.
+
+### Stage 1: Question replies
+
+Runs right after the tally. With no `answer` verdicts, skip to step 4.
+
+1. **Flag questions that need a change.** Ask once with the structured question tool, multi-select: "Which questions need a code change?". Give one option per `answer` verdict, labelled `N. <file>:<line>` (the question's first few words when unanchored), plus `None`. If the tool caps the option count, split the options across several questions in the same call. Unless the user already asked to post, put the **Posting** mode question in the same call.
+2. **Hold flagged questions.** A flagged question joins the fix list (step 4) and gets its reply in Stage 2: the answer first, then the fix. Don't post it now.
+3. **Post the rest.** Post every unflagged `answer` reply per **Posting**, reusing the drafted reply as-is. Skip the pushed check: these replies claim no change, and their links pin `head_sha`, which is already on the remote.
+4. **Fix list.** Print the threads that need a code change, in comment order: `agree` and `partial` verdicts plus flagged questions.
+
+       **Fix list**
+       - **N.** `<file>:<line>` — <change, one clause>
+
+   Then add one line: address these (or a subset), push, then ask to post the Stage 2 replies. If the list is empty, say there's nothing to fix and offer to post the remaining finding replies.
+
+### Stage 2: Fix replies
+
+Run when the user asks to post or respond to the remaining threads, either after fixes land or right away for threads that need no fix.
 
 1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
-2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: the canonical filter), which drops threads the user already answered. Reply to every remaining in-scope thread (or the subset the user asked to post). Skip any thread the user says they're declining.
+2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: the canonical filter), which drops threads the user already answered. Reply to every remaining in-scope thread (or the subset the user asked to post). Skip any thread the user says they're declining. Question replies posted in Stage 1 drop out here, because the author now wrote the last note.
 3. **Content.** If posting a verdict reply as-is (no code change for that thread), reuse the reply already drafted in the verdict run. If fixes landed for the thread, draft a reply in Reply style with links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
    - **Link the fix commit** (when a fix landed). Find the commit that changed the cited code: `git log -s --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
-4. **Mode.** If the user explicitly asked to post (e.g. "post it", "post the replies"), use **Draft and post** directly. Otherwise ask once with the structured question tool: `Copy-paste` (recommended) or `Draft and post`.
-   - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL as a plain line:
+4. **Mode.** Post per **Posting**.
 
-         **N.** `<file>:<line>` (@<author>)
+### Posting
 
-         ```markdown
-         <reply>
-         ```
+If the user explicitly asked to post (e.g. "post it", "post the replies"), use **Draft and post** directly. If they already picked a mode earlier in this run, reuse it. Otherwise ask once with the structured question tool: `Draft and post` (recommended) or `Copy-paste`.
 
-         <note_url>
+- **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Write each body to a temp file, then post:
+  - GitLab: per `post-mr-review`'s **Post** section, `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`.
+  - GitHub inline comment: `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`).
+  - GitHub review summary or conversation comment: these have no thread, so `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>`, with the body opening on a link to the comment's `html_url`.
 
-     `<note_url>` is the comment's `html_url` on GitHub and `<mr_web_url>#note_<notes[0].id>` on GitLab.
+  Then re-fetch and verify the new comment count. Never resolve or reopen threads.
+- **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL as a plain line:
 
-     If a reply itself contains a triple-backtick fence, use a four-backtick outer fence.
+      **N.** `<file>:<line>` (@<author>)
 
-   - **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Write each body to a temp file, then post:
-     - GitLab: per `post-mr-review`'s **Post** section, `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`.
-     - GitHub inline comment: `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`).
-     - GitHub review summary or conversation comment: these have no thread, so `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>`, with the body opening on a link to the comment's `html_url`.
+      ```markdown
+      <reply>
+      ```
 
-     Then re-fetch and verify the new comment count. Never resolve or reopen threads.
+      <note_url>
+
+  `<note_url>` is the comment's `html_url` on GitHub and `<mr_web_url>#note_<notes[0].id>` on GitLab.
+
+  If a reply itself contains a triple-backtick fence, use a four-backtick outer fence.
 
 ## Args
 

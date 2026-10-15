@@ -50,7 +50,7 @@ now.
 
 | Skill | What |
 |---|---|
-| `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR or MR, then drafts or posts replies once fixes land. |
+| `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR or MR, posts answers to reviewer questions, then posts fix replies once fixes land. |
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-trivy-scan` | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
 | `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
