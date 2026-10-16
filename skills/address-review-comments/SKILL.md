@@ -163,8 +163,8 @@ For each comment (inline or in a subagent), in order:
 
 ### 1. Read the referenced code
 
-- If the comment is anchored (`file` + `line`): use `Read` on that file around the line (±30 lines context). Don't trust the diff snippet in the comment body — it may be stale if newer commits were pushed.
-- If the comment cites a different file/symbol in the body but isn't anchored there: use `Read` on the cited target.
+- If the comment is anchored (`file` + `line`): read that file around the line (±30 lines context). Don't trust the diff snippet in the comment body — it may be stale if newer commits were pushed.
+- If the comment cites a different file/symbol in the body but isn't anchored there: read the cited target.
 - If the comment is purely conceptual (no code reference): no read needed.
 
 ### 2. Assess
@@ -196,10 +196,12 @@ Format (markdown, terse):
 <reply, ≤ ~60 words (over budget → cut restated context first), per Reply style>
 ```
 
-<url>
+<<url>>
 ````
 
 For non-anchored comments, drop the `` `file:line` `` segment.
+
+Wrap the trailing url in angle brackets (`<https://…>`). A bare url line repeats near-verbatim across comments (only the numeric note id changes), which can trip agent harness stream-loop guards and retry the turn forever; a line ending in `>` is skipped by those guards and still renders as a link.
 
 **Write the reason as a reply, not a verdict.** The label / `file:line` / url are scaffolding for the user; the prose between them must stand alone as something they can paste straight onto the thread as a response to that reviewer. So: address the reviewer in the user's voice ("Good catch, but …" / "It is logged — …" / "Half right."), not the user in yours ("the bot misreads …" / "comment is wrong about …"). No verdict word inside the prose, no third-person reference to "the comment." Stay honest to the verdict — a `disagree` pushes back, a `partial` concedes the half that lands, a `needs-info` states what's missing or asks the question.
 
@@ -212,7 +214,7 @@ For non-anchored comments, drop the `` `file:line` `` segment.
   - Inline the link directly after the phrase it supports; never wrap it in parentheses.
   - Removed code (e.g. in a `stale` reply): pin to `base_sha` instead.
   - Before emitting, run `git show <sha>:<path>` for each link and check the lines match the claim. Fix or drop a link that doesn't.
-- **Scaffolding stays plain:** the header `` `<file>:<line>` `` and the trailing `<url>` are for the user; keep them unlinked. Links go only in the reply prose.
+- **Scaffolding stays plain:** the header `` `<file>:<line>` `` and the trailing `<url>` are for the user; never wrap them in `[text](…)` link syntax. Links go only in the reply prose.
 - **Proof over assertion:** a `disagree` or `answer` that rests on behavior outside the diffed line traces the hops in one clause, with a link at each. One that rests on a command you ran quotes the command and the decisive output line.
 - **Tone:** concrete, practical effect first. No hedging filler, no praise beyond a short opener like "Good catch, but", no "as discussed", no restating the reviewer's words back to them.
 
@@ -229,7 +231,7 @@ Examples:
 Duplicate `### Heading` collapse is already handled by the set-based diff [_pr_render.py:80-86](https://github.com/o/r/blob/abc1234/_pr_render.py#L80-L86) — the set drops dup lines within a section before this runs. Real-world PR bodies don't carry duplicate H3s anyway.
 ```
 
-https://github.com/...
+<https://github.com/...>
 
 **4. agree** — `_pr_render.py:112` (@copilot)
 
@@ -237,7 +239,7 @@ https://github.com/...
 Right on both counts — the `existing == updated` short-circuit belongs before `_parse_sections` [_pr_render.py:112](https://github.com/o/r/blob/abc1234/_pr_render.py#L112), and the empty-string case (`not existing.strip()`) returns `""` so `main()` prints no summary banner. Adding a stderr hint for that.
 ```
 
-https://github.com/...
+<https://github.com/...>
 
 **5. partial** — `_pr_render.py:38` (@claude)
 
@@ -245,7 +247,7 @@ https://github.com/...
 Agreed `n=9999` is a magic number. But `max(len(a), len(b))` still leaves a bounded window [_pr_render.py:38](https://github.com/o/r/blob/abc1234/_pr_render.py#L38) — going with `n=sys.maxsize`, or dropping to a single-pass walk.
 ```
 
-https://github.com/...
+<https://github.com/...>
 ````
 
 ### 4. Tally at the end
@@ -295,7 +297,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
   - GitHub review summary or conversation comment: these have no thread, so `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>`, with the body opening on a link to the comment's `html_url`.
 
   Then re-fetch and verify the new comment count. Never resolve or reopen threads.
-- **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL as a plain line:
+- **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL in angle brackets on its own line:
 
       **N.** `<file>:<line>` (@<author>)
 
@@ -303,7 +305,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
       <reply>
       ```
 
-      <note_url>
+      <<note_url>>
 
   `<note_url>` is the comment's `html_url` on GitHub and `<mr_web_url>#note_<notes[0].id>` on GitLab.
 
