@@ -1,21 +1,12 @@
 ---
 name: wrap-up
 description: >
-  End-of-branch pre-flight. Always runs pr-review-toolkit; cheaply
-  checks which of tooling-sync, ponytail-review,
-  interface-review, and triage-renovate-dependabot-prs are worth running, reports a RUN/SKIP
-  verdict, run order, and model tier (fast/strong) for each, lets
-  the user pick, then runs read-only reviews as parallel tier-pinned
-  subagents (pr-review-toolkit reviews only commits since the last wrap-up review on re-runs;
-  `full` forces the whole branch), fixes their findings in-session one report at a time with a commit gate after
-  each, runs interactive skills inline with commit gates, and ends with a completion
-  summary. Orchestrator: its only logic is ordering, gates (including Gate F's
-  fixes), and hand-offs. Trigger: "wrap up this
-  branch", "I'm done with this branch", "end of branch", "pre-merge
-  checklist", "what should I run before merging", "sync tooling and triage
-  renovate", "repo spa day", or /wrap-up. Optional `lean` reply keyword
-  (suggested when other maintainers are detected) limits the run to definite
-  improvements.
+  End-of-branch pre-merge checklist: runs pr-review-toolkit, picks which of
+  tooling-sync, ponytail-review, interface-review, and
+  triage-renovate-dependabot-prs to run, then fixes findings behind commit
+  gates. Trigger: "wrap up this branch", "I'm done with this branch", "end of
+  branch", "pre-merge checklist", "what should I run before merging", "repo
+  spa day", or /wrap-up.
 ---
 
 Orchestrates the end-of-branch reviews and hand-offs. It owns only the pre-flight signals, the
