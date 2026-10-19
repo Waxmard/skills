@@ -10,7 +10,7 @@ reviewing an MR      ──▶ pr-review-toolkit ──▶ post-mr-review ──
 review came back     ──▶ address-review-comments ──▶ verdicts, then replies
 before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxmard/mw-kit playbook
                                   ├─▶ pr-review-toolkit, ponytail-review,
-                                  │   web-design-guidelines, interface-review
+                                  │   test-audit, interface-review
                                   └─▶ triage-renovate-dependabot-prs
 ```
 
@@ -59,6 +59,7 @@ now.
 | `pr-review-toolkit` | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
 | `resolve-merge-conflicts` | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
 | `split-branch` | Splits a scope-crept branch into branches that merge in any order without conflicts. |
+| `test-audit` | Audits unit and integration tests in a branch or whole repo to prune tautologies, static-prose checks, cross-layer duplicates, and redundant cases. |
 | `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
 | `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
@@ -79,7 +80,6 @@ first.
 | Companion | Used by |
 |---|---|
 | `ponytail-review` | `wrap-up` |
-| `web-design-guidelines` | `wrap-up` |
 | `better-*` | `interface-review` |
 
 ```text
@@ -90,7 +90,6 @@ first.
 ```
 
 ```sh
-npx skills add vercel-labs/agent-skills        # web-design-guidelines
 npx skills add jakubkrehel/skills              # better-*
 ```
 
@@ -122,8 +121,6 @@ Builds on — load conditions for each companion are in [Companions](#companions
 
 - [ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert:
   `ponytail-review` in `wrap-up`.
-- [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills):
-  `web-design-guidelines` in `wrap-up`.
 - [jakubkrehel/skills](https://github.com/jakubkrehel/skills) by Jakub Krehel:
   `better-*` in `interface-review`.
 
