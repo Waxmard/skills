@@ -87,10 +87,10 @@ Analyze the diff across 6 specialized lenses:
 
 ### C. Test Value
 - **Gaps (Important)**: a changed branch of domain or boundary logic with no test: parsing an external format, a data rule, an error or edge condition, concurrency, or a bug fix without its regression test. Do not report missing tests for wiring, forwarding, rendering, or glue code.
-- **Tests to delete (Important, *Fix*: delete the test)**: tests added or modified in the diff whose expected values are copied from or computed with the code under test, that assert only mock call arguments or snapshots of current output, or that only check something renders, starts, or does not throw.
+- **Tests to delete (Important, *Fix*: delete the test)**: tests added or modified in the diff whose expected values are copied from or computed with the code under test, that assert static prompt/source-text substrings or hardcoded constant/lookup-table echoes, that assert only mock call arguments or snapshots of current output, or that only check something renders, starts, or does not throw.
 - **New e2e/browser specs (Important, *Fix*: delete unless the user asked for this spec; confirm with the user)**: any Playwright, Cypress, or mocked-fixture e2e spec added in the diff.
 - **Test quality**: assertions on behavior and contracts, resilient to refactoring, clear (DAMP).
-- Review only tests and code in the diff; never flag pre-existing tests outside it.
+- Review only tests and code in the diff; never flag pre-existing tests outside it (broader test-file and whole-repo pruning belongs to `test-audit`).
 
 ### D. Type Design & Invariant Strength
 - **Encapsulation & Invariants**: Are illegal states unrepresentable? Are constructors validating invariants?
