@@ -230,9 +230,11 @@ general code, simplification, or test reviews.
 When the wave finishes, print each report under a `### <skill> (<tier>)` heading in row order.
 Retrieve each report verbatim, never a truncated preview (Harness notes). If subagents or the
 tier's model are unavailable, run that row inline in this session and note "ran inline: <reason>".
+If a review agent fails before returning a complete report, finish its assigned scope inline or
+re-delegate it. A partial transcript is not a completed review.
 
-Once row 2 has returned a report (delegated or ran inline), record the reviewed head with
-literals filled in, since bash calls may not share a shell:
+Once row 2 has returned a complete report (delegated or ran inline), record the reviewed head with
+literals filled in, since bash calls may not share a shell. Do not write the memo for a partial review:
 `memo="$(git rev-parse --git-path wrap-up)/<branch>" && mkdir -p "$(dirname "$memo")" && printf '%s\n' <head0> > "$memo"`.
 Write it before Gate F, so Gate F's fix commits land in row 2's next delta and get reviewed
 then. Rows 1 and 3–6 never touch the memo.
@@ -241,7 +243,9 @@ then. Rows 1 and 3–6 never touch the memo.
 reports have printed, whether or not an inline row follows. Do not ask "fix or continue":
 stopping to fix is the default for all of wrap-up.
 
-1. Build the fix list from every report in the wave:
+1. Build a numbered fix ledger from every report in the wave, covering every actionable finding,
+   including subitems. Before leaving Gate F, give each entry a final status: fixed, verified
+   false positive, user-declined, or resolved by another fix. Unaccounted findings block completion.
    - Include every Critical and Important item, plus every Suggestion that has a
      concrete *Fix* line. In non-pr-review-toolkit reports (ponytail-review, test-audit,
      interface-review), include every actionable finding.
@@ -265,7 +269,9 @@ stopping to fix is the default for all of wrap-up.
       `skipped: resolved by <skill> fix` or `skipped: moot after <skill> fix`.
    2. Apply its fixes in this session, using the smallest change that resolves each finding. Then
       run the repo's narrowest check that covers the touched files (from its AGENTS.md/Makefile/
-      package.json). If a check fails, fix that too before moving on.
+      package.json). If a check fails, fix that too before moving on. Run applicable checks after
+      the final edit, including formatting and test repairs. Later edits invalidate affected
+      checks; rerun those checks before the commit handoff, including any configured file-size gate.
    3. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
       `fixed`, `skipped: <reason>`, or `user-declined`. The only allowed skip reasons are a
       verified false positive (state the evidence), the user declining, or resolved/moot after
