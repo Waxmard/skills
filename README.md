@@ -80,7 +80,6 @@ first.
 | Companion | Used by |
 |---|---|
 | `ponytail-review` | `wrap-up` |
-| `web-design-guidelines` | `wrap-up` |
 | `better-*` | `interface-review` |
 
 ```text
@@ -91,7 +90,6 @@ first.
 ```
 
 ```sh
-npx skills add vercel-labs/agent-skills        # web-design-guidelines
 npx skills add jakubkrehel/skills              # better-*
 ```
 
@@ -123,8 +121,6 @@ Builds on — load conditions for each companion are in [Companions](#companions
 
 - [ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert:
   `ponytail-review` in `wrap-up`.
-- [vercel-labs/agent-skills](https://github.com/vercel-labs/agent-skills):
-  `web-design-guidelines` in `wrap-up`.
 - [jakubkrehel/skills](https://github.com/jakubkrehel/skills) by Jakub Krehel:
   `better-*` in `interface-review`.
 

@@ -125,7 +125,7 @@ the backstop.
 Bot-branch count. Use `while read`, never `for` word-splitting:
 
 ```bash
-git ls-remote --heads origin 'renovate/*' 'dependabot/*' | awk '{print $2}' | sed 's|^refs/heads/||' \
+git ls-remote --heads origin 'renovate/*' 'dependabot/*' | awk '{sub("^refs/heads/", "", $2); print $2}' \
 | while read -r b; do git merge-base --is-ancestor "origin/$b" HEAD || echo "$b"; done | wc -l
 ```
 
