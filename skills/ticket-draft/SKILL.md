@@ -27,7 +27,7 @@ Always err on the side of merging when existing open work covers the same outcom
 
 Enforce the SOP readiness gate before drafting:
 - **Self-contained context**: Never rely on undocumented Slack/meeting context (`"as discussed"`, `"fix issue"`, `"work on cloud"`). If critical context is missing to make the ticket understandable, assignable, estimable, and verifiable, ask before drafting. If resolving an open question is the first step of the work itself, write that question explicitly at the top of the ticket description.
-- **One independently trackable outcome per ticket**: Split unrelated deliverables into separate linked tickets. Keep single deliverables together — do not split one feature's schema, UI, and migration into separate top-level tickets; use subtasks when step-level tracking is needed.
+- **One independently trackable outcome per ticket**: Split unrelated deliverables into separate tickets. Keep single deliverables together — do not split one feature's schema, UI, and migration into separate top-level tickets; use subtasks when step-level tracking is needed.
 - **No secrets**: Never include credentials, tokens, keys, or sensitive data in ticket text.
 - **No Priority field**: Never propose or set a `Priority` field unless the user explicitly asks for one.
 
@@ -80,7 +80,7 @@ Formatting:
 - Use inline code only for literal identifiers someone will copy (paths, column names, permissions, config values). Write product names as plain text.
 - State each fact once. Drop References when everything in it is already cited above.
 - Section titles are headings; bold is only for bullet labels. Leave a blank line between a heading and its list, or jira-cli posts the bullets as literal "- " text.
-- Write every ticket key as a link (`[KEY-123](<tracker-url>/browse/KEY-123)`), and give the ticket a tracker link (Relates) to every ticket the description mentions.
+- Write every ticket key as a link (`[KEY-123](<tracker-url>/browse/KEY-123)`). Create a tracker link only for a real dependency, meaning one ticket cannot start or finish until the other is done, using the blocking type (`Blocks` in Jira) in the correct direction. Never link for a mention, a shared parent, siblings, the ticket's own parent or subtasks, a merge, or provenance: the description or merge comment already carries the key.
 - Desired state names the outcome; Acceptance criteria hold the specific checks. Don't restate one in the other, and don't repeat a Dependency as a Risk.
 - Keep the text above Acceptance criteria to about 200 words. Each acceptance criterion is one line.
 
@@ -94,7 +94,7 @@ Formatting:
   - **5**: a cross-cutting or murky bug, LLM/agent behavior debugging, or a cleanup/migration.
   - **8**: large or vague, needs design or stakeholder input.
   Never go above 8. If merged scope would push a ticket past 8, use 8. Suggest one number and cite one or two comparable tickets in a short line. Agent/prompt behavior bugs skew higher because they need prod iteration to verify.
-- **Primary POC / Alternate POC**: Identify one accountable primary owner (Assignee) and one backup owner (the Alternate POC, set as the ticket's **Reporter**), plus specialist contributors if needed. If the alternate POC is unknown, ask or mark `TBD` in the draft metadata for confirmation.
+- **Primary POC / Alternate POC**: Identify one accountable primary owner (Assignee) and one backup owner (the Alternate POC, set as the ticket's **Reporter**), plus specialist contributors if needed. Every ticket always has a Reporter, Tasks included: if the Alternate POC is unknown, set the user (the person filing) as Reporter and show it as `Reporter: <user> (default)` in the draft metadata.
 - **Target date / milestone** (when applicable): State the date and whether it is fixed (external commitment/event) or preferred.
 - **Subtasks / work breakdown** (when applicable): If a ticket is large (`5`–`8` SP or spans multiple independently verifiable phases), list concrete subtasks with owners/estimates so progress is trackable without an opaque monolith.
 
@@ -123,11 +123,11 @@ When the user asks for an intake form, intake doc, or TPM review document, outpu
 Give each draft as plain blocks ready to review or paste:
 1. **Title** (`Verb + deliverable + scope`)
 2. **Description** (compact SOP format by default, or the 2-table intake form if requested)
-3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (dependencies/related existing tickets). Set the Alternate POC as Reporter. Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
+3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Every ticket gets a Reporter: the Alternate POC, or the user when none is known. Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
 
 Then offer to post. If the user agrees, post one ticket at a time:
 1. Re-check the tracker for tickets created since drafting; if one now covers a draft, merge into it or skip the draft.
 2. Show the draft with its metadata and ask Post / Skip / Post without links.
-3. On Post, create it with every field the CLI can set (including weight, parent, assignee when known, and labels); create any confirmed subtasks; link related/dependency tickets; add it to the sprint; and report the key.
+3. On Post, create it with every field the CLI can set (including weight, parent, assignee when known, and labels); create any confirmed subtasks; create the blocking links; add it to the sprint; and report the key.
 
-Merges follow the same confirm-first flow: comment on the target, re-create the links, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation.
+Merges follow the same confirm-first flow: comment on the target, move any blocking links that still apply to the target, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation.
