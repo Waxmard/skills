@@ -49,7 +49,7 @@ Use this compact section layout inside the ticket description body:
 ```markdown
 ### Background / current state
 
-- **<Label>:** <one fact: what exists today or what the user hit, why it matters, repo/GCP scope>
+- **<Label>:** <one fact: what the requester saw or what exists today>
 
 ### Desired state / proposed outcome
 
@@ -82,7 +82,8 @@ Formatting:
 - Section titles are headings; bold is only for bullet labels. Leave a blank line between a heading and its list, or jira-cli posts the bullets as literal "- " text.
 - Write every ticket key as a link (`[KEY-123](<tracker-url>/browse/KEY-123)`). Create a tracker link only for a real dependency, meaning one ticket cannot start or finish until the other is done, using the blocking type (`Blocks` in Jira) in the correct direction. Never link for a mention, a shared parent, siblings, the ticket's own parent or subtasks, a merge, or provenance: the description or merge comment already carries the key.
 - Desired state names the outcome; Acceptance criteria hold the specific checks. Don't restate one in the other, and don't repeat a Dependency as a Risk.
-- Keep the text above Acceptance criteria to about 200 words. Each acceptance criterion is one line.
+- Keep the text above Acceptance criteria to about 60 words: at most 4 Background bullets and one Desired-state bullet. Write at most 5 acceptance criteria, one line each, one per distinct outcome.
+- Background states what the requester saw, one bullet per problem. Leave out root-cause guesses, evidence trails, cleanup caveats, and answers to side questions; they go in the chat reply or a Task.
 
 ## Sizing, ownership & breakdown
 
