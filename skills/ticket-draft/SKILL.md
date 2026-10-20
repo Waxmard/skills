@@ -34,9 +34,11 @@ Enforce the SOP readiness gate before drafting:
 ## Title
 
 - Use **Verb + deliverable + scope** so a reader understands the intended outcome without opening the description.
+- Simple phrasing always wins: aim for 3–7 words naming one outcome. Never join two changes with "and"; leave standards names, mechanisms, and second clauses to the description.
+- Write from the consumer's point of view: say what users or downstream teams get, not how it is built. When a parent or sibling ticket has an established title pattern, mirror it so related tickets read as a set (`<Theme> for Existing <X>` → `<Theme> for New <Y>`).
 - Prefix the app or service name when project conventions call for it (`<App> ...`), or include it in the scope clause. Use concise fragments with no trailing period.
 - Good: `Delete saved filters in Uploader`, `Generate default upload names automatically`, `Add entity type config in catalog service`, `Create and sync CloudSQL databases in us-east4`.
-- Bad: vague placeholders (`Fix issue`, `Work on cloud`, `As discussed`), noun-only labels with unclear action, root-cause essays, or raw line numbers/config keys.
+- Bad: vague placeholders (`Fix issue`, `Work on cloud`, `As discussed`), noun-only labels with unclear action, root-cause essays, raw line numbers/config keys, or stacked clauses that list every mechanism (`Enforce <standard> <field> writes and <policy> checks in <service>`).
 
 ## Description (compact SOP default)
 
@@ -45,27 +47,42 @@ Write in specific, plain language so an unfamiliar teammate knows what to do and
 Use this compact section layout inside the ticket description body:
 
 ```markdown
-**Background / current state:**
-<1–3 sentences: what the user hit or what exists today, why it matters (business/delivery outcome), and the environment/scope (repo paths from monorepo root, GCP project/region/service/dataset as applicable).>
+### Background / current state
 
-**Desired state / proposed outcome:**
-<1–3 sentences: target end state and high-level approach/notes at the service or component level.>
+- **<Label>:** <one fact: what exists today or what the user hit, why it matters, repo/GCP scope>
 
-**Dependencies:**
-<Include only when dependencies/blockers exist: prerequisite tickets, external teams, approvals, access, or vendor actions.>
+### Desired state / proposed outcome
 
-**Risks / security / change:**
-<Include only when material: IAM, data sensitivity, network exposure, compliance, outage, rollback, or change-window concerns.>
+- **<Label>:** <one fact: target end state or component-level approach>
 
-**References:**
-<Include only when applicable: links to design docs, ADRs, diagrams, runbooks, logs, MRs, or related tickets.>
+### Dependencies
 
-**Acceptance criteria:**
+- **<Label>:** <include only when prerequisites, blockers, approvals, access, or vendor actions exist>
+
+### Risks / security / change
+
+- **<Label>:** <include only when material: IAM, data sensitivity, exposure, compliance, outage, rollback, change window>
+
+### References
+
+- **<Label>:** <include only for sources not already cited above: design docs, ADRs, runbooks, MRs>
+
+### Acceptance criteria
+
 1. <Observable, testable condition that defines completion>
 2. <Observable, testable condition — two engineers can independently agree it is done>
 ```
 
-Omit `Dependencies`, `Risks / security / change`, and `References` in the compact CLI description when none apply. Do not include raw line numbers or speculative option essays.
+Formatting:
+- Omit `Dependencies`, `Risks / security / change`, and `References` when none apply. No raw line numbers or speculative option essays.
+- Use bullets, never paragraphs. Each bullet holds one idea in about 20 words or fewer.
+- Start each bullet with a **bold** label of 1–3 words (`- **Gap:** …`, `- **IAM:** …`).
+- Use inline code only for literal identifiers someone will copy (paths, column names, permissions, config values). Write product names as plain text.
+- State each fact once. Drop References when everything in it is already cited above.
+- Section titles are headings; bold is only for bullet labels. Leave a blank line between a heading and its list, or jira-cli posts the bullets as literal "- " text.
+- Write every ticket key as a link (`[KEY-123](<tracker-url>/browse/KEY-123)`), and give the ticket a tracker link (Relates) to every ticket the description mentions.
+- Desired state names the outcome; Acceptance criteria hold the specific checks. Don't restate one in the other, and don't repeat a Dependency as a Risk.
+- Keep the text above Acceptance criteria to about 200 words. Each acceptance criterion is one line.
 
 ## Sizing, ownership & breakdown
 
@@ -77,21 +94,20 @@ Omit `Dependencies`, `Risks / security / change`, and `References` in the compac
   - **5**: a cross-cutting or murky bug, LLM/agent behavior debugging, or a cleanup/migration.
   - **8**: large or vague, needs design or stakeholder input.
   Never go above 8. If merged scope would push a ticket past 8, use 8. Suggest one number and cite one or two comparable tickets in a short line. Agent/prompt behavior bugs skew higher because they need prod iteration to verify.
-- **Expected duration**: State effort estimate and expected elapsed duration separately where possible (e.g., `~1d effort / 2d elapsed`), noting key assumptions or confidence when uncertain.
-- **Primary POC / Alternate POC**: Identify one accountable primary owner (Assignee) and one backup owner (`Alternate POC`), plus specialist contributors if needed. If the alternate POC is unknown, ask or mark `TBD` in the draft metadata for confirmation.
+- **Primary POC / Alternate POC**: Identify one accountable primary owner (Assignee) and one backup owner (the Alternate POC, set as the ticket's **Reporter**), plus specialist contributors if needed. If the alternate POC is unknown, ask or mark `TBD` in the draft metadata for confirmation.
 - **Target date / milestone** (when applicable): State the date and whether it is fixed (external commitment/event) or preferred.
 - **Subtasks / work breakdown** (when applicable): If a ticket is large (`5`–`8` SP or spans multiple independently verifiable phases), list concrete subtasks with owners/estimates so progress is trackable without an opaque monolith.
 
 ## Full intake form (on request)
 
 When the user asks for an intake form, intake doc, or TPM review document, output the SOP two-table form instead of the compact description:
-- **Rule**: Use `N/A — <reason>` for any field that does not apply; never leave a field blank. Omit `Requested priority` unless explicitly requested.
+- **Rule**: Use `N/A — <reason>` for any field that does not apply; never leave a field blank. Omit `Requested priority` and `Expected duration` unless explicitly requested (size with `Weight (Story Points)` only).
 - **1. Request basics** (markdown table):
   - `Proposed title / summary` (`Verb + deliverable + scope`)
   - `Primary POC / Alternate POC` (primary owner + backup owner + specialist contributors if needed)
   - `Initiative (Aligned with priorities of Sprint)` (parent Initiative / Epic or strategic workstream)
   - `Business / delivery outcome (why is this needed?)` (1–2 sentences on operational, security, reliability, compliance, or user outcome)
-  - `Expected duration` (effort estimate, expected elapsed duration, story points, and key assumptions/confidence)
+  - `Weight (Story Points)` (Fibonacci story points and key sizing assumptions)
   - `Environment / scope` (GCP project, region, environment, service, repo, dataset, network, or application boundary)
   - `Target date / milestone` (date + whether fixed or preferred, or `N/A — <reason>`)
 - **2. Thorough description** (markdown table):
@@ -107,7 +123,7 @@ When the user asks for an intake form, intake doc, or TPM review document, outpu
 Give each draft as plain blocks ready to review or paste:
 1. **Title** (`Verb + deliverable + scope`)
 2. **Description** (compact SOP format by default, or the 2-table intake form if requested)
-3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Alternate POC`, `Weight (SP)`, `Expected duration`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (dependencies/related existing tickets). When posting to a tracker CLI that lacks dedicated fields for `Alternate POC` or `Expected duration`, append `**Alternate POC:** <name> · **Expected duration:** <effort / elapsed>` as a trailing metadata line in the posted description before `**Acceptance criteria:**`.
+3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (dependencies/related existing tickets). Set the Alternate POC as Reporter. Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
 
 Then offer to post. If the user agrees, post one ticket at a time:
 1. Re-check the tracker for tickets created since drafting; if one now covers a draft, merge into it or skip the draft.
