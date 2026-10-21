@@ -95,7 +95,7 @@ Formatting:
   - **5**: a cross-cutting or murky bug, LLM/agent behavior debugging, or a cleanup/migration.
   - **8**: large or vague, needs design or stakeholder input.
   Never go above 8. If merged scope would push a ticket past 8, use 8. Suggest one number and cite one or two comparable tickets in a short line. Agent/prompt behavior bugs skew higher because they need prod iteration to verify.
-- **Primary POC / Alternate POC**: Identify one accountable primary owner (Assignee) and one backup owner (the Alternate POC, set as the ticket's **Reporter**), plus specialist contributors if needed. Every ticket always has a Reporter, Tasks included: if the Alternate POC is unknown, set the user (the person filing) as Reporter and show it as `Reporter: <user> (default)` in the draft metadata.
+- **Primary POC / Alternate POC**: Identify one accountable primary owner (Assignee) and one backup owner (the Alternate POC, set as the ticket's **Reporter**), plus specialist contributors if needed. Every ticket always has a Reporter, Tasks included, and the Reporter must never be the same person as the Assignee. If the Alternate POC is unknown and the user (the person filing) is not the Assignee, set the user as Reporter and show it as `Reporter: <user> (default)` in the draft metadata; if the user is the Assignee, ask for an Alternate POC.
 - **Target date / milestone** (when applicable): State the date and whether it is fixed (external commitment/event) or preferred.
 - **Subtasks / work breakdown** (when applicable): If a ticket is large (`5`–`8` SP or spans multiple independently verifiable phases), list concrete subtasks with owners/estimates so progress is trackable without an opaque monolith.
 
@@ -124,7 +124,7 @@ When the user asks for an intake form, intake doc, or TPM review document, outpu
 Give each draft as plain blocks ready to review or paste:
 1. **Title** (`Verb + deliverable + scope`)
 2. **Description** (compact SOP format by default, or the 2-table intake form if requested)
-3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Every ticket gets a Reporter: the Alternate POC, or the user when none is known. Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
+3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Every ticket gets a Reporter: the Alternate POC, or the user when none is known and the user is not the Assignee. The Reporter is never the Assignee. Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
 
 Then offer to post. If the user agrees, post one ticket at a time:
 1. Re-check the tracker for tickets created since drafting; if one now covers a draft, merge into it or skip the draft.
