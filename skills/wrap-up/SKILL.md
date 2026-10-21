@@ -163,7 +163,7 @@ Parse the reply:
 - Picked rows always run in ascending row number.
 - Three scope modes exist for every row — **`lean`** (minimal/delta), **default** (branch-scoped), and **`full`** (repo-wide spa day):
   - Global `lean` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `lean`, and excludes rows 1 and 6 from `go` unless explicitly picked by number (e.g. `go 1 lean`). It's off by default, with no auto-enable. `none` is unchanged.
-  - Global `full` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `full`. In `go full` ("repo spa day"), rows 1–4 are forced to `RUN` even when their branch-diff pre-flight verdict was `skip` (row 5 still requires UI files in the repo, and row 6 still requires unmerged bot branches).
+  - Global `full` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `full`. In `go full` ("repo spa day"), installed rows 1–4 are forced to `RUN` even when their branch-diff pre-flight verdict was `skip` (uninstalled skills stay `skip`; row 5 still requires UI files in the repo, and row 6 still requires unmerged bot branches).
   - Per-row `N@lean` or `N@full` (composable with model tier as `N@full:strong` or `N@lean:fast`) overrides the scope mode for row `N` alone (and implicitly includes row `N` in the picked set, even if its pre-flight verdict was `skip`).
 Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
 
