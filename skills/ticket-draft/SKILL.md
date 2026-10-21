@@ -37,7 +37,7 @@ Enforce the SOP readiness gate before drafting:
 - Simple phrasing always wins: aim for 3–7 words naming one outcome. Never join two changes with "and"; leave standards names, mechanisms, and second clauses to the description.
 - Write from the consumer's point of view: say what users or downstream teams get, not how it is built. When a parent or sibling ticket has an established title pattern, mirror it so related tickets read as a set (`<Theme> for Existing <X>` → `<Theme> for New <Y>`).
 - Prefix the app or service name when project conventions call for it (`<App> ...`), or include it in the scope clause. Use concise fragments with no trailing period.
-- Good: `Delete saved filters in Uploader`, `Generate default upload names automatically`, `Add entity type config in catalog service`, `Create and sync CloudSQL databases in us-east4`.
+- Good: `Delete saved filters in Uploader`, `Generate default upload names automatically`, `Add entity type config in catalog service`, `Provision CloudSQL databases in us-east4`.
 - Bad: vague placeholders (`Fix issue`, `Work on cloud`, `As discussed`), noun-only labels with unclear action, root-cause essays, raw line numbers/config keys, or stacked clauses that list every mechanism (`Enforce <standard> <field> writes and <policy> checks in <service>`).
 
 ## Description (compact SOP default)
