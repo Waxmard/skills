@@ -176,8 +176,9 @@ create the progress list (Harness notes) with one item per phase, in run order:
 - last item: `Close: completion summary`.
 
 Mark each item done as soon as its phase finishes, including rows that report nothing to do.
-Print the completion block (inline step 3) only when every item except
-`Close: completion summary` is done.
+Print the completion block (inline step 3) once every item except `Close: completion summary` is
+done or blocked on a user action; list blocked rows under a `Blocked:` line naming the gate that
+stopped them.
 
 Why this order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
@@ -328,6 +329,7 @@ Inline rows:
    ## Wrap-up complete
    - Ran: <row: skill — one-line outcome>, …
    - Skipped: <row: skill — reason>, …   (omit line if none)
+   - Blocked: <row: skill — the gate that stopped it>, …   (omit line if none)
    - Fixes: <N fixed, M skipped/declined> (Gate F)
    - Tree: clean | <N uncommitted files — commit before pushing>
    - Next: push is yours (`git push`), then open the MR/PR.
