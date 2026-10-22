@@ -1,6 +1,6 @@
 # skills
 
-Agent skills for Git and MR work, docs, and tooling sync, shipped as one
+Agent skills for Git and MR work, docs, tooling sync, and UI, shipped as one
 plugin (`mw-skills`). They run in Pi, Antigravity, Codex, Claude Code, omp,
 OpenCode, and many more agents.
 
@@ -8,6 +8,7 @@ OpenCode, and many more agents.
 branch grew too much ──▶ split-branch ──▶ one MR per theme
 reviewing an MR      ──▶ pr-review-toolkit ──▶ post-mr-review ──▶ MR threads
 review came back     ──▶ address-review-comments ──▶ verdicts, then replies
+restyling a UI       ──▶ ui-references ──▶ approved brief, then build
 before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxmard/mw-kit playbook
                                   ├─▶ pr-review-toolkit, ponytail-review,
                                   │   test-audit, interface-review
@@ -63,6 +64,7 @@ now.
 | `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
 | `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
+| `ui-references` | Borrows concrete layout, density, and motion mechanics from reference UIs you name or catalog, writes a transfer brief, and builds only after you approve it. |
 | `wrap-up` | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
 
 `tooling-sync` reads its playbook from
@@ -70,8 +72,8 @@ now.
 and a clone in `~/.cache/mw-kit` otherwise.
 
 A `local.md` in a skill's directory holds machine-specific details such as
-hostnames or bot markers. Git ignores it, and the skill reads it
-first.
+hostnames, bot markers, or reference UI paths. Git ignores it, and the skill
+reads it first.
 
 ## Companions
 
