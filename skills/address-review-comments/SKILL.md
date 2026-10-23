@@ -49,7 +49,7 @@ If anything prints, stop and tell the user what to install. Step 4 checks the pl
    - GitLab: `glab auth status` (must succeed) and `command -v jq` (the GitLab steps parse JSON with it).
 5. Resolve PR/MR number for current branch:
    - GitHub: `gh pr view --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`).
-   - GitLab: `glab mr view --output json` → fail if no MR. Record `head_sha` = `.diff_refs.head_sha` (`.sha` if `diff_refs` is null), `base_sha` = `.diff_refs.base_sha`, and `blob_base` = `.web_url` minus the trailing `/-/merge_requests/<iid>`.
+   - GitLab: `glab mr view --output json` → fail if no MR. Record `head_sha` = `.diff_refs.head_sha` (`.sha` if `diff_refs` is null), `base_sha` = `.diff_refs.base_sha`, and `blob_base` = `glab repo view --output json | jq -r .web_url`.
    - If state is not `OPEN` / `opened`, warn but continue (user may still want feedback on a merged PR).
 6. Fetch the PR head so `git show <head_sha>:<path>` works locally, fork PRs included: GitHub `git fetch origin pull/<n>/head <baseRefName>`, GitLab `git fetch origin merge-requests/<iid>/head`. On GitHub, then set `base_sha` = `git merge-base <baseRefOid> <head_sha>`: `baseRefOid` is the base branch tip, while GitLab's `base_sha` is already the fork point. If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
 

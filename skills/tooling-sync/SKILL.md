@@ -6,7 +6,9 @@ description: >
   drifted, or could be added, let the user choose which updates to make, then
   apply the chosen ones — merging into existing config, never clobbering.
   Read-only until the user picks; never commits or pushes. Language-agnostic,
-  driven by playbook/MANIFEST.md. Trigger: "sync tooling", "compare tooling",
+  driven by playbook/MANIFEST.md. Modes: lean (missing and drifted only),
+  default, full (re-checks settled tools). Trigger: "sync tooling", "compare
+  tooling",
   "check tooling against mw-kit", "tooling diff", "update tooling from the
   playbook", "what's my playbook say vs this repo", or /tooling-sync.
 ---
@@ -23,6 +25,14 @@ Runs on macOS and Linux (on Windows, use WSL).
 - `python3`, to run the playbook's `scope.py` resolver (stdlib only)
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
+## Scope modes (`lean` / default / `full`)
+
+Take the mode from the invocation args or the caller's instructions (`mode: <x>`): `lean`, `default`, or `full`. None given: default.
+
+- **`lean`**: run Steps 1-2 as written, but report and offer only ❌ baseline-missing and ⚠️ drift. Drop ➕ suggestions from Step 3 and Step 4.
+- **Default**: as written below.
+- **`full`**: run the resolver with `--no-state` in Step 1, so every in-scope tool is compared regardless of settled state. Step 6 still writes `.tooling-sync.json`.
 
 ## Pre-flight & Step 1 — Scope (run the resolver)
 
@@ -63,7 +73,7 @@ The consumer repo carries a committed `.tooling-sync.json` recording each tool's
 
 - A row with `state.settled: true` means the prior decision (`synced` / `declined` / `override`) still holds *and the governing page hasn't changed*. **Skip its compare** (Step 2) and fold it into a collapsed "settled" line.
 - A row with `state.settled: false` is **live**: either new (`decision: "new"`), or its page changed since the decision (`page_changed_since_decision: true`). Compare these normally.
-- **Fast path:** if `state.all_settled` is true (every in-scope tool settled, nothing new or stale), there is nothing to compare. Report "Nothing new since last sync (`last_sync`, playbook @ `playbook_commit_at_last_sync` short). N tools settled." and stop — unless the user asks for a full re-check, in which case re-run the resolver with `--no-state` and compare everything.
+- **Fast path:** if `state.all_settled` is true (every in-scope tool settled, nothing new or stale), there is nothing to compare. Report "Nothing new since last sync (`last_sync`, playbook @ `playbook_commit_at_last_sync` short). N tools settled." and stop — unless the mode is `full`, in which case re-run the resolver with `--no-state` and compare everything.
 - If `state.present` is false, this is a first sync (or `--no-state`): compare every in-scope tool and write the file at the end.
 - **`state.orphaned_tools`** are recorded decisions whose playbook page no longer exists (deleted or renamed upstream). They produce no `in_scope` or `skipped` row, so name them in the report and **drop them from the file in Step 6**. They don't block the fast path; on an otherwise all-settled run, report the fast path *and* the orphan cleanup. Also check whether the repo still carries what the page governed (a workflow, a config file, a script it installed) and propose its removal in the report; dropping the record is not the cleanup. Don't delete it unilaterally; the user decides, then you apply it like any other Step 5 change.
 
@@ -150,6 +160,8 @@ Pause after each applied change. Don't batch silently.
 ## Step 6 — Record decisions (`.tooling-sync.json`)
 
 After the user has decided everything (applied, declined, or report-only), write the repo's `.tooling-sync.json` so the next run skips what's settled. This is the only file the skill writes that isn't a tooling config; it's still just a working-tree edit (the user commits it, like everything else). Note: some users globally gitignore `.tooling-sync.json` — then it stays local-only (never committed) and still drives the next sync on that machine; don't tell the user to commit it if it isn't showing in `git status`.
+
+Record decisions automatically after the user decides, including report-only runs; do not ask for separate permission to write the state file.
 
 Write the file with the `Write` tool at the repo root. Schema:
 

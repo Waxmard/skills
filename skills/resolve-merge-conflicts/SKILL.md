@@ -3,13 +3,14 @@ name: resolve-merge-conflicts
 description: >
   Walk through unresolved merge conflicts one file at a time during an in-progress
   merge, rebase, or cherry-pick. Detects which side is "ours" vs "theirs" (these
-  flip between merge and rebase), classifies each file's conflicts, recommends
-  mass-accept (`--ours` / `--theirs`) when all hunks lean one way, and otherwise
-  helps craft a manual resolution. Runs project type-checks/linters per-file to
-  catch broken resolutions early. Never auto-resolves without confirmation,
-  never aborts the operation, never commits. Trigger: "resolve merge conflicts",
-  "resolve conflicts", "help with the merge conflicts", "fix conflicts", or
-  /resolve-merge-conflicts.
+  flip between merge and rebase), classifies each file's conflicts, and
+  automatically applies, verifies, and stages confident resolutions (format-only,
+  identical, non-overlapping additions, rename+edit, compatible dependency
+  bumps, lockfile/generated regeneration, and unambiguous one-sided or
+  composable logic). Stops for user confirmation only on genuine ambiguity or
+  check failures; never aborts the operation, never commits. Trigger: "resolve
+  merge conflicts", "resolve conflicts", "help with the merge conflicts", "fix
+  conflicts", or /resolve-merge-conflicts.
 ---
 
 Resolve the conflicts of the **current in-progress operation** (merge, rebase, or cherry-pick) one file at a time, checking each resolution with project-local type-checks or linters before moving on.
@@ -86,16 +87,18 @@ For each conflicted file, present a row:
 | `src/bar.ts` | UU | 2 | mixed | manual |
 | `src/OLD.ts` | UD | — | renamed-vs-edited | manual w/ reapply |
 
+Present the table for context, not as a confirmation gate, and proceed automatically through the ordered list.
+
 **Special-case detections** that override the table:
 - **Lockfiles** (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `uv.lock`, `poetry.lock`, `Cargo.lock`, `go.sum`, `Gemfile.lock`, `composer.lock`): never hand-resolve. Pick one side, then **regenerate** against the merged manifest (e.g. `npm install --package-lock-only`, `uv lock`, `cargo update -w`). If the repo documents how to regenerate a lockfile (e.g. inside a Linux container), follow that.
 - **Generated files** (`dist/`, `build/`, `*.min.js`, snapshots): regenerate, don't hand-resolve.
 - **Binary files**: `git diff` shows "Binary files differ" — must pick a whole side with `--ours` or `--theirs`; markers are not applicable.
 
-Order the work: easy mechanical files first (lockfiles, format-only, all-one-side), judgment files last. Resolving easy files first reduces noise in the final per-file type-check.
+Order the work: confident files first (dependency manifests before their lockfiles so lockfile regeneration runs against the merged manifest, then format-only, identical, non-overlapping additions, generated files, and clear one-sided or composable merges), and ambiguous judgment files last so all confident work is applied, verified, and staged before the first user prompt.
 
 ## Per-file loop
 
-For each file, run this sequence. Propose the recommendation (mass-accept or manual merge) and stop for user confirmation. Once confirmed, applied, verified, and staged, automatically proceed to the next file's recommendation without an intermediate continue gate.
+For each file, run this sequence. When a file's resolution is **confident** (every hunk's merged intent is unambiguous from the diff, `diff3` base, and commit history), apply it, run per-file verification (step 5), `git add <file>`, log a one-line summary of the applied resolution, and auto-advance to the next file without stopping. Stop for user confirmation only when a file has genuine ambiguity or its verification check fails.
 
 ### 1. Show the conflict
 
@@ -117,47 +120,44 @@ git log --diff-filter=R --follow --name-status -1 HEAD -- <file>
 
 For every conflict marker block, classify into one of:
 
-| Class | What it looks like | Default action |
+| Class | What it looks like | Action |
 |---|---|---|
-| **Pure additions, non-overlapping** | Both sides added different lines at the same location | Keep both, merge inline |
-| **Format-only** | Whitespace, import order, trailing comma differences | Take the side with real content changes |
-| **Semantic overlap** | Both sides changed the same logic differently | Stop, present diff side-by-side, ask user |
-| **Rename + edit** | One side renamed identifier/file, other side edited the old name | Take the rename, reapply edit at new name, then grep for stale refs |
-| **Dependency version** | `package.json` / `pyproject.toml` / `Cargo.toml` with different version pins | Ask user — usually take the higher version, then regenerate lockfile |
-| **Identical resolution** | Both sides made the same edit (rare; usually auto-resolves) | Take either side |
+| **Identical resolution** | Both sides made the same edit (rare; usually auto-resolves) | **Auto-apply**: take either side |
+| **Format-only** | Whitespace, import order, trailing comma, or line-ending differences | **Auto-apply**: take the side with real content changes (or either side if purely formatting) |
+| **Pure additions, non-overlapping** | Both sides added different lines at the same location | **Auto-apply**: keep both, merge inline |
+| **Rename + edit** | One side renamed identifier/file, other side edited the old name | **Auto-apply** when the edit maps cleanly to the new name: take the rename, reapply the edit at the new name, and grep for stale refs. **Stop** if the edit contradicts the rename |
+| **Dependency version** | `package.json` / `pyproject.toml` / `Cargo.toml` with different version pins | **Auto-apply** when compatible (same-major bump or one side untouched): take the higher compatible version, then regenerate the lockfile. **Stop** on competing majors, conflicting peer constraints, or modify-vs-remove |
+| **Composable or superseded logic** | Both sides touched the same block, and the `diff3` base plus commit history show the changes compose cleanly or one side strictly supersedes the other | **Auto-apply**: merge both intents (or take the superseding side) and verify in step 5 |
+| **Ambiguous semantic overlap** | Both sides changed the same logic, behavior, or configuration value in mutually exclusive ways | **Stop**: present diff side-by-side with options and ask the user |
+| **Ambiguous delete/modify or binary/submodule** | `DU` / `UD` / `AU` / `UA` without a clear rename or supersession, or binary/submodule conflict with no clear winner from commit history | **Stop**: present both sides and ask the user |
 
-State the classification per hunk before suggesting an action.
+State the classification and one-line rationale per hunk before applying or prompting.
 
 ### 3. Mass-accept check
 
-If **all** hunks in the file are classified as "take ours" or **all** as "take theirs", offer mass-accept:
+If **all** hunks in the file lean the same way ("take ours" or "take theirs"), check whether the other side has any non-conflicting changes outside the conflict markers (`git diff :1:<file> :3:<file>` when taking `ours`, or `git diff :1:<file> :2:<file>` when taking `theirs`):
 
-```bash
-# Pick one — never both
-git checkout --ours <file>     # or --theirs
-git add <file>
-```
-
-**Warning to surface first**: `git checkout --ours/--theirs` discards the conflict markers entirely and takes the **whole file** from that side. Any non-conflicting changes from the other side in that file are lost. Only safe when the file-level lean is unanimous.
-
-Ask the user to confirm. Do not run the checkout without an explicit yes.
+- **Other side has changes outside the conflict markers**: do **not** run `git checkout --ours/--theirs` (it overwrites the whole file and silently drops auto-merged hunks). Resolve the conflict markers in place via step 4 instead.
+- **Other side has no changes outside the conflict markers** (or the file is a binary or lockfile/generated file being regenerated):
+  - If every hunk is **confident** (step 2), run `git checkout --ours <file>` (or `--theirs`), log which side was taken and why, and proceed to step 5 verification and `git add <file>` without prompting.
+  - If the choice of winning side is **ambiguous**, warn the user that `git checkout --ours/--theirs` takes the whole file from that side and wait for confirmation before running it.
 
 ### 4. Manual resolve
 
-When hunks are mixed or include semantic overlap:
+When hunks are mixed or require inline editing:
 
-1. For each hunk, propose a merged version inline. Show:
-   - The `ours` version
-   - The `theirs` version
-   - Your proposed merge
-   - The reasoning (one sentence — why this combination preserves both intents)
-2. Wait for user confirmation per hunk, or batch confirmation if hunks are independent.
-3. Use `Edit` to apply the resolved content. Remove all conflict markers (`<<<<<<<`, `=======`, `|||||||`, `>>>>>>>`).
-4. Re-read the file post-edit and verify zero markers remain:
+1. **All hunks in the file are confident (step 2)**:
+   - Use `Edit` to apply the merged resolution and remove all conflict markers (`<<<<<<<`, `=======`, `|||||||`, `>>>>>>>`).
+   - Log a one-sentence rationale per hunk naming how both intents were preserved (or why one side superseded the other).
+2. **One or more hunks in the file are ambiguous**:
+   - Apply any confident hunks in the file first, or prepare the full proposed resolution.
+   - For each ambiguous hunk, show the `ours` version, the `theirs` version, the proposed merge, and a one-sentence rationale.
+   - Ask the user to confirm or adjust (batching independent ambiguous hunks in the same file into one prompt) before finalizing the file.
+3. Re-read the file post-edit and verify zero markers remain:
    ```bash
    grep -nE '^(<{7}|={7}|>{7}|\|{7})' <file> || echo "clean"
    ```
-5. Run `git diff --check <file>` to catch whitespace errors and any leftover marker fragments.
+4. Run `git diff --check <file>` to catch whitespace errors and any leftover marker fragments.
 
 For **rename-vs-edit** specifically: after taking the rename, `grep` the resolved file (and the rest of the touched area) for the **old** identifier name. The most common silent bug here is a dead reference that compiles in isolation but errors on use.
 
@@ -175,12 +175,13 @@ Run the **narrowest** project check that covers the touched file. Don't run the 
 | `*.yaml` / `*.yml` | `yamllint <file>` (or `yq . <file>`); Kustomize dir: also `kustomize build <dir>` |
 | Lockfiles | Regenerate (see lockfile section), then run the project's normal install/check |
 
+If a check's tool isn't installed, don't install it. Report `unverified: <tool> not installed`. For purely mechanical resolutions (identical, format-only, non-overlapping additions) that pass the marker grep and `git diff --check`, `git add <file>` and note `unverified: <tool> not installed` in the log; for semantic, rename+edit, or dependency resolutions that depend on type-check/lint verification for confidence, stop and ask the user whether to stage the file anyway.
+
 If the stop changed a dependency manifest or lockfile, sync installed deps first (`npm ci`, `uv sync`, …) — otherwise the check runs against stale `node_modules`/venv and can pass or fail for reasons unrelated to the resolution. During a rebase, errors that a later commit fixes (e.g. code needing a dependency bumped further down the todo) are expected at intermediate stops; confirm against the todo before treating them as a broken resolution.
 
 If verification fails:
 - Do **not** `git add` the file.
-- Show the error verbatim.
-- Loop back to step 4 to refine the resolution.
+- If the failure is caused by an obvious omission in the conflict resolution (such as a missing import or renamed symbol from the other side), refine the resolution once in step 4 and re-run the check; if it still fails, show the error verbatim and stop for user direction.
 
 If verification passes:
 ```bash
@@ -190,8 +191,8 @@ git add <file>
 ### 6. Advance to next file
 
 After staging:
-- State that `<file>` was resolved (`<N>` of `<M>` conflicted files).
-- If more conflicted files remain, immediately present the next file's conflict and recommendation (Steps 1–4) and stop for user confirmation.
+- State that `<file>` was resolved (`<N>` of `<M>` conflicted files) with a one-line summary of the resolution.
+- If more conflicted files remain, proceed immediately to the next file (auto-applying confident files and stopping only when a file hits an ambiguity gate in steps 2–4 or an unresolved check failure in step 5).
 - If all files are resolved, proceed directly to ## Closing.
 
 ## Closing
@@ -214,10 +215,9 @@ State:
 - **Never run `git commit`** — even when the merge appears complete. The user commits manually (matches the global "user handles all commits" rule). The one allowed write is `git add <file>` after a successful per-file resolution.
 - **Never run `git merge --abort` / `git rebase --abort` / `git cherry-pick --abort`** — destructive, and often invoked accidentally. Only the user invokes these.
 - **Never run `git reset --hard`** — discards uncommitted work.
-- **Never run `git checkout --ours/--theirs` without explicit user confirmation** — it takes the whole file from one side.
+- **Never run `git checkout --ours/--theirs` when the other side has non-conflicting changes in that file** — whole-file checkout discards auto-merged lines outside conflict markers. Verify the other side has no changes outside the conflicted hunks (or that the file is a lockfile/generated file being regenerated), and ask for confirmation whenever the winning side is ambiguous.
 - **Never `--no-verify`** anywhere.
-- **Never auto-edit without showing the diff and getting confirmation first** — every resolution is proposed, confirmed, then applied.
-- **Stop on recommendations, not after staging** — always stop for approval on each file's proposed merge/checkout, but advance immediately to the next recommendation once a file is staged.
+- **Auto-apply confident resolutions; gate only on genuine ambiguity or check failure** — when every hunk in a file has an unambiguous resolution and per-file verification passes, apply the edit, log the one-line rationale per hunk, `git add <file>`, and advance without prompting. Stop and ask the user only when hunks have competing semantic choices, incompatible dependency constraints, unclear delete-vs-modify intent, an unverified semantic merge (missing check tool), or a verification failure that doesn't self-correct.
 - **Stop if the operation context disappears mid-flow** — if `MERGE_HEAD` (or equivalent sentinel) vanishes between files, the user finalized externally. Stop and report.
 
 ## Common pitfalls
