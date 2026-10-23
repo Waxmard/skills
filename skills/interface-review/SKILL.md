@@ -42,6 +42,12 @@ Missing `git`: stop. For a `pr <n>` target, also check `command -v gh >/dev/null
 
 The whole invocation is the target, so `/interface-review pr 482` reviews pull request 482. [Scope resolution](scope-resolution.md) holds the accepted targets and how each resolves.
 
+A leading `lean` or `full` in the invocation, or `mode: <x>` from a calling skill, is the scope mode, not a target: remove it before resolving the target. No mode: default.
+
+- **`lean`**: expand one hop only, tokens and primitives included; report only `HIGH` and `MEDIUM` findings statused `Introduced` or `Regression`; omit the `Pre-existing` section.
+- **Default**: as written.
+- **`full`**: a whole-repository interface audit, not a change review. Hand it to `better-interface` as in **With no change, ask rather than invent one**, third bullet.
+
 With no target supplied, resolve in this order and stop at the first match:
 
 1. `HEAD` is ahead of `git merge-base origin/<default-branch> HEAD`: that range **plus** any uncommitted changes, with the commit count and the uncommitted file count stated separately.
