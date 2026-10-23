@@ -11,7 +11,7 @@ review came back     ──▶ address-review-comments ──▶ verdicts, then 
 restyling a UI       ──▶ ui-references ──▶ approved brief, then build
 before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxmard/mw-kit playbook
                                   ├─▶ pr-review-toolkit, ponytail-review,
-                                  │   test-audit, interface-review
+                                  │   test-audit, docs-audit, interface-review
                                   └─▶ triage-renovate-dependabot-prs
 ```
 
@@ -52,6 +52,7 @@ now.
 | Skill | What |
 |---|---|
 | `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR or MR, posts answers to reviewer questions, then posts fix replies once fixes land. |
+| `docs-audit` | Audits code comments and markdown docs in a branch or whole repo to prune restated comments, change narration, commented-out code, padding, duplicate docs, and stale references. |
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-trivy-scan` | Upgrades Trivy and clears failing scan findings with dependency, base-image, or expiring-ignore fixes. |
 | `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |

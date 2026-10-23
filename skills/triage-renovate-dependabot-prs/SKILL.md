@@ -9,6 +9,8 @@ description: >
   preferring bounded upgrade repairs over skips. Real merge conflicts get a
   proposed resolution gated on user acceptance. MEDIUM/HIGH decisions and
   required merge permissions remain gated.
+  Modes: lean (clean LOW/LOWEST merges only), default, full (adds full test
+  suites after each merge).
   Language-agnostic: handles JS/TS, Python, Rust, Go, Ruby, Java/Kotlin, and
   any other ecosystem the bots target. Trigger: "merge renovate prs",
   "merge renovate mrs", "merge dependabot prs", "merge bot prs",
@@ -32,6 +34,14 @@ Runs on macOS and Linux (on Windows, use WSL).
 - `crane` (optional), to compare container-image bumps
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
+
+## Scope modes (`lean` / default / `full`)
+
+Take the mode from the invocation args or the caller's instructions (`mode: <x>`): `lean`, `default`, or `full`. None given: default.
+
+- **`lean`**: merge only branches whose actual verdict is LOW or LOWEST and that merge cleanly with no repair. Skip MEDIUM/HIGH branches and branches that need a repair or a conflict resolution, without a decision prompt, and list them as `deferred (lean)` in the end-of-drain summary. Merge authorization (step 3) still applies.
+- **Default**: as written below.
+- **`full`**: in step 5, after the checks in the table, also run each touched ecosystem's full test suite, including suites the table skips or makes opt-in (`bundle exec rspec`, Maven without `-DskipTests`, Gradle without `-x test`).
 
 ## Pre-flight
 
