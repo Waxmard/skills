@@ -270,6 +270,8 @@ Then detect the stack from repo root files and **run** the matching checks (not 
 | Merge touched only `.github/workflows/`, `.gitlab-ci.yml`, or `Dockerfile` | Parse-check the changed CI files (`uv run --with pyyaml python -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"`, or `docker build --check`). Catches syntax breakage only — real verification is a pipeline run, so remind the user to watch CI after pushing. |
 | None of the above | Skip checks, tell the user. |
 
+When the bump is itself a test runner or browser driver (`@playwright/test`, `cypress`, `vitest`, `jest`), also run the suite that runner drives — even when the detected command omits it. An aggregate like `npm run ci` that excludes e2e reports green for the one dep that changed, leaving the bump's whole risk surface unexercised.
+
 Respect project-specific overrides — if the repo has an `AGENTS.md` (or the harness's rules file), `Makefile`, or script like `./pre-commit.sh` / `./scripts/check.sh` that bundles the canonical checks, prefer that.
 
 When **merge + repair** edits source files, run the verification commands only *after* the edit call has succeeded (never in the same parallel tool batch as the edit), and run the tests covering every file the repair touched — not just the test that failed on the un-repaired branch.

@@ -26,8 +26,8 @@ Steps below use neutral verbs. Map them to your harness:
 |---|---|---|---|
 | invoke with args | `/skill:wrap-up run go` | `/wrap-up run go` | first message `run go` |
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
-| spawn the wave | one `task` call, `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400) | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–5 inline in order, note "ran inline: no subagents" |
-| retrieve a report verbatim | `read agent://<id>:raw` (the `wait` snapshot and plain `read agent://<id>` truncate; `/report:raw` returns null for unstructured reports) | the Agent tool result | n/a |
+| spawn the wave | one `task` call with no `agent` field (rows run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every row settles before ending the turn | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–5 inline in order, note "ran inline: no subagents" |
+| retrieve a report verbatim | `read agent://<id>:raw` (the `wait` snapshot and plain `read agent://<id>` truncate; `/report:raw` returns null for unstructured reports); empty means the agent never yielded: if `history://<id>` shows it aborted or parked, `write agent://<id>` to revive it, then `wait` | the Agent tool result | n/a |
 | progress list | `todo` `init` | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
 
@@ -176,8 +176,9 @@ create the progress list (Harness notes) with one item per phase, in run order:
 - last item: `Close: completion summary`.
 
 Mark each item done as soon as its phase finishes, including rows that report nothing to do.
-Print the completion block (inline step 3) only when every item except
-`Close: completion summary` is done.
+Print the completion block (inline step 3) once every item except `Close: completion summary` is
+done or blocked on a user action; list blocked rows under a `Blocked:` line naming the gate that
+stopped them.
 
 Why this order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
@@ -262,7 +263,12 @@ stopping to fix is the default for all of wrap-up.
      order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
 2. Findings that need a user decision (two valid fixes with different shapes, a behavior change,
    a disputed finding, or two reports asking for opposite changes to the same code) go to the
-   user in one batched question (Harness notes: ask the user) before any edit. Never skip them silently.
+   user in one batched question before any edit. Never skip them silently. Because the user must
+   read the printed wave reports and numbered ledger to evaluate these items, ask this question in
+   plain text at the end of the report turn (or, if using a modal `ask` tool, put the full numbered
+   item list in the option `preview` / after a prior turn has already rendered the reports) — never
+   open a modal `ask` in the same turn that prints the reports for the first time, as the dialog
+   covers the chat.
 3. Work through the reports in row order, one at a time. For each report with items left:
    1. Re-read each of this report's items against the current tree. If an earlier report's fix
       already resolved the item, or deleted or rewrote the code it targets, don't fix it. Mark it
@@ -307,9 +313,12 @@ Inline rows:
       is in the commit. If one isn't, add it now and wait for the user to amend or commit it
       before running triage.
    3. **Rows 2–5 don't wait for this commit.** They are read-only and pinned to `head0`, so
-      neither the tooling commit nor triage's merges enter the reviewed diff — spawn the wave
-      while the user commits, then run Gate F. The user may fold the tooling changes and Gate F's
-      fixes into one commit; either way the tree must be clean before triage.
+      neither the tooling commit nor triage's merges enter the reviewed diff. In one turn, print
+      the commit prompt, spawn the wave, then wait on it (Harness notes). Never end the turn with
+      wave agents running: a harness exit, resume or interrupt while the user commits aborts
+      them. The user commits in another terminal meanwhile. Then print the reports and run
+      Gate F. The user may fold the tooling changes and Gate F's fixes into one commit; either
+      way the tree must be clean, with step 2's `git show --stat HEAD` check done, before triage.
    4. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
       before continuing — the playbook page reads are dead weight from here, and triage reloads its
       own instructions on invocation. Their call, not a gate.
@@ -328,6 +337,7 @@ Inline rows:
    ## Wrap-up complete
    - Ran: <row: skill — one-line outcome>, …
    - Skipped: <row: skill — reason>, …   (omit line if none)
+   - Blocked: <row: skill — the gate that stopped it>, …   (omit line if none)
    - Fixes: <N fixed, M skipped/declined> (Gate F)
    - Tree: clean | <N uncommitted files — commit before pushing>
    - Next: push is yours (`git push`), then open the MR/PR.
