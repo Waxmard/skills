@@ -1,14 +1,12 @@
 ---
 name: fix-trivy-scan
 description: >
-  Fix failing Trivy CI jobs (trivy fs / trivy image scans) in any repo and
-  ecosystem. First bumps every trivy pin to the latest release, then sorts each
-  HIGH/CRITICAL finding: lockfile dependency bump (uv, npm, pnpm, yarn, poetry,
-  cargo, go, bundler), base-image tag/digest bump for OS packages, misconfig
-  fix, or an expiring suppression in the ignore file when no fix exists.
-  Verifies locally with CI's exact command and trivy version. Never commits.
-  Trigger: "trivy failed", "fix trivy", "trivy-scan failed",
-  "trivy-image-scan failed", "upgrade trivy", or /fix-trivy-scan.
+  Use when Trivy or CI vulnerability, container, or filesystem security scans
+  fail, or to remediate CVE findings and upgrade Trivy pins. Bumps Trivy to
+  latest, resolves HIGH/CRITICAL findings via lockfile or base-image bumps,
+  misconfig fixes, or expiring .trivyignore entries, and verifies locally;
+  never commits. Trigger: "trivy failed", "fix trivy", "CI security scan
+  failed", "container scan failed", "fix CVEs", or /fix-trivy-scan.
 ---
 
 # Fix Trivy scan failures

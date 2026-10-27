@@ -1,7 +1,14 @@
 ---
 name: interface-review
 disable-model-invocation: true
-description: Reviews your work across multiple categories like UI, typography, layout, color, writing and accessibility and gives you a detailed analysis of the findings.
+description: >
+  Use when asked for a UI, frontend, interface, or design review of a branch,
+  PR, MR, or diff (lean, default, full). Expands changed files to affected UI
+  surfaces, checks removed lines for regressions, and hands findings to
+  better-interface. Not for general code review (pr-review-toolkit) or
+  whole-app UI audits (better-interface). Trigger: "review the UI changes",
+  "UI review", "interface review", "design review of this PR", or
+  /interface-review.
 ---
 
 # Change review

@@ -1,13 +1,13 @@
 ---
 name: pr-review-toolkit
 description: >-
-  MR/PR or local branch code review in a single pass over the diff: bugs and
-  regressions, silent failures, test value, and contract breaks in direct
-  consumers. Modes: lean (definite bugs, silent failures, missing tests only),
-  default, and full (adds type design, missing rationale, simplification, and
-  multi-hop consumer tracing). Trigger: "review this PR", "review this MR",
-  "review MR", "review PR", "review the diff", "code review",
-  "/pr-review-toolkit", or /review-pr.
+  Use when reviewing a PR, MR, branch diff, or local changes for bugs,
+  regressions, silent failures, test gaps, and broken callers (lean, default,
+  or full mode). Single-pass code review; not for judging existing review
+  comments (address-review-comments) or posting findings (post-mr-review).
+  Trigger: "review this PR", "review this MR", "review my branch", "review the
+  diff", "code review", "check my changes before opening a PR", or
+  /pr-review-toolkit.
 ---
 
 Review a Merge Request (GitLab), Pull Request (GitHub), or local branch diff in one pass. Read the diff once and open other code only to confirm or rule out a suspected finding.

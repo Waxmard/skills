@@ -1,6 +1,13 @@
 ---
 name: plain-writing
-description: Use whenever writing prose a person will read, including chat replies, updates, reviews, slides, and Slack/Jira text. Makes it plain, short, correct, and ready to send without more rounds. Covers status and sprint updates, customer or partner feedback, review and accomplishment write-ups, wiki pages, PR/MR or ticket comments, and text the user will paste elsewhere. Trigger on "write this up", "summarize for", "make this simpler", "more concise", "too wordy", "too technical", "reword", "draft a message", "for Slack", "for the slide". For repo docs (READMEs, CHANGELOGs, API docs), also load docs-style.
+description: >-
+  Use when drafting, rewriting, or simplifying prose a person will read:
+  Slack/Jira/email messages, status/sprint updates, customer notes, slides,
+  wiki pages, PR/MR comments, and review write-ups. Keeps text plain, short,
+  sourced, and ready to send; for repo docs (READMEs, CHANGELOGs, API docs),
+  load docs-style. Trigger: "write this up", "draft a message", "for Slack",
+  "for the slide", "make this simpler", "too wordy", "reword", or
+  /plain-writing.
 ---
 
 # Plain writing

@@ -1,14 +1,11 @@
 ---
 name: test-audit
 description: >
-  Audits unit, integration, and CLI tests in a branch diff or across a whole
-  repository to prune tautological assertions, static prompt/prose substring
-  checks, constant/lookup-table echoes, cross-layer CLI-to-unit duplicates,
-  same-path duplicates, and stale tests while preserving genuine domain and
-  boundary coverage. Supports lean (diff hunks only), default (branch test
-  files + tests covering changed modules), and full (whole-repo test suite)
-  modes. Trigger: "audit tests", "prune tests", "clean up tests", "trim
-  redundant tests", "test audit", "test suite spa day", or /test-audit.
+  Use when auditing, pruning, or cleaning up redundant, tautological, brittle,
+  or duplicate tests in a branch diff or whole repository (lean, default, or
+  full mode) while preserving domain and boundary coverage. Trigger: "audit
+  tests", "prune tests", "clean up tests", "trim redundant tests", "too many
+  tests", "test suite spa day", or /test-audit.
 ---
 
 Audits tests to cut redundant, tautological, and brittle cases while keeping genuine domain and boundary coverage intact.

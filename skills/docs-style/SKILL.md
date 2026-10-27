@@ -1,6 +1,12 @@
 ---
 name: docs-style
-description: Use when writing or editing prose in repo files, such as READMEs, CHANGELOGs, docs/ pages, API references, migration guides, ADRs, release notes, tutorials, and public doc comments. Adds Google developer-docs rules on top of plain-writing. Trigger on "write a README", "update the docs", "write the changelog", "document this API", "write a migration guide", "draft release notes", "rewrite these docs", "docs style", or "/docs-style".
+description: >-
+  Use whenever writing or editing documentation in repo files: READMEs,
+  CHANGELOGs, docs/ pages, API references, migration guides, ADRs, release
+  notes, tutorials, and public doc comments. Layers Google developer-docs rules
+  on top of plain-writing. Trigger: "write a README", "update the docs", "write
+  the changelog", "document this API", "write a migration guide", "draft
+  release notes", or /docs-style.
 ---
 
 # docs-style

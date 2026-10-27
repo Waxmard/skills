@@ -1,12 +1,13 @@
 ---
 name: wrap-up
 description: >
-  End-of-branch pre-merge checklist: runs pr-review-toolkit, picks which of
-  tooling-sync, ponytail-review, test-audit, docs-audit, interface-review,
+  Use at the end of a branch, before opening or merging a PR or MR, or for a
+  "repo spa day" pre-merge checklist. Runs pr-review-toolkit and selects which
+  of tooling-sync, ponytail-review, test-audit, docs-audit, interface-review,
   and triage-renovate-dependabot-prs to run, then fixes findings behind commit
   gates. Trigger: "wrap up this branch", "I'm done with this branch", "end of
-  branch", "pre-merge checklist", "what should I run before merging", "repo
-  spa day", or /wrap-up.
+  branch", "pre-merge checklist", "ready to merge", "repo spa day", or
+  /wrap-up.
 ---
 
 Orchestrates the end-of-branch reviews and hand-offs. It owns only the pre-flight signals, the

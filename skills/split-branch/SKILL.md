@@ -1,19 +1,12 @@
 ---
 name: split-branch
 description: >
-  Analyze a scope-crept branch and split it into branches that each sit
-  directly on the base and merge in any order without conflicting — grouping
-  by hunk-overlap analysis, pairwise merge simulation, and trial cherry-picks
-  rather than vibes, and fusing two themes into one branch when that is what
-  keeps the merges clean. Two phases with a hard stop: it reports a
-  recommended split and waits for approval, then recreates the branches,
-  verifies the union is byte-identical to the original and that every pair
-  merges cleanly, opens one MR/PR per branch, and leaves a breadcrumb comment
-  on the original MR pointing at its replacements. Preserves the original
-  branch and never force-pushes. GitLab (`glab`) first, GitHub (`gh`)
-  supported. Trigger: "split this branch", "this branch has scope creep",
-  "break this into separate MRs", "should this be stacked or off main",
-  "descope this branch", "split into smaller PRs", or /split-branch.
+  Use when a bloated or scope-crept branch needs splitting into smaller,
+  independent MRs or PRs off the base branch that merge in any order without
+  conflicts. Proposes a split plan first, then after approval creates branches,
+  verifies byte-identical union and clean pairwise merges, and opens MRs/PRs;
+  never force-pushes. Trigger: "split this branch", "break this into separate
+  PRs", "descope this branch", "split into smaller PRs", or /split-branch.
 allowed-tools: >
   Bash(git log *) Bash(git show *) Bash(git diff *) Bash(git status *)
   Bash(git rev-parse *) Bash(git symbolic-ref *) Bash(git merge-base *)

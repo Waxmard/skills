@@ -1,14 +1,12 @@
 ---
 name: docs-audit
 description: >-
-  Audits code comments and markdown docs in a branch diff or across a whole
-  repository to prune over-documentation: comments that restate the code,
-  change narration, commented-out code, empty banners, padded prose,
-  duplicated docs, and stale references, while keeping comments that explain
-  why. Supports lean (added lines only), default (changed files plus docs
-  that reference them), and full (whole repo) modes. Trigger: "audit docs",
-  "audit comments", "too many comments", "over-documented", "trim docs",
-  "docs spa day", or /docs-audit.
+  Use when auditing, trimming, or pruning code comments and markdown docs in a
+  branch diff or whole repo (lean, default, or full mode). Cuts restated code,
+  change narration, commented-out code, padded prose, and stale references
+  while keeping why-comments. Trigger: "audit docs", "audit comments", "too
+  many comments", "over-documented", "trim docs", "docs spa day", or
+  /docs-audit.
 ---
 
 Audits code comments and markdown docs to cut what a reader doesn't need, while keeping every comment that explains why. Its best outcome is a shorter diff with the same information.

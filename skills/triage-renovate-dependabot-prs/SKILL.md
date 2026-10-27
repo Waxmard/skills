@@ -1,23 +1,13 @@
 ---
 name: triage-renovate-dependabot-prs
 description: >
-  Mass-merge renovate (GitLab) and dependabot (GitHub) dependency-bump branches
-  into the current feature branch, one at a time, with diff review, reasoned
-  risk assessment (changelog read + call-site cross-reference, not just
-  semver), and auto-detected post-merge checks. Auto-advances through
-  branches, automatically deferring stale-base conflicts for bot rebase and
-  preferring bounded upgrade repairs over skips. Confident merge-conflict
-  resolutions (compatible manifest merges and lockfile regenerations)
-  auto-apply and verify; ambiguous conflicts get a proposed resolution gated
-  on user acceptance. MEDIUM/HIGH decisions and required merge permissions
-  remain gated.
-  Modes: lean (clean LOW/LOWEST merges only), default, full (adds full test
-  suites after each merge).
-  Language-agnostic: handles JS/TS, Python, Rust, Go, Ruby, Java/Kotlin, and
-  any other ecosystem the bots target. Trigger: "merge renovate prs",
-  "merge renovate mrs", "merge dependabot prs", "merge bot prs",
-  "drain renovate branches", "triage renovate prs",
-  "triage dependabot prs", or /triage-renovate-dependabot-prs.
+  Use when triaging or batch-merging Renovate (GitLab) or Dependabot (GitHub)
+  dependency-bump branches into the current feature branch (lean, default, or
+  full mode). Reviews each bump's changelog and call sites, auto-resolves
+  lockfile conflicts, runs post-merge checks, and gates risky or ambiguous
+  bumps. Trigger: "merge renovate PRs", "merge dependabot PRs", "triage
+  renovate", "drain renovate branches", "merge bot PRs", "merge dependency
+  bumps", or /triage-renovate-dependabot-prs.
 ---
 
 # Triage dependency updates

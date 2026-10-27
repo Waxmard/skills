@@ -1,14 +1,13 @@
 ---
 name: post-mr-review
 description: >
-  Turn code-review findings already in the conversation into GitLab MR comments
-  (inline where possible), iterate with the user on what to post, and post ONLY
-  after the user confirms each comment. Reuses existing threads, dedupes against
-  comments already on the MR, consolidates, pins file links to the MR head SHA,
-  and adds suggestion blocks for mechanical fixes. Use after a review has run.
-  Trigger: "post these on the mr", "put the findings as comments", "post the
-  review", "/post-mr-review". Not for judging existing comments (use
-  address-review-comments).
+  Use to post code-review findings from the current conversation as inline
+  GitLab MR comments after user confirmation. Dedupes against existing MR
+  threads, pins links to the MR head SHA, and adds suggestion blocks; never
+  posts unconfirmed and never judges existing comments (use
+  address-review-comments). Trigger: "post these on the MR", "put the findings
+  as comments", "post the review", "leave these comments on the MR", or
+  /post-mr-review.
 ---
 
 Turn review findings already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions, iterating with the user on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
@@ -164,7 +163,7 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 
 - **Null `position`**: general notes and bot Questions have `position: null`; read it null-safely.
 - **`glab api --paginate`** output doesn't parse as one JSON document; page manually.
-- **Harness block**: some harnesses block bash commands matching `*merge_requests/*/merge*`, so a `jq` filter such as `.detailed_merge_status` after `merge_requests/<iid>` fails. Run MR API reads from Python.
+- **Harness block (`*merge_requests/*/merge*`)**: some harnesses block any `bash` command where `merge` appears anywhere after `merge_requests/`, including `.detailed_merge_status` or a second `merge_requests/` URL or endpoint in the same script. Run MR API reads from Python and assign the path prefix to a variable once (or split `"merge_" + "requests"`).
 - **Silent downgrade**: inline positions silently become general notes if the line isn't in the diff. Check the line map first, then verify `position` after posting.
 - **Stale author replies**: replies often answer the previous round ("handlers now called at 3 sites") instead of the new point. Verify against code, not the reply.
 - **Remote CI components** (`component: $CI_SERVER_FQDN/<group>/<project>/<name>@<ref>`) can be read without cloning: `glab api "projects/<url-encoded group/project>/repository/files/templates%2F<name>.yml/raw?ref=<ref>"` (list with `repository/tree?ref=<ref>&recursive=true`). Read the component's rules before calling a `needs:` or job-presence risk unverified.

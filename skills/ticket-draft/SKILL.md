@@ -1,6 +1,12 @@
 ---
 name: ticket-draft
-description: Draft a ticket title, description, and suggested weight from a bug, investigation, or feature idea, then offer to post it, for any tracker (Jira, GitLab issues, GitHub issues, Linear). Use when asked to "write a ticket", "file an issue", or for ticket wording; not for status updates or work summaries.
+description: >-
+  Use when asked to draft, write, or file a ticket or issue (Jira, GitLab
+  issues, GitHub issues, Linear) from a bug, investigation, or feature idea,
+  with intake forms and story-point weights. Checks for overlapping open
+  tickets and offers to post after confirmation; not for status updates.
+  Trigger: "write a ticket", "create a Jira", "file an issue", "open an
+  issue", "turn this into a ticket", or /ticket-draft.
 ---
 
 # Ticket drafting

@@ -1,15 +1,11 @@
 ---
 name: resolve-merge-conflicts
 description: >
-  Walk through unresolved merge conflicts one file at a time during an in-progress
-  merge, rebase, or cherry-pick. Detects which side is "ours" vs "theirs" (these
-  flip between merge and rebase), classifies each file's conflicts, and
-  automatically applies, verifies, and stages confident resolutions (format-only,
-  identical, non-overlapping additions, rename+edit, compatible dependency
-  bumps, lockfile/generated regeneration, and unambiguous one-sided or
-  composable logic). Stops for user confirmation only on genuine ambiguity or
-  check failures; never aborts the operation, never commits. Trigger: "resolve
-  merge conflicts", "resolve conflicts", "help with the merge conflicts", "fix
+  Use when resolving git conflicts during an in-progress merge, rebase, or
+  cherry-pick. Detects ours/theirs semantics, auto-resolves, verifies, and
+  stages confident files (lockfiles, formatting, compatible edits), and prompts
+  only on genuine ambiguity; never aborts or commits. Trigger: "resolve merge
+  conflicts", "resolve conflicts", "fix rebase conflicts", "help with git
   conflicts", or /resolve-merge-conflicts.
 ---
 
