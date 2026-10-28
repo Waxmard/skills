@@ -142,10 +142,10 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdic
 - Legend: "`fast`/`strong` = runs as a subagent on that model class (Harness notes). `inline` = runs
   in this session because it prompts you; the tier is the recommended strength for this
   session."
-- Parallelism: "Row 1 runs first, inline. Rows 2–6 then run in parallel (read-only, pinned to
-  `<head0 short>`: row 2 from `<from short>`, rows 3–6 from `<mb short>`; they may start while
-  Gate A's commit is pending). Row 7 runs last, inline." Gate F then fixes the review findings
-  before row 7 runs.
+- Parallelism: "Row 1 runs first, inline, and stops at Gate A if it changed files. Rows 2–6 then
+  run in parallel (read-only, pinned to `<head0 short>`: row 2 from `<from short>`, rows 3–6 from
+  `<mb short>`), and Gate F walks their findings one phase at a time with a commit gate after each
+  phase that changes files. Row 7 runs last, inline."
 - Always: "Pre-flight is cheap. To run the picks on a stronger model, start a new session there
   and invoke wrap-up with `run <your reply>`."
 - Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
@@ -229,11 +229,12 @@ general code, simplification, test, or docs reviews.
   `~/.claude/skills/interface-review/SKILL.md`; otherwise the harness's skills dir) and follow it
   with target `<mb>...<head0>` (mode: `<lean|default|full>`); resolve its relative file references against that directory." The
   user chose to delegate it; the opt-out only stops the model picking it unprompted.
-When the wave finishes, print each report under a `### <skill> (<tier>)` heading in row order.
-Retrieve each report verbatim, never a truncated preview (Harness notes). If subagents or the
-tier's model are unavailable, run that row inline in this session and note "ran inline: <reason>".
-If a review agent fails before returning a complete report, finish its assigned scope inline or
-re-delegate it. A partial transcript is not a completed review.
+When the wave finishes, retrieve every report verbatim, never a truncated preview (Harness notes),
+but **do not print all reports or all decisions at once**. Hold the completed reports and present
+them one phase at a time in Gate F below so the chat is never a multi-report text dump. If
+subagents or the tier's model are unavailable, run that row inline in this session and note
+"ran inline: <reason>". If a review agent fails before returning a complete report, finish its
+assigned scope inline or re-delegate it. A partial transcript is not a completed review.
 
 Once row 2 has returned a complete report (delegated or ran inline), record the reviewed head with
 literals filled in, since bash calls may not share a shell. Do not write the memo for a partial review:
@@ -241,13 +242,14 @@ literals filled in, since bash calls may not share a shell. Do not write the mem
 Write it before Gate F, so Gate F's fix commits land in row 2's next delta and get reviewed
 then. Rows 1 and 3–7 never touch the memo.
 
-**Gate F — fix findings (always, after the wave; never optional).** Runs after the wave's
-reports have printed, whether or not an inline row follows. Do not ask "fix or continue":
-stopping to fix is the default for all of wrap-up.
+**Gate F: fix findings phase by phase (always, after the wave; never optional).** Runs after the
+wave settles, whether or not an inline row follows. Do not ask "fix or continue": stopping to fix
+is the default for all of wrap-up.
 
-1. Build a numbered fix ledger from every report in the wave, covering every actionable finding,
-   including subitems. Before leaving Gate F, give each entry a final status: fixed, verified
-   false positive, user-declined, or resolved by another fix. Unaccounted findings block completion.
+1. Filter and deduplicate each report's actionable findings (including subitems). Before leaving
+   Gate F, every actionable finding across the wave must reach a final status: fixed, verified
+   false positive, user-declined, or resolved/moot after an earlier fix. Unaccounted findings
+   block completion.
    - Include every Critical and Important item, plus every Suggestion that has a
      concrete *Fix* line. In non-pr-review-toolkit reports (ponytail-review, test-audit,
      docs-audit, interface-review), include every actionable finding.
@@ -257,43 +259,45 @@ stopping to fix is the default for all of wrap-up.
    - Exclude **retired-concept removals**: a `Regression` finding that a removed element was
      left unreplaced only holds while the concept it served still exists. When the same diff
      also deleted the data field, API type or schema that element rendered from, the removal is
-     a cutover with nothing to replace — a false positive, not a finding. Cite the deleted
-     counterpart as the evidence in step 3's skip status.
-   - Merge overlapping items: the same `file:line`, or the same root cause in the same file or
-     symbol even when the lines or wording differ. Keep one item under the first report in row
-     order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
-2. Findings that need a user decision (two valid fixes with different shapes, a behavior change,
-   a disputed finding, or two reports asking for opposite changes to the same code) go to the
-   user in one batched question before any edit. Never skip them silently.
-   In `full` mode this includes every finding on a file the branch didn't change (not in the
-   `<mb>..<head0>` changed-files list): name each with its evidence, fix only the ones the user
-   picks, and mark the rest `user-declined`. Because the user must
-   read the printed wave reports and numbered ledger to evaluate these items, ask this question in
-   plain text at the end of the report turn (or, if using a modal `ask` tool, put the full numbered
-   item list in the option `preview` / after a prior turn has already rendered the reports) — never
-   open a modal `ask` in the same turn that prints the reports for the first time, as the dialog
-   covers the chat.
-3. Work through the reports in row order, one at a time. For each report with items left:
-   1. Re-read each of this report's items against the current tree. If an earlier report's fix
-      already resolved the item, or deleted or rewrote the code it targets, don't fix it. Mark it
-      `skipped: resolved by <skill> fix` or `skipped: moot after <skill> fix`.
-   2. Apply its fixes in this session, using the smallest change that resolves each finding. Then
-      run the repo's narrowest check that covers the touched files (from its AGENTS.md/Makefile/
-      package.json). If a check fails, fix that too before moving on. Run applicable checks after
-      the final edit, including formatting and test repairs. Later edits invalidate affected
-      checks; rerun those checks before the commit handoff, including any configured file-size gate.
-   3. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
+     a cutover with nothing to replace: a false positive, not a finding. Cite the deleted
+     counterpart as the evidence in step 2's skip status.
+   - Merge overlapping items across reports: the same `file:line`, or the same root cause in the
+     same file or symbol even when the lines or wording differ. Keep one item under the first
+     report in row order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
+2. Walk the picked review rows in row order (2 → 6), **one report (phase) at a time**. Never print
+   a later row's report or ask a later row's decisions until the current row is finished and
+   committed:
+   1. Print **only** the current row's report under `### <skill> (<tier>)`. Re-read each of this
+      report's actionable items against the current tree. If an earlier row's fix already resolved
+      the item, or deleted or rewrote the code it targets, mark it
+      `skipped: resolved by <skill> fix` or `skipped: moot after <skill> fix`. If the row has no
+      actionable items left, print `### Gate F: <skill>` (`no findings to fix`), mark the row done,
+      and advance immediately to the next row in the same turn.
+   2. **Ask decisions for this row only.** If any item in *this* report needs a user decision
+      (two valid fixes with different shapes, a behavior or copy change, a disputed finding,
+      deleting pre-existing tests, or in `full` mode any finding on a file outside the
+      `<mb>..<head0>` changed-files list), present only this row's decision items and wait for
+      the user's choice before editing. Ask in plain text at the end of the turn that prints this
+      row's report (or use `ask` only if its `preview` carries the full context so the modal
+      doesn't hide unread text).
+   3. Apply this row's fixes in this session, using the smallest change that resolves each
+      finding. Run the repo's narrowest check that covers the touched files (from its
+      AGENTS.md/Makefile/package.json), plus any configured file-size gate. If a check fails,
+      fix that too before moving on.
+   4. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
       `fixed`, `skipped: <reason>`, or `user-declined`. The only allowed skip reasons are a
       verified false positive (state the evidence), the user declining, or resolved/moot after
       an earlier report's fix (name that report).
-   4. If anything changed, show `git status --short` and suggest a subject (e.g. `test: prune
-      redundant test cases` for `test-audit`, `docs: trim redundant comments and docs` for `docs-audit`, or `fix: address <skill> findings` for the others). Then stop and wait for the user to commit. Move to the next report only
-      when `git status --short` matches the pre-flight `baseline`. When the next report's fixes
-      touch the same files, carry straight on instead and suggest one subject covering both
-      reports — pausing there would commit the same file twice with nothing reviewed between. If
-      nothing changed, say so and go straight to the next report.
-4. If the list is empty after the exclusions, print "Gate F: no findings to fix" and continue
-   without stopping.
+   5. **Stop and wait for the user to commit every time a phase changes files.** Whenever
+      `git status --short` differs from the pre-flight `baseline`, show `git status --short` and
+      suggest a commit subject (e.g. `test: prune redundant test cases` for `test-audit`,
+      `docs: trim redundant comments and docs` for `docs-audit`, or `fix: address <skill> findings`
+      for the others), then **stop and wait for the user to commit**. Never carry straight on to
+      the next report while phase changes are uncommitted, even if the next report touches the
+      same files. Advance to the next row only after the user commits and `git status --short`
+      matches `baseline`.
+3. If no row in the wave had actionable findings after exclusions, print "Gate F: no findings to
+   fix" and continue without stopping.
 
 Inline rows:
 
@@ -307,28 +311,23 @@ Inline rows:
       calling a follow-up blocked on private-registry credentials, check the tokens already in the
       environment (e.g. `UV_INDEX_<NAME>_PASSWORD="$GITLAB_TOKEN" uv lock`; `glab auth status`
       shows where glab's token comes from).
-   2. **Stop and wait for the user to commit** the tooling-sync changes. Show `git status --short`
-      so they see exactly what to commit — this includes `.tooling-sync.json` (the incremental-sync
-      memory tooling-sync writes), a normal committed file *unless the user's global gitignore
-      excludes it* — then it stays local-only and won't appear here, which is fine: it still drives
-      the next sync on this machine. triage's `git merge --no-ff` needs a clean tree, so an
-      uncommitted tooling-sync tree would foul the merges. Once the user says it's committed, run
-      `git show --stat HEAD` and confirm every follow-up from step 1 (e.g. a regenerated lockfile)
-      is in the commit. If one isn't, add it now and wait for the user to amend or commit it
-      before running triage.
-   3. **Rows 2–6 don't wait for this commit.** They are read-only and pinned to `head0`, so
-      neither the tooling commit nor triage's merges enter the reviewed diff. In one turn, print
-      the commit prompt, spawn the wave, then wait on it (Harness notes). Never end the turn with
-      wave agents running: a harness exit, resume or interrupt while the user commits aborts
-      them. The user commits in another terminal meanwhile. Then print the reports and run
-      Gate F. The user may fold the tooling changes and Gate F's fixes into one commit; either
-      way the tree must be clean, with step 2's `git show --stat HEAD` check done, before triage.
-   4. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
-      before continuing — the playbook page reads are dead weight from here, and triage reloads its
-      own instructions on invocation. Their call, not a gate.
+   2. **Stop and wait for the user to commit** the tooling-sync changes whenever `tooling-sync`
+      modified the working tree (`git status --short` differs from `baseline`). Show
+      `git status --short` and suggest a commit subject (`chore: sync repo tooling with mw-kit`).
+      This includes `.tooling-sync.json` (the incremental-sync memory tooling-sync writes), a
+      normal committed file *unless the user's global gitignore excludes it*; then it stays
+      local-only and won't appear here, which is fine: it still drives the next sync on this
+      machine. Do **not** spawn the rows 2–6 review wave until the user has committed Gate A's
+      changes. Once the user says it's committed, run `git status --short` and
+      `git show --stat HEAD` to confirm the tree matches `baseline` and every follow-up from
+      step 1 (e.g. a regenerated lockfile) is in the commit. If one isn't, add it now and wait for
+      the user to amend or commit it before continuing.
+   3. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
+      before continuing: the playbook page reads are dead weight from here, and the next phases
+      load their own instructions on invocation. Their call, not a gate.
 
-   Only continue once the tree is clean. If tooling-sync produced no changes, there's nothing to
-   commit, so proceed.
+   Only continue to the review wave once the tree matches `baseline`. If tooling-sync produced no
+   changes, there's nothing to commit, so proceed immediately.
 2. `triage-renovate-dependabot-prs`: load skill `triage-renovate-dependabot-prs` and follow
    it in row 7's mode (`lean`, `default`, or `full`). It owns discovery, the per-branch risk read, the per-merge confirmation gate, post-merge
    checks, and the never-push rule. Don't second-guess its prompts: let it drive. When
@@ -352,8 +351,11 @@ Inline rows:
 - **Never commit, never push** — every commit between skills and the final push are the *user's*.
   This skill triggers none of them.
 - **Stop and fix is always the default:** fix any problem a phase surfaces before the next phase.
-- **Don't skip Gate A** when tooling-sync runs before triage. Running triage against an
-  uncommitted tooling-sync tree fouls the merges.
+- **Stop for a commit after every phase that changes files.** Gate A and every Gate F row that
+  modifies the working tree must stop, show `git status --short` + a suggested commit message,
+  and wait for the user to commit before the next phase starts.
+- **Never dump multiple review reports or cross-phase decisions in one turn.** Present and resolve
+  rows 2–6 one report at a time in row order.
 - **Don't duplicate the underlying skills.** If `pr-review-toolkit`, `ponytail-review`,
   `test-audit`, `docs-audit`, `interface-review`, `tooling-sync` or `triage-renovate-dependabot-prs`
   behavior needs changing, edit that skill — not this wrapper.
