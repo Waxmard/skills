@@ -127,9 +127,8 @@ Always set an expiry. It forces a re-check once a fix ships.
 
 ## Step 3 — Verify locally with CI's exact commands
 
-- **Semgrep job**: Run the workflow's exact rule packs and exclusions without `--sarif --output=...` (or via `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:<ver>` if `semgrep` is not installed locally):
+- **Semgrep job**: Run the workflow's exact rule packs and exclusions without `--sarif --output=...` (or via `docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep:<ver>` if `semgrep` is not installed locally). For uncommitted fixes, run the full scan below; report that the baseline replay remains unverified until the fixes are committed. Otherwise, also replay the baseline command from Step 2a:
   ```bash
-  SEMGREP_RULES="<packs from workflow>" semgrep ci --baseline-commit=<merge_base> <CI --exclude-rule flags>
   semgrep scan --error --config <pack1> --config <pack2> <CI --exclude-rule flags> .
   ```
 - **Trivy fs job**: Use the same trivy version as the CI pin (`trivy --version`; if it differs, run `docker run --rm -v "$PWD:/src" -w /src ghcr.io/aquasecurity/trivy:<ver> <args>`, or `brew upgrade trivy` if the user agrees). Scan a copy of only the git-tracked files, since untracked local files (build output, stray poms) cause scans and network calls that CI never makes. A new lockfile must be staged (`git add -N`) to be included:
@@ -137,6 +136,7 @@ Always set an expiry. It forces a re-check once a fix ships.
   tmp=$(mktemp -d) && git ls-files -z | tar --null -T - -cf - | tar xf - -C "$tmp"
   (cd "$tmp" && trivy fs <CI env and flags verbatim> .); echo "exit=$?"; rm -rf "$tmp"
   ```
+- **Trivy config job**: Replay `trivy config` with the CI-pinned version, target, environment, and flags. Use the pinned container as described for the fs job if the local version differs.
 - **Trivy image job**: Skip the build when every image finding is a language package (`python-pkg`, `node-pkg`, `gobinary`, …) that the fs job also reported, and the Dockerfile installs from the lockfile (`uv sync --frozen`, `npm ci`, `poetry install`, …). In that case the green fs scan already shows the image's copy is fixed. Build and scan the image only for OS findings, image-only findings, or a Dockerfile that installs outside the lockfile:
   ```bash
   docker build --platform linux/amd64 -t trivy-smoke:local .
