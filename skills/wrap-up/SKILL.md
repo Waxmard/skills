@@ -14,7 +14,7 @@ Orchestrates the end-of-branch reviews and hand-offs. It owns only the pre-fligh
 order, the model tiers, the gates and the hand-offs; all real logic stays in the underlying skills.
 
 Invocation: invoking wrap-up with no args runs pre-flight → report → pick → run. Invoking wrap-up with `run <reply>`
-or directly with a `<reply>` arg (e.g. `lean`, `full`, `go`, `run go`, `run go full`, `run 3 6`, `run 4@full`) re-runs pre-flight silently, skips the report and the
+or directly with a `<reply>` arg (e.g. `default`, `lean`, `full`, `go`, `run go`, `run go full`, `run go default`, `run 3 6`, `run 4@full`) re-runs pre-flight silently, skips the report and the
 pick, and goes straight to §3 with `<reply>` parsed as in §2. The trigger is non-empty skill args or the
 first user message starting with `run `. Use it to run pre-flight on a cheap model, then start a
 new session on a stronger model and paste the `run` line.
@@ -29,7 +29,7 @@ Steps below use neutral verbs. Map them to your harness:
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
 | spawn the wave | one `task` call with no `agent` field (rows run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every row settles before ending the turn | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–6 inline in order, note "ran inline: no subagents" |
 | retrieve a report verbatim | `read agent://<id>:raw` (the `wait` snapshot and plain `read agent://<id>` truncate; `/report:raw` returns null for unstructured reports); empty means the agent never yielded: if `history://<id>` shows it aborted or parked, `write agent://<id>` to revive it, then `wait` | the Agent tool result | n/a |
-| progress list | `todo` `init` | TodoWrite | numbered checklist printed in chat |
+| progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; `unblock` the phase when resuming) | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
 
 ## Prerequisites & Required Tools
@@ -155,21 +155,22 @@ Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdic
 
 Then ask in plain text: "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–7 (e.g. `3 4 7`),
 or `none` for only row 2. Override a tier with `N@fast|strong` (rows 2–6) or a scope mode with
-`lean`, `full`, or `N@lean|full` (e.g. `go lean`, `go full`, `go 4@full`, `2@full:strong`)."
+`default`, `lean`, `full`, or `N@default|lean|full` (e.g. `go default`, `go lean`, `go full`, `go 4@full`, `2@full:strong`)."
 
 Row 1 is optional. Leave `1` out of a numbers reply, reply `none`, or add `lean` to drop it from `go`. A `skip` verdict (kit not found, or nothing new since last sync) also keeps it out of `go`.
 
 Parse the reply:
 - Row 2 is always included (unless its verdict is `skip` and `full` is not set, or this is `run <reply>` mode, `<reply>`
-  names only rows 1/7, and a row-2 wave already ran in this session). `none` = row 2 only. `go` (or bare `lean` / `full` with no row numbers or `none`) =
+  names only rows 1/7, and a row-2 wave already ran in this session). `none` = row 2 only. `go` (or bare `default` / `lean` / `full` with no row numbers or `none`) =
   row 2 + RUN rows. Numbers = row 2 + those rows. A chosen `skip` row runs anyway.
 - `N@tier` on rows 2–6 replaces that row's tier. On rows 1 and 7 it's ignored; say "rows 1 and 7
   run inline; switch the session's model instead".
 - Picked rows always run in ascending row number.
 - Three scope modes exist for every row — **`lean`** (minimal/delta), **default** (branch-scoped), and **`full`** (repo-wide spa day):
   - Global `lean` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `lean`, and excludes rows 1 and 7 from `go` unless explicitly picked by number (e.g. `go 1 lean`). It's off by default, with no auto-enable. `none` is unchanged.
+  - Global `default` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `default` — the branch-scoped baseline — and clears a `lean` or `full` named earlier in the same reply. Rows 1 and 7 stay in `go` as usual.
   - Global `full` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `full`. In `go full` ("repo spa day"), installed rows 1–4 and 6 are forced to `RUN` even when their branch-diff pre-flight verdict was `skip` (uninstalled skills stay `skip`; row 5 still requires UI files in the repo, and row 7 still requires unmerged bot branches).
-  - Per-row `N@lean` or `N@full` (composable with model tier as `N@full:strong` or `N@lean:fast`) overrides the scope mode for row `N` alone (and implicitly includes row `N` in the picked set, even if its pre-flight verdict was `skip`).
+  - Per-row `N@default`, `N@lean` or `N@full` (composable with model tier as `N@full:strong` or `N@lean:fast`) overrides the scope mode for row `N` alone (and implicitly includes row `N` in the picked set, even if its pre-flight verdict was `skip`). `N@default` clears an earlier override for that row.
 Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
 
 ## 3. Run
@@ -348,8 +349,8 @@ Inline rows:
 
 ## Hard rules
 
-- **Never commit, never push** — every commit between skills and the final push are the *user's*.
-  This skill triggers none of them.
+- **Never push.** The user commits Gate A and Gate F changes. During dependency triage, a
+  merge commit is allowed only when the user's current message explicitly authorizes that merge.
 - **Stop and fix is always the default:** fix any problem a phase surfaces before the next phase.
 - **Stop for a commit after every phase that changes files.** Gate A and every Gate F row that
   modifies the working tree must stop, show `git status --short` + a suggested commit message,

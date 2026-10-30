@@ -202,6 +202,11 @@ A bot regenerates against its PR/MR target, not the checked-out feature branch. 
 - **inspect** — show additional evidence; this never gates research already required by step 2.
 - **stop** — exit the loop.
 
+When a user skips an update because of a persistent compatibility constraint, offer a narrowly
+scoped ignore rule in the existing Dependabot or Renovate configuration so the bot does not
+repeatedly propose it. Explain the constraint and preserve safe update types. Ask before editing;
+do not add ignores for temporary failures or branches deferred for rebase.
+
 Do not offer bot rebase as a choice: automatically select it when applicable. Keep unrelated compatibility decisions and merge permissions gated. Approved repair edits remain working-tree changes for the user to commit before proceeding.
 
 ### 4. Merge

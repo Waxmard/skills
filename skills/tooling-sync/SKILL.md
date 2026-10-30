@@ -150,6 +150,7 @@ For each chosen item, one at a time:
      - **Scrub the body to agent-agnostic after the move.** The rename alone isn't the fix — the page's contract is neutral content, so once `AGENTS.md` is the file, rewrite Claude-specific phrasing in it (`Claude Code` / "Claude" → "the agent" / "AI agents"; drop Claude-only asides) and show that edit as part of the diff. Keep a named-agent line only where the instruction genuinely applies to just that one. Skipping this leaves every other agent reading "Claude"-flavored guidance.
 4. Adjust for repo reality: the playbook examples assume paths like `fastapi/`, `frontend/`, `app/`. Rewrite globs/roots/`source` to the repo's actual structure. Flag anything you couldn't auto-map.
 5. After applying, note any **follow-up** the user must do manually (install a dep, add a CI secret, run a formatter once, add a workflow token) — don't run installs or commits yourself.
+6. **Validate CI and linter changes immediately:** after any `.gitlab-ci.yml` edit, run `glab ci lint` (when `glab` is authenticated) to catch YAML syntax, unknown anchors, or stage errors before handing off. When adding a new lint/SAST job (`hadolint`, `semgrep-sast`, `trivy fs`, `check-line-limit.sh`) whose CLI binary is installed locally (`command -v`), run its script command once against the repo to catch immediate false positives or unconfigured ignores before finishing Apply.
 
 Pause after each applied change. Don't batch silently.
 
@@ -219,6 +220,7 @@ The apply phase uses `Edit` / `Write` on the consumer repo's own config files. T
 - **Trust a reference repo's config, not its prose.** When mirroring a sibling/reference repo (the monorepo-shape case in Step 1, or "match what project X does"), read the actual config file — `pyproject.toml`, `package.json`, `mise.toml`. A reference repo's own `AGENTS.md`/`README` version claims drift from its config and are a real source of wrong pins; the playbook block plus the sibling's *config* are canonical, its docs are not.
 - **Copied-from-upstream repos: match the upstream's formatter, not the playbook's.** When the repo's files are copies of another repo's (templates, vendored skills) and are periodically `diff -r`'d against it, adopting the playbook's `line-length`/`target-version` reformats every file and buries real upstream changes in noise. Probe first (`ruff check --config <tmp> . && ruff format --check --config <tmp> .`); if the canonical values churn files, take the upstream project's values and record the tool as `override`.
 - **`COPY .` images ship new root configs.** Before creating a whole-file config at the root (`ruff.toml`, `renovate.json`, `lefthook.yml`), check the Dockerfile. If it copies the build context wholesale, add the new files to `.dockerignore` in the same apply, or they land in the image.
+- **YAML aliases must follow their anchor definitions (`&anchor` before `*anchor`).** In a monorepo `.gitlab-ci.yml` with component sections (e.g. `.orchestrator-rules: &orchestrator-rules`), place any job using `rules: *<component>-rules` below that anchor definition, never in the top-level header block above it.
 
 ## Retro
 
