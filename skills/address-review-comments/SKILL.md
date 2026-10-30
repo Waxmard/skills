@@ -22,13 +22,13 @@ Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
 - `gh` (GitHub) or `glab` (GitLab), logged in to the PR/MR's host
-- `jq`, for GitLab MRs
+- `python3` and the `post-mr-review` skill (`scripts/gitlab_mr.py`), for GitLab MRs
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
 ## Pre-flight
 
-Before step 1, check the prerequisites:
+`<skill-dir>` is the directory this SKILL.md was loaded from; `<mr-script>` is `<skill-dir>/../post-mr-review/scripts/gitlab_mr.py`. Before step 1, check the prerequisites:
 ```bash
 command -v git >/dev/null || echo "missing: git"
 command -v gh >/dev/null || command -v glab >/dev/null || echo "missing: gh or glab"
@@ -43,12 +43,10 @@ If anything prints, stop and tell the user what to install. Step 4 checks the pl
    - Otherwise (self-hosted host with neither substring) probe the CLIs before asking: run `glab auth status` and `gh auth status` and pick the one logged in to the remote's host. Only ask the user if both fail or both match.
 4. Verify CLI is installed and authed:
    - GitHub: `gh auth status` (must succeed).
-   - GitLab: `glab auth status` (must succeed) and `command -v jq` (the GitLab steps parse JSON with it).
-5. Resolve PR/MR number for current branch:
-   - GitHub: `gh pr view --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`).
-   - GitLab: `glab mr view --output json` → fail if no MR. Record `head_sha` = `.diff_refs.head_sha` (`.sha` if `diff_refs` is null), `base_sha` = `.diff_refs.base_sha`, and `blob_base` = `glab repo view --output json | jq -r .web_url`.
-   - If state is not `OPEN` / `opened`, warn but continue (user may still want feedback on a merged PR).
-6. Fetch the PR head so `git show <head_sha>:<path>` works locally, fork PRs included: GitHub `git fetch origin pull/<n>/head <baseRefName>`, GitLab `git fetch origin merge-requests/<iid>/head`. On GitHub, then set `base_sha` = `git merge-base <baseRefOid> <head_sha>`: `baseRefOid` is the base branch tip, while GitLab's `base_sha` is already the fork point. If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
+   - GitLab: `glab auth status` (must succeed), `command -v python3`, and `[ -f "<mr-script>" ]`.
+5. Resolve PR/MR for current branch:
+   - GitHub: `gh pr view --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`). If state is not `OPEN`, warn but continue (user may still want feedback on a merged PR). Fetch the PR head so `git show <head_sha>:<path>` works locally, fork PRs included: `git fetch origin pull/<n>/head <baseRefName>`, then set `base_sha` = `git merge-base <baseRefOid> <head_sha>` (`baseRefOid` is the base branch tip). If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
+   - GitLab: run `python3 -B "<mr-script>" context` (plus `--mr <iid>` when given). Exit 3: stop and relay stderr, with a `glab mr create` hint. Take `head_sha`, `base_sha`, and `blob_base` from it (`base_sha` is already the fork point). If it reports a `warning` (e.g. the MR is merged), relay it and continue. If `fetched` is false, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
 
 ## Fetch comments
 
@@ -80,64 +78,22 @@ If `--author <login>` is passed, post-filter to that login.
 
 ### GitLab
 
-**Only fetch from `discussions`** — it's the only endpoint that exposes resolved state, and every note belongs to a discussion. Do NOT also hit `/notes` (it duplicates the same content without `resolved`, and you'll double-count).
-
-```bash
-PROJ=$(glab repo view --output json | jq -r .path_with_namespace)
-PROJ_ID=$(glab repo view --output json | jq -r .id)
-MR=$(glab mr view --output json | jq -r .iid)
-ENCPROJ=$(printf %s "$PROJ" | jq -sRr @uri)
-ME=$(glab mr view --output json | jq -r .author.username)  # MR author, not you
-
-# Per-project+MR temp path — NEVER a shared /tmp/discussions.json. A hardcoded
-# shared path lets a prior run's data (a different repo/MR) survive when the
-# fetch below writes nothing on failure, so you silently review the wrong MR.
-DISC=/tmp/glab-discussions-${PROJ_ID}-mr${MR}.json
-rm -f "$DISC" "$DISC.tmp"
-
-set -o pipefail
-glab api "projects/${ENCPROJ}/merge_requests/${MR}/discussions" --paginate > "$DISC.tmp" || {
-  echo "FETCH FAILED — aborting (do not filter stale data)"; rm -f "$DISC.tmp"; exit 1; }
-mv "$DISC.tmp" "$DISC"
-
-# Identity guard: every note must belong to THIS MR. If noteable_iid != $MR,
-# the file is stale/cross-repo — abort rather than review someone else's MR.
-WRONG=$(jq --argjson mr "$MR" '[.[] | .notes[0].noteable_iid | select(. != $mr)] | length' "$DISC")
-[ "$WRONG" = "0" ] || { echo "STALE DATA: $WRONG notes not from MR $MR — aborting"; exit 1; }
-```
+Run `python3 -B "<mr-script>" discussions --scope open`, plus `--include-resolved` and `--author <login>` (repeatable) from Args. A non-zero exit means a failed or stale fetch: stop and relay stderr.
 
 **In scope (default) = everything nobody has resolved.** That's open resolvable threads (`notes[0].resolved == false`) *and* non-resolvable top-level MR notes (`null`) — the latter carry reviewer-bot Questions and every human "why did you do it this way?" comment, which are real feedback with no Resolve button to click. Out of scope: resolved threads (`true`), threads where the MR author wrote the last note (already answered, ball is in the reviewer's court), system events, the MR author's own notes, and the reviewer bot's own status notes (markers in `references/local.md`) — those are status, not feedback.
 
-The canonical filter (apply ALL of these unless `--include-resolved` is passed):
-
-```bash
-jq --arg me "$ME" '[.[]
-  | select(.notes[0].system == false)              # drop "marked as draft", etc
-  | select(.notes[0].author.username != $me)       # drop MR author's own notes
-  | select(([.notes[] | select(.system == false)] | last | .author.username) != $me)  # drop threads the MR author already answered last; system "changed this line" notes don't count
-  | select(.notes[0].resolved != true)             # drop resolved; keep open AND non-resolvable
-  | select((.notes[0].body // "") | test("BOT_STATUS_MARKERS") | not)
-]' "$DISC"
-```
-
-Replace `BOT_STATUS_MARKERS` with the reviewer bot's status-marker regex from `references/local.md` (machine-local); if the file is absent, drop that `select` line.
-
-Note `resolved != true` (strict on `true` only): `true` = someone clicked Resolve (drop), `false` = open resolvable thread (keep), `null` = non-resolvable note, no thread state (keep).
-
-If `--include-resolved` is passed: drop the `resolved` select and the last-human-note author select. If `--author <login>` is passed: add `| select(.notes[0].author.username == "<login>")`.
-
 ## Normalize
 
-For each comment build a record:
+For each comment build a record (GitLab records from `gitlab_mr.py` are already numbered by `n` and carry `id`, `author`, `path`, `line`, `body`, `url`):
 
 | Field | Source |
 |---|---|
 | `id` | `id` (GH) / `id` (GL) |
-| `author` | `user.login` (GH) / `author.username` (GL) |
-| `file` | `path` (GH inline) / `(.position // {}).new_path` (GL inline) — empty if not anchored |
-| `line` | `line` or `original_line` (GH) / `(.position // {}).new_line` (GL) — empty if not anchored |
+| `author` | `user.login` (GH) / `author` (GL) |
+| `path` | `path` (GH inline) / `path` (GL) — empty if not anchored |
+| `line` | `line` or `original_line` (GH) / `line` (GL) — empty if not anchored |
 | `body` | `body` |
-| `url` | `html_url` (GH) / `position` + MR URL (GL) |
+| `url` | `html_url` (GH) / `url` (GL) |
 
 Number them 1..N in the order returned. Output the list to the user before judging, so they see the scope.
 
@@ -148,21 +104,19 @@ Number them 1..N in the order returned. Output the list to the user before judgi
 Each comment is judged independently by reading the live code — there is no shared reasoning between comments, so this stage **fans out**.
 
 **Dispatch rule:**
-- **< 4 in-scope comments** → judge them inline yourself, in order. Spawn overhead beats the parallelism win below this count.
-- **≥ 4** → fan out one subagent per comment on a mid-tier model, all spawned in parallel in one batch. Each subagent runs steps 1–3 and returns **only** its one verdict line as its final message. Collect the lines, group and order them per step 3, then do the tally (step 4) yourself.
-- **Exception:** if every in-scope comment references the same file and you've already read it, judge inline regardless of count — subagents would re-read the same diff.
+- **< 4 in-scope comments**, or all comments in one group: judge them inline yourself, in order.
+- **Otherwise**, split bot summary comments into sub-bullets (`5a`, `5b`, …) first, then group by `path`: a sub-bullet joins the group of the file it cites, and all unanchored comments form one group. Split any group over 6 comments into chunks of 6. Spawn one subagent per group in one batch (see Harness notes), on a mid-tier model where the harness lets you choose. Each runs steps 1 to 3 for every comment in its group, reading each file once, and returns **only** its verdict lines, one per comment, in comment order. Collect the lines, group and order them per step 3, then do the tally (step 4) yourself.
 
-Split a bot summary comment into its sub-bullets (`5a`, `5b`, …) **before** dispatch — each sub-bullet is its own unit of work and its own subagent.
-
-Each subagent's prompt must include: the comment record (author, file, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule — a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops — it only reads code, runs read-only `git show` / `git diff` to check its links, and returns a line). Subagents need file-read access plus that read-only git access.
+Each subagent's prompt must include: its group's comment records (author, path, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule: a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops, no loading other skills or reading outside the repo; it only reads tracked repo files, runs read-only `git show` / `git diff` to check its links, and returns its lines). Subagents need file-read access plus that read-only git access.
 
 For each comment (inline or in a subagent), in order:
 
 ### 1. Read the referenced code
 
-- If the comment is anchored (`file` + `line`): read that file around the line (±30 lines context). Don't trust the diff snippet in the comment body — it may be stale if newer commits were pushed.
+- If the comment is anchored (`path` + `line`): read that file around the line (±30 lines context). Don't trust the diff snippet in the comment body; it may be stale if newer commits were pushed.
 - If the comment cites a different file/symbol in the body but isn't anchored there: read the cited target.
 - If the comment is purely conceptual (no code reference): no read needed.
+- Stay inside the repo's tracked files (`git ls-files`) and git history (`git log`, `git show`, `git diff`). Never load other skills (apart from `post-mr-review` when posting) or read external directories, caches (`~/.cache`), or untracked local state (such as `.tooling-sync.json`) to explain or justify code.
 
 ### 2. Assess
 
@@ -279,7 +233,7 @@ Runs right after the tally. With no `answer` verdicts, skip to step 4.
 Run when the user asks to post or respond to the remaining threads, either after fixes land or right away for threads that need no fix.
 
 1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
-2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: the canonical filter), which drops threads the user already answered. Reply to every remaining in-scope thread (or the subset the user asked to post). Skip any thread the user says they're declining. Question replies posted in Stage 1 drop out here, because the author now wrote the last note.
+2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: `discussions --scope open`), which drops threads the user already answered. Reply to every remaining in-scope thread (or the subset the user asked to post). Skip any thread the user says they're declining. Question replies posted in Stage 1 drop out here, because the author now wrote the last note.
 3. **Content.** If posting a verdict reply as-is (no code change for that thread), reuse the reply already drafted in the verdict run. If fixes landed for the thread, draft a reply in Reply style with links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
    - **Link the fix commit** (when a fix landed). Find the commit that changed the cited code: `git log -s --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
 4. **Mode.** Post per **Posting**.
@@ -288,12 +242,12 @@ Run when the user asks to post or respond to the remaining threads, either after
 
 If the user explicitly asked to post (e.g. "post it", "post the replies"), use **Draft and post** directly. If they already picked a mode earlier in this run, reuse it. Otherwise ask once with the structured question tool: `Draft and post` (recommended) or `Copy-paste`.
 
-- **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Write each body to a temp file, then post:
-  - GitLab: per `post-mr-review`'s **Post** section, `POST projects/:id/merge_requests/<iid>/discussions/<discussion_id>/notes` with `{"body"}`.
-  - GitHub inline comment: `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`).
-  - GitHub review summary or conversation comment: these have no thread, so `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>`, with the body opening on a link to the comment's `html_url`.
+- **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Then post:
+  - GitLab: write a spec of `reply` items (`{"kind": "reply", "discussion_id": "<record id>", "body": "..."}`) for the replies answered `Post`, run `python3 -B "<mr-script>" post <spec> --mr <iid> --apply`, and report its table; it verifies the new note count.
+  - GitHub inline comment: write each body to a temp file and run `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`), then re-fetch and verify the new comment count.
+  - GitHub review summary or conversation comment: these have no thread, so run `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>` with the body opening on a link to the comment's `html_url`, then re-fetch and verify the new comment count.
 
-  Then re-fetch and verify the new comment count. Never resolve or reopen threads.
+  Never resolve or reopen threads.
 - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL in angle brackets on its own line:
 
       **N.** `<file>:<line>` (@<author>)
@@ -323,6 +277,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 - **No author bias.** Judge claude / review-bot / copilot / human comments by the same standard. State disagreement plainly.
 - **Cite the live code, not the comment's diff snippet.** Snippets go stale after force-pushes.
 - **No noise about dropped threads.** Filtered-out discussions (resolved, system, author's own, bot review surfaces) are invisible — never mention or count them.
+- **Stay inside the repo; load no other skills.** Judge each comment strictly from the repo's tracked files and git history. Never load unrelated skills (`tooling-sync`, audit skills, etc.) or read external playbooks, caches, or untracked dotfiles to justify a verdict; reviewers and CI only see the repo itself.
 
 ## Common pitfalls
 
@@ -332,12 +287,16 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 - **Suggestion blocks**: GitHub `suggestion` blocks (\`\`\`suggestion ... \`\`\`) are concrete diffs. Read them carefully; they're often more precise than prose comments and easier to verdict.
 - **Bot summary comments**: many AI reviewers (coderabbit, claude) post one big "summary" review-level comment listing N findings as a bulleted list. Don't treat it as one comment — split each bullet into its own verdict line. Number them `5a`, `5b`, `5c` under the parent index.
 - **Threaded replies**: GH `in_reply_to_id` and GL `discussion_id` chain replies. Don't re-verdict each reply — judge the root comment, note if a reply changed the ask.
-- **GitLab resolved-state semantics**: a discussion's resolved state lives on each note as `notes[i].resolved` (`true` / `false` / `null`). `true` = explicitly closed; `false` = open, resolvable; `null` = non-resolvable (e.g. general MR-level note, reviewer-bot Question). Default scope drops only `true`. Don't infer resolved state from "the conversation looks settled" — only the boolean counts. The one exception is author-replied-last, which is filtered out (see filter).
-- **Push notes look like replies**: pushing a change to a commented line adds a `system: true` note "changed this line in version N of the diff", authored by the pusher. Judge "author answered last" on the last non-system note, or every fixed thread silently drops out.
-- **GitLab null `position`**: MR-level notes and reviewer-bot Questions have `position: null`, and the local `jq` errors on `.position.new_path` (`cannot use null as iterable`). Always read it as `(.position // {}).new_path` / `.new_line`.
 - **Cross-repo PRs (forks)**: anchored file paths are relative to the fork's branch, which is what's checked out locally. No special handling needed, but be aware if reading fails.
 - **No PR for branch**: user may be on a branch with no PR yet — fail clearly with `gh pr create` / `glab mr create` hint, don't silently fall back to `main`.
-- **Harness block (`*merge_requests/*/merge*`)**: some harnesses block any `bash` command where `merge` appears anywhere after `merge_requests/`, including a second `merge_requests/` URL or endpoint in the same script. Assign the path prefix to a variable once (or split `"merge_" + "requests"` in Python) when posting and re-fetching in one call.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| spawn subagents | one `task` call, default agent when tasks run shell commands (`scout` has no `bash`); `task` returns at once, so `wait` until every agent settles before using results or ending the turn | Agent tool calls in one message | no subagents: run inline and say so |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+| run the script | `bash` tool | the shell | the shell |
 
 ## Retro
 

@@ -20,7 +20,7 @@ Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
 - `glab`, logged in to the MR's host
-- `python3` (MR fetches and posts run from Python; omp's eval tool can stand in)
+- `python3`, for `scripts/gitlab_mr.py` (MR fetches and posts)
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
@@ -31,43 +31,17 @@ Before step 1, check the prerequisites:
 for t in git glab python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
 glab auth status >/dev/null 2>&1 || echo "glab: not logged in"
 ```
-If anything prints, stop and tell the user what to install or log in to. A missing python3 is fine when the harness has a Python eval tool (omp).
+If anything prints, stop and tell the user what to install or log in to.
 
 1. If the conversation has no review findings, stop and tell the user to run a review first. Do not run one yourself.
-2. Detect the MR. Use `--mr <iid>` if given. Otherwise run `glab mr list --source-branch <branch> -F json` for the branch that was reviewed (not necessarily HEAD) and take `.iid`. If there's no MR, stop.
-3. Fetch the MR with `glab api projects/:id/merge_requests/<iid>` and read `.sha`, `.diff_refs.base_sha`, `.diff_refs.start_sha`, `.diff_refs.head_sha`, `.source_branch`, `.web_url`. Run the fetch from Python (`subprocess` + `json`; omp's eval tool or a `python3` script), not piped to `jq` in bash (see pitfalls).
-4. Run `git fetch origin <source_branch>` and compare the reviewed commit with the MR `head_sha`. If they differ, tell the user the MR moved since the review and offer to re-check the findings against the new head before drafting. Line anchors and "still present" claims must be true at `head_sha`.
+2. Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" context` (`<skill-dir>` is the directory this SKILL.md was loaded from) with `--mr <iid>` if given, else `--branch <the branch that was reviewed>` (not necessarily HEAD). Exit 3: stop and relay stderr. If `fetched` is false, stop: anchors and links can't be checked locally.
+3. Compare the reviewed commit with `head_sha`. If they differ, tell the user the MR moved since the review and offer to re-check the findings against the new head before drafting. Line anchors and "still present" claims must be true at `head_sha`.
 
 ## Fetch existing discussions
 
-Page manually from Python until an empty page comes back. Do not use `glab api --paginate | jq`; it emits concatenated arrays that break `jq`.
+Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" discussions --mr <iid>`. This skill uses these record fields: `kind` (`me`, `bot`, `human`), `path`, `line`, `resolved`, `resolved_by`, `body`, `replies`, `after_me`, `pushed_after`, `url`.
 
-```python
-import json, subprocess
-
-def gl(path):
-    return json.loads(subprocess.run(["glab", "api", path], check=True, capture_output=True, text=True).stdout)
-
-discussions, page = [], 1
-while batch := gl(f"projects/:id/merge_requests/{iid}/discussions?per_page=100&page={page}"):
-    discussions += batch
-    page += 1
-assert all(d["notes"][0]["noteable_iid"] == iid for d in discussions), "stale/cross-MR data"
-me = gl("user")["username"]
-```
-
-Normalize each discussion to:
-
-| Field | Source |
-|---|---|
-| `id` | `id` |
-| `author` | `notes[0].author.username` |
-| `path` / `line` | `(notes[0].position or {}).get("new_path")` / `.get("new_line")` (null-safe, always) |
-| `resolved` | `notes[0].resolved` (`true` / `false` / `None` = non-resolvable) |
-| `body` | full `notes[0].body` |
-| `after_me` | non-system notes after the user's last note in the thread; pushes add `system: true` "changed this line in version N" notes that are not replies |
-
-Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
+`after_me` counts non-system notes after the user's last note, so push notes don't count as replies.
 
 ## Build the posting plan
 
@@ -125,27 +99,22 @@ Tag each thread as the current user's (`me`), a reviewer bot's, or a human's.
 
 ## Confirm
 
-- Make one call with one question per post, using the harness's structured question tool directly (omp: the top-level `ask` tool, never `tool.ask` inside `eval`, whose cell timeout kills the prompt and the drafts; Claude Code: AskUserQuestion; neither: plain text, one numbered post per question). The question text names the target thread or line and repeats the effect line. Options: `Post` (with the full body as the option preview where the tool supports one, otherwise in the question text; markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
+- Before asking, write the agreed drafts as a spec file (format in Post) in `$(mktemp -d)` and run `gitlab_mr.py post <spec> --mr <iid>` without `--apply`. Fix every reported item (move a line that's not in the diff to the general comment or a nearby changed line) before showing the questions.
+- Ask the user in one call with one question per post, using the harness's structured question tool directly (see Harness notes), never from inside a script cell whose timeout can kill the prompt and the drafts. The question text names the target thread or line and repeats the effect line. Options: `Post` (with the full body as the option preview where the tool supports one, otherwise in the question text; markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
 - If any target thread is resolved, add one question "Reopen threads I reply in?" with options `Reopen` and `Leave resolved`. For threads a human resolved, repeat in the question text who resolved it and why (from the plan line), so the reopen decision is made with that context.
 - Post only items answered `Post`. If the user answers with edits ("Other"), revise and re-ask for just that item.
 
 ## Post
 
-Run from Python. Write each JSON payload to a temp file and pass `glab api -X <METHOD> <path> --input <file> -H 'Content-Type: application/json'`.
+Write a spec JSON file with only the items answered `Post`, plus a `reopen` item per thread when `Reopen` was confirmed. Add an `edit` item only when the user asked to edit a posted note; take `note_id` from the `discussions` output's `note_id` or `replies[].id`, matched by body text. The spec is a list of items:
 
-- **New inline comment:** `POST projects/:id/merge_requests/<iid>/discussions`
+- `{"kind": "inline", "path": "<new path>", "line": <int>, "body": "..."}`; add `"side": "old"` to anchor a deleted line by its old path and old line.
+- `{"kind": "reply", "discussion_id": "<id>", "body": "..."}`
+- `{"kind": "general", "body": "..."}`
+- `{"kind": "reopen", "discussion_id": "<id>"}`
+- `{"kind": "edit", "discussion_id": "<id>", "note_id": <int>, "body": "..."}`
 
-  ```json
-  {"body": "...", "position": {"position_type": "text", "base_sha": "...", "start_sha": "...", "head_sha": "...",
-   "old_path": "...", "new_path": "...", "new_line": 42, "old_line": 40}}
-  ```
-
-  Build a line map from `git diff --unified=3 <start_sha> <head_sha>`. Added lines need only `new_line`. Unchanged context lines need both `old_line` and `new_line`. A line not in any hunk cannot be inline: move it to the general comment or a nearby changed line.
-- **Reply:** `POST .../discussions/<discussion_id>/notes` with `{"body"}`.
-- **General comment:** `POST .../discussions` with `{"body"}` only.
-- **Reopen** (only if confirmed): `PUT .../discussions/<discussion_id>?resolved=false`.
-- **Edit an already-posted note** (only when the user asks): `PUT .../discussions/<discussion_id>/notes/<note_id>` with `{"body"}`. Find the note by matching its current body text.
-- After posting, re-fetch discussions and verify: the count of new notes by `me` matches, and every intended inline note has a non-null `position`. Report any failure verbatim.
+Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" post <spec> --mr <iid> --apply` and report its table. Exit 1: report its output verbatim.
 
 ## Report
 
@@ -161,14 +130,17 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 
 ## Common pitfalls
 
-- **Null `position`**: general notes and bot Questions have `position: null`; read it null-safely.
-- **`glab api --paginate`** output doesn't parse as one JSON document; page manually.
-- **Harness block (`*merge_requests/*/merge*`)**: some harnesses block any `bash` command where `merge` appears anywhere after `merge_requests/`, including `.detailed_merge_status` or a second `merge_requests/` URL or endpoint in the same script. Run MR API reads from Python and assign the path prefix to a variable once (or split `"merge_" + "requests"`).
-- **Silent downgrade**: inline positions silently become general notes if the line isn't in the diff. Check the line map first, then verify `position` after posting.
 - **Stale author replies**: replies often answer the previous round ("handlers now called at 3 sites") instead of the new point. Verify against code, not the reply.
 - **Remote CI components** (`component: $CI_SERVER_FQDN/<group>/<project>/<name>@<ref>`) can be read without cloning: `glab api "projects/<url-encoded group/project>/repository/files/templates%2F<name>.yml/raw?ref=<ref>"` (list with `repository/tree?ref=<ref>&recursive=true`). Read the component's rules before calling a `needs:` or job-presence risk unverified.
 - **Bot "looks good"** summaries are not verification.
 - **Throwaway repros** go in a `git worktree add /tmp/<name> <sha>` checkout with `uv sync`. Remove it afterwards with `git worktree remove --force`.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+| run the script | `bash` tool | the shell | the shell |
 
 ## Retro
 

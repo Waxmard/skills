@@ -27,8 +27,8 @@ Steps below use neutral verbs. Map them to your harness:
 |---|---|---|---|
 | invoke with args | `/skill:wrap-up run go` | `/wrap-up run go` | first message `run go` |
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
-| spawn the wave | one `task` call with no `agent` field (rows run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every row settles before ending the turn | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run rows 2–6 inline in order, note "ran inline: no subagents" |
-| retrieve a report verbatim | `read agent://<id>:raw` (the `wait` snapshot and plain `read agent://<id>` truncate; `/report:raw` returns null for unstructured reports); empty means the agent never yielded: if `history://<id>` shows it aborted or parked, `write agent://<id>` to revive it, then `wait` | the Agent tool result | n/a |
+| spawn the tasks | one `task` call with no `agent` field (tasks run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every task settles before ending the turn; if a task's findings file is missing, `history://<id>` shows whether it aborted or parked, and `write agent://<id>` revives it | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
+| run the script | `bash` tool, never `eval` (its env omits custom exports) | the shell | the shell |
 | progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; `unblock` the phase when resuming) | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
 
@@ -37,250 +37,89 @@ Steps below use neutral verbs. Map them to your harness:
 Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
-- `python3`, for row 1's tooling-sync resolver
+- `python3`, for the wrap-up script and row 1's tooling-sync resolver
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
 ## 1. Pre-flight
 
-Read-only: no edits, no installs. Runs before any skill.
+Read-only for this repo: no edits, no installs. Runs before any skill. `scripts/wrap_up.py` does
+the git work, verdicts and report; replace `<skill-dir>` with the directory this `SKILL.md` was
+loaded from.
 
-Before step 1, check the prerequisites:
 ```bash
 for t in git python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
 ```
-Missing git: stop. Missing python3: row 1 verdict `skip`, reason "python3 missing"; evaluate the other rows as normal.
+Missing git: stop. Missing python3: stop, "python3 is required for scripts/wrap_up.py".
 
-1. `git rev-parse --git-dir`. If it fails, stop: "not a git repo".
-2. `branch=$(git rev-parse --abbrev-ref HEAD)`. If it matches
-   `main|master|dev|develop|release/*|staging`, put a note at the top of the report: "on
-   protected branch `<branch>`: reviewing unpushed commits; gate commits will land here".
-   Not a blocker.
-3. Resolve the base:
-   ```bash
-   git fetch origin --prune
-   base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || echo origin/main)
-   git rev-parse --verify -q "$base" >/dev/null || base=origin/master
-   if [ "$branch" != "dev" ] && git rev-parse --verify -q origin/dev >/dev/null \
-      && git merge-base --is-ancestor origin/dev HEAD 2>/dev/null \
-      && ! git merge-base --is-ancestor origin/dev "$(git merge-base HEAD "$base")" 2>/dev/null; then
-     base=origin/dev
-   fi
-   mb=$(git merge-base HEAD "$base")
-   head0=$(git rev-parse HEAD)
-   memo="$(git rev-parse --git-path wrap-up)/$branch"
-   last=$(cat "$memo" 2>/dev/null)
-   from=$mb; mode=full
-   if [ -n "$last" ] && git merge-base --is-ancestor "$mb" "$last" 2>/dev/null \
-      && git merge-base --is-ancestor "$last" "$head0" 2>/dev/null; then
-     from=$last; mode=delta
-   fi
-   ```
-   `delta` means the last wrap-up review on this branch is still an ancestor of HEAD, so only
-   `<from>..<head0>` is new. A rebase, force-push, reset or missing memo falls back to `full`
-   (`from=mb`). Only row 2 uses `from`; rows 3–6 always review `<mb>..<head0>`, because their
-   verdicts and coverage need the whole branch. The memo lives under `.git/` (per worktree via
-   `--git-path`), so it's never committed and never shows in `git status`.
-4. Collect the facts:
-   - Changed files: `git diff --name-only "$mb"..."$head0"` (rows 3–6). For row 2 in delta mode,
-     also collect them over `"$from"..."$head0"`.
-   - Changed test files (row 4): filter the `"$mb"..."$head0"` changed-files list with
-     `grep -E '(^|/)(test|tests|__tests__)/|\.(test|spec)\.[^/]+$|_test\.go$|\.bats$|^test_.*\.py$|/test_.*\.py$'`.
-   - Changed doc files (row 6): filter the same changed-files list with `grep -E '\.(md|mdx|rst|adoc)$'`.
-   - Added lines without lockfiles, over the same ranges: sum column 1 of
-     `git diff --numstat "$mb"..."$head0" -- . ':!*.lock' ':!package-lock.json' ':!pnpm-lock.yaml' ':!yarn.lock' ':!uv.lock' ':!poetry.lock' ':!Cargo.lock' ':!go.sum' ':!Gemfile.lock'`.
-   - Uncommitted files: `baseline=$(git status --short)`. If non-empty, put a note at the top of
-     the report: "N uncommitted files: reviews below cover committed work only". Not a blocker.
-   - Other maintainers (skip if `git config user.email` is empty; no suggestion then):
-     ```bash
-     me=$(git config user.email); name=$(git config user.name)
-     git log --format=%ae -n 200 "$base" | sort -u | grep -vixF "$me" | grep -viF "+$name@users.noreply" \
-     | grep -viE '\[bot\]|renovate|dependabot' | wc -l
-     ```
-     If the count is ≥ 1, set `others=N`.
-5. `MW_KIT` stop (row 1 only). Check `$MW_KIT` via the shell (`bash` tool), never omp's `eval` kernel (`eval` spawns with a stripped 24-variable allowlist that omits custom shell exports). If `$MW_KIT` is empty, stop and ask: "`MW_KIT` isn't set, so
-   tooling-sync would clone or pull the default mw-kit playbook (`Waxmard/mw-kit`) into `~/.cache/mw-kit`. Reply `cache` to use
-   that, a path to use your own playbook, or `skip` to drop tooling-sync. Export `MW_KIT` in your
-   shell profile to skip this question next time." The answer only decides row 1, and every
-   other row is evaluated as normal. `cache`: run the resolver as is. A path: prefix the resolver
-   with `MW_KIT=<path>`, and pass the same value to tooling-sync in §3. `skip`: row 1 verdict
-   `skip`, reason "MW_KIT not set". In `run <reply>` mode, ask only if `<reply>` is `go` or
-   includes row 1.
-6. Verdict per skill. Row number = run order. Tier = subagent model class (Harness notes).
-
-| # | Skill | RUN when | Tier | Reason text |
-|---|---|---|---|---|
-| 1 | `tooling-sync` | `tooling-sync`'s Step 1 resolver block (same `MW_KIT` resolution, read-only) has `preflight.ok` true and `state.all_settled` not true | `inline · fast+` | "L live tools" (`in_scope` rows with `state.settled == false`), plus ", O orphaned" if `state.orphaned_tools` is non-empty. SKIP: "nothing new since last sync (`state.last_sync`)". If `preflight.ok` is false: SKIP with `preflight.error` |
-| 2 | `pr-review-toolkit` | always (not pickable) | `fast` | Full: "N files, +A lines vs `<base>`". Delta: "delta: N files, +A lines since last review `<from short>`". If the changed-files list is empty: verdict `skip`, reason "no commits ahead of `<base>`" (full) or "no new commits since last review `<from short>`; reply `full` to re-review" (delta) — the only case it doesn't run |
-| 3 | `ponytail-review` | added lines ≥ 100 **or** a changed file's basename is one of `package.json pyproject.toml Cargo.toml go.mod Gemfile` or matches `requirements*.txt` | `fast` | "+A lines" and/or "deps changed: `<files>`". SKIP: "small diff (+A), no manifest changes" |
-| 4 | `test-audit` | repo has test files (`git ls-files` matches the step 4 test-file regex) **and** (changed test files > 0 **or** non-doc added lines ≥ 100) | `fast` | "N test files changed" and/or "+A non-doc lines". SKIP: "no test files in repo" or "no test files changed, small diff (+A)" |
-| 5 | `interface-review` | changed files matching `\.(tsx\|jsx\|vue\|svelte\|css\|scss\|html)$` non-empty | `fast` | "N UI files changed". SKIP: "no UI files in diff" |
-| 6 | `docs-audit` | changed doc files > 0 **or** added lines ≥ 100 | `fast` | "N doc files changed" and/or "+A lines". SKIP: "no doc files changed, small diff (+A)" |
-| 7 | `triage-renovate-dependabot-prs` | unmerged bot branches > 0 (loop below) and branch not protected (step 2) | `inline · fast+` | "N unmerged bot branches". SKIP: "no unmerged renovate/dependabot branches", or "protected branch: triage refuses on `<branch>`" |
-
-If a listed skill is not available to this session (and not present in the current repo at `skills/<name>/SKILL.md`), its verdict is SKIP with reason "not installed". For `ponytail-review` (and `ponytail-audit` in `full` mode), append " — omp: `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`; Claude Code: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail`". `interface-review` is exempt: it is intentionally absent from the model-invocable skills (see its dispatch note below).
-
-Tier rationale: defaults favour speed and cost. `fast` for every review row. Nothing defaults to
-`strong`: escalate per run with `2@strong` on a large or risky diff (auth, payments, data
-migrations). Triage is safe on `fast` because its per-merge confirmation gate keeps the user as
-the backstop.
-
-Bot-branch count. Use `while read`, never `for` word-splitting:
-
+Then run, with the harness's shell tool (Harness notes), adding `--missing ponytail-review` and
+`--missing ponytail-audit` for each one not in this session's skill list:
 ```bash
-git ls-remote --heads origin 'renovate/*' 'dependabot/*' | awk '{sub("^refs/heads/", "", $2); print $2}' \
-| while read -r b; do git merge-base --is-ancestor "origin/$b" HEAD || echo "$b"; done | wc -l
+python3 -B "<skill-dir>/scripts/wrap_up.py" preflight
 ```
+It prints the report. A non-zero exit means stop and relay stderr.
 
-The redundancy analysis stays in the triage skill. Don't repeat it here.
+Every review row defaults to `fast`; escalate per run with `N@strong` on risky diffs.
 
 ## 2. Report and pick
 
-Print the table as `# | Skill | Verdict | Tier | Why`, rows in run order, verdicts `RUN`,
-`skip`, or `always` (row 2). Under it print:
+Print the script's stdout as-is and wait for the reply. In `run <reply>` mode, skip printing and
+waiting. Then run:
+```bash
+python3 -B "<skill-dir>/scripts/wrap_up.py" plan "<reply>"
+```
+Exit 2: show stderr and ask again. Otherwise relay its `notes`, then create the progress list
+(Harness notes) from its `todo`, marking each item done as soon as its phase finishes, including
+rows that report nothing to do. Print the completion block (Close) once every item except `Close:
+completion summary` is done or blocked on a user action; list blocked rows under a `Blocked:`
+line naming the gate that stopped them.
 
-- Legend: "`fast`/`strong` = runs as a subagent on that model class (Harness notes). `inline` = runs
-  in this session because it prompts you; the tier is the recommended strength for this
-  session."
-- Parallelism: "Row 1 runs first, inline, and stops at Gate A if it changed files. Rows 2–6 then
-  run in parallel (read-only, pinned to `<head0 short>`: row 2 from `<from short>`, rows 3–6 from
-  `<mb short>`), and Gate F walks their findings one phase at a time with a commit gate after each
-  phase that changes files. Row 7 runs last, inline."
-- Always: "Pre-flight is cheap. To run the picks on a stronger model, start a new session there
-  and invoke wrap-up with `run <your reply>`."
-- Only when `others ≥ 1`: "Lean suggested: N other authors on `<base>`. Add `lean` to your reply
-  to limit changes to definite improvements. Your choice; it's off unless you type it."
-  When it prints and row 1 or 7 is RUN, append " (lean: pick by number to include)" to that row's
-  Why.
-
-Then ask in plain text: "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–7 (e.g. `3 4 7`),
-or `none` for only row 2. Override a tier with `N@fast|strong` (rows 2–6) or a scope mode with
-`default`, `lean`, `full`, or `N@default|lean|full` (e.g. `go default`, `go lean`, `go full`, `go 4@full`, `2@full:strong`)."
-
-Row 1 is optional. Leave `1` out of a numbers reply, reply `none`, or add `lean` to drop it from `go`. A `skip` verdict (kit not found, or nothing new since last sync) also keeps it out of `go`.
-
-Parse the reply:
-- Row 2 is always included (unless its verdict is `skip` and `full` is not set, or this is `run <reply>` mode, `<reply>`
-  names only rows 1/7, and a row-2 wave already ran in this session). `none` = row 2 only. `go` (or bare `default` / `lean` / `full` with no row numbers or `none`) =
-  row 2 + RUN rows. Numbers = row 2 + those rows. A chosen `skip` row runs anyway.
-- `N@tier` on rows 2–6 replaces that row's tier. On rows 1 and 7 it's ignored; say "rows 1 and 7
-  run inline; switch the session's model instead".
-- Picked rows always run in ascending row number.
-- Three scope modes exist for every row — **`lean`** (minimal/delta), **default** (branch-scoped), and **`full`** (repo-wide spa day):
-  - Global `lean` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `lean`, and excludes rows 1 and 7 from `go` unless explicitly picked by number (e.g. `go 1 lean`). It's off by default, with no auto-enable. `none` is unchanged.
-  - Global `default` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `default` — the branch-scoped baseline — and clears a `lean` or `full` named earlier in the same reply. Rows 1 and 7 stay in `go` as usual.
-  - Global `full` (any position, any reply, including `run <reply>` mode) sets the default scope mode for all picked rows to `full`. In `go full` ("repo spa day"), installed rows 1–4 and 6 are forced to `RUN` even when their branch-diff pre-flight verdict was `skip` (uninstalled skills stay `skip`; row 5 still requires UI files in the repo, and row 7 still requires unmerged bot branches).
-  - Per-row `N@default`, `N@lean` or `N@full` (composable with model tier as `N@full:strong` or `N@lean:fast`) overrides the scope mode for row `N` alone (and implicitly includes row `N` in the picked set, even if its pre-flight verdict was `skip`). `N@default` clears an earlier override for that row.
-Wait for the reply. In `run <reply>` mode, skip printing and waiting and parse `<reply>` directly.
+Modes: `lean` (minimal), `default` (branch), `full` (whole repo); `go full` forces rows 1–4 and 6.
 
 ## 3. Run
-
-**Progress tracking.** Right after the reply is parsed (or immediately in `run <reply>` mode),
-create the progress list (Harness notes) with one item per phase, in run order:
-- one item per picked row: `Row <N>: <skill>` (e.g. `Row 1: tooling-sync`);
-- right after the last review row, the item `Fix review findings`;
-- last item: `Close: completion summary`.
-
-Mark each item done as soon as its phase finishes, including rows that report nothing to do.
-Print the completion block (inline step 3) once every item except `Close: completion summary` is
-done or blocked on a user action; list blocked rows under a `Blocked:` line naming the gate that
-stopped them.
 
 Why this order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
 neither tooling commits nor triage merges enter the reviewed diff. Triage last, because it stacks
 merges on whatever the earlier rows committed.
 
-Walk the picked rows in order. The delegated rows (2–6) form one **wave**: spawn them in one
-batch as parallel subagents, each on its tier's model (Harness notes; default tier from the
-table, or the user's override). Inline rows (1, 7) run in this session by loading skill `<name>`
-and following it.
+1. If the `plan` output's `inline_before` is `[1]`, run row 1 (Inline rows, Gate A) first.
+2. Spawn every entry of its `tasks` in one batch (Harness notes), each with the prompt from
+   `python3 -B "<skill-dir>/scripts/wrap_up.py" prompt <id>` and the entry's `tier`. If subagents or
+   the tier's model are unavailable, run that prompt inline and note "ran inline: <reason>".
+3. When all tasks settle, run `python3 -B "<skill-dir>/scripts/wrap_up.py" findings`. Exit 1 lists
+   tasks whose findings file is missing or unreadable: re-run each listed prompt inline (or revive
+   the agent per the Harness notes), then run `findings` again. A partial review is not a
+   completed review.
+4. Run `python3 -B "<skill-dir>/scripts/wrap_up.py" memo` before Gate F, so Gate F's fix commits
+   land in row 2's next delta and get reviewed then. It refuses to write for an incomplete row 2.
 
-**Scope modes:** each row's skill defines its own `lean` / default / `full` behavior; pass the row's resolved mode. Row 3 is the exception, because `ponytail-review` is an external companion:
+**Gate F: fix findings row by row (always, after the tasks; never optional).** Do not ask "fix or
+continue": stopping to fix is the default for all of wrap-up. Do not print all findings or all
+decisions at once.
 
-- `lean`: review `git diff <mb>..<head0>` for high-confidence cuts only (`delete:`, `stdlib:`, `native:`, unneeded deps; omit minor `shrink:` nits).
-- Default: review `git diff <mb>..<head0>` with standard `ponytail-review`.
-- `full`: load `ponytail-audit` (falling back to `ponytail-review` across all repo source files if `ponytail-audit` is missing) for a whole-repo bloat audit.
-
-When a row runs in `lean` mode:
-- Append to row 3's subagent task text: "Lean mode: follow row 3's `lean` scope above and report only definite improvements. Omit style nits, minor refactors, naming, and speculative or optional suggestions. If nothing qualifies, say so."
-- Gate F uses the lean bar for `lean` rows: definite improvements only, using the smallest change that fixes the finding with no adjacent cleanup.
-
-Subagent task text (fill in literals; subagents don't share this conversation):
-> Load the `<name>` skill and follow it as a read-only review in repo `<toplevel>` (mode: `<lean|default|full>`). Review
-> `git diff <start>..<head0>` (base `<base>`), or the whole repository when mode is `full` on rows 3–6. <row 2 in delta mode only: These are the commits
-> since the last review. For context only, the full branch diff is `git diff <mb>...<head0>`;
-> report findings only on lines changed in the first range, unless a change there breaks code
-> elsewhere in the full range.> Make no
-> edits and no git writes (no checkout/switch/stash; read via git diff/show only). Return the
-> skill's report format verbatim.
-
-`<start>` is `<from>` for row 2 (or `<mb>` when row 2's mode is `full`) and `<mb>` for rows 3–6.
-
-Rows 2–4 and 6 review every changed file in their pinned range (or whole-repo scope when their mode is `full`), not just UI files. Pass the UI
-file list only to row 5; it scopes the interface reviews and must not narrow the
-general code, simplification, test, or docs reviews.
-
-- `pr-review-toolkit`: its own "Local Branch" diff source, overridden by the pinned range above.
-- `ponytail-review`: bare name `ponytail-review` (or `ponytail-audit` in `full` mode, falling back to `ponytail-review` across all repo source files if `ponytail-audit` is missing).
-- `test-audit`: bare name `test-audit`.
-- `docs-audit`: bare name `docs-audit`.
-- `interface-review`: has `disable-model-invocation: true`, so it isn't model-invocable. Replace the
-  first sentence with "Read the `interface-review` `SKILL.md` (Claude Code:
-  `~/.claude/skills/interface-review/SKILL.md`; otherwise the harness's skills dir) and follow it
-  with target `<mb>...<head0>` (mode: `<lean|default|full>`); resolve its relative file references against that directory." The
-  user chose to delegate it; the opt-out only stops the model picking it unprompted.
-When the wave finishes, retrieve every report verbatim, never a truncated preview (Harness notes),
-but **do not print all reports or all decisions at once**. Hold the completed reports and present
-them one phase at a time in Gate F below so the chat is never a multi-report text dump. If
-subagents or the tier's model are unavailable, run that row inline in this session and note
-"ran inline: <reason>". If a review agent fails before returning a complete report, finish its
-assigned scope inline or re-delegate it. A partial transcript is not a completed review.
-
-Once row 2 has returned a complete report (delegated or ran inline), record the reviewed head with
-literals filled in, since bash calls may not share a shell. Do not write the memo for a partial review:
-`memo="$(git rev-parse --git-path wrap-up)/<branch>" && mkdir -p "$(dirname "$memo")" && printf '%s\n' <head0> > "$memo"`.
-Write it before Gate F, so Gate F's fix commits land in row 2's next delta and get reviewed
-then. Rows 1 and 3–7 never touch the memo.
-
-**Gate F: fix findings phase by phase (always, after the wave; never optional).** Runs after the
-wave settles, whether or not an inline row follows. Do not ask "fix or continue": stopping to fix
-is the default for all of wrap-up.
-
-1. Filter and deduplicate each report's actionable findings (including subitems). Before leaving
-   Gate F, every actionable finding across the wave must reach a final status: fixed, verified
-   false positive, user-declined, or resolved/moot after an earlier fix. Unaccounted findings
-   block completion.
-   - Include every Critical and Important item, plus every Suggestion that has a
-     concrete *Fix* line. In non-pr-review-toolkit reports (ponytail-review, test-audit,
-     docs-audit, interface-review), include every actionable finding.
-   - Exclude **pure nits**: items the report labels nit/optional/taste that cite
-     no project rule (AGENTS.md or harness rules-file convention, lint config). A style item
-     backed by a project rule is not a nit, so it gets fixed.
+1. Findings arrive filtered, deduplicated by file and line, and numbered. Before leaving Gate F,
+   every finding must reach a final status: fixed, verified false positive, user-declined, or
+   resolved/moot after an earlier fix. Unaccounted findings block completion. Still:
    - Exclude **retired-concept removals**: a `Regression` finding that a removed element was
      left unreplaced only holds while the concept it served still exists. When the same diff
      also deleted the data field, API type or schema that element rendered from, the removal is
      a cutover with nothing to replace: a false positive, not a finding. Cite the deleted
      counterpart as the evidence in step 2's skip status.
-   - Merge overlapping items across reports: the same `file:line`, or the same root cause in the
-     same file or symbol even when the lines or wording differ. Keep one item under the first
-     report in row order, and note the other reports in its finding text (e.g. `(also: ponytail-review)`).
-2. Walk the picked review rows in row order (2 → 6), **one report (phase) at a time**. Never print
-   a later row's report or ask a later row's decisions until the current row is finished and
-   committed:
-   1. Print **only** the current row's report under `### <skill> (<tier>)`. Re-read each of this
-      report's actionable items against the current tree. If an earlier row's fix already resolved
-      the item, or deleted or rewrote the code it targets, mark it
+   - Merge items with the same root cause in the same symbol across different lines.
+   - For `lean` rows, use the lean bar: definite improvements only, using the smallest change that
+     fixes the finding with no adjacent cleanup.
+2. Walk the picked review rows in row order (2 → 6), **one row at a time**. Never print a later
+   row's findings or ask a later row's decisions until the current row is finished and committed:
+   1. Print `python3 -B "<skill-dir>/scripts/wrap_up.py" findings --row <N>` for the current row
+      only, then re-read each item against the current tree. If an earlier row's fix already
+      resolved the item, or deleted or rewrote the code it targets, mark it
       `skipped: resolved by <skill> fix` or `skipped: moot after <skill> fix`. If the row has no
-      actionable items left, print `### Gate F: <skill>` (`no findings to fix`), mark the row done,
-      and advance immediately to the next row in the same turn.
-   2. **Ask decisions for this row only.** If any item in *this* report needs a user decision
-      (two valid fixes with different shapes, a behavior or copy change, a disputed finding,
-      deleting pre-existing tests, or in `full` mode any finding on a file outside the
-      `<mb>..<head0>` changed-files list), present only this row's decision items and wait for
-      the user's choice before editing. Ask in plain text at the end of the turn that prints this
-      row's report (or use `ask` only if its `preview` carries the full context so the modal
-      doesn't hide unread text).
+      findings left, mark the row done and advance immediately to the next row in the same turn.
+   2. **Ask decisions for this row only.** If any item is marked `DECISION`, present only this
+      row's decision items and wait for the user's choice before editing. Ask in plain text at the
+      end of the turn that prints this row's findings (or use `ask` only if its `preview` carries
+      the full context so the modal doesn't hide unread text).
    3. Apply this row's fixes in this session, using the smallest change that resolves each
       finding. Run the repo's narrowest check that covers the touched files (from its
       AGENTS.md/Makefile/package.json), plus any configured file-size gate. If a check fails,
@@ -288,17 +127,16 @@ is the default for all of wrap-up.
    4. Print a fix table under `### Gate F: <skill>`, as `Finding | File | Status`, where status is
       `fixed`, `skipped: <reason>`, or `user-declined`. The only allowed skip reasons are a
       verified false positive (state the evidence), the user declining, or resolved/moot after
-      an earlier report's fix (name that report).
-   5. **Stop and wait for the user to commit every time a phase changes files.** Whenever
-      `git status --short` differs from the pre-flight `baseline`, show `git status --short` and
-      suggest a commit subject (e.g. `test: prune redundant test cases` for `test-audit`,
-      `docs: trim redundant comments and docs` for `docs-audit`, or `fix: address <skill> findings`
-      for the others), then **stop and wait for the user to commit**. Never carry straight on to
-      the next report while phase changes are uncommitted, even if the next report touches the
-      same files. Advance to the next row only after the user commits and `git status --short`
-      matches `baseline`.
-3. If no row in the wave had actionable findings after exclusions, print "Gate F: no findings to
-   fix" and continue without stopping.
+      an earlier row's fix (name that row).
+   5. **Stop and wait for the user to commit every time a row changes files.** Whenever
+      `git status --short` differs from the pre-flight `baseline` (in `.git/wrap-up/run/plan.json`),
+      show `git status --short` and suggest the `commit:` subject from step 1, then **stop and
+      wait for the user to commit**. Never carry straight on to the next row while changes are
+      uncommitted, even if the next row touches the same files. Advance to the next row only after
+      the user commits and `git status --short` matches `baseline`.
+3. If no row had findings after exclusions, print "Gate F: no findings to fix" and continue
+   without stopping.
+4. If `inline_after` is `[7]`, run row 7 now (Inline rows).
 
 Inline rows:
 
@@ -363,12 +201,13 @@ Inline rows:
 - **Every skill can still run alone.** This is only the convenience path; it adds no
   review/sync/merge logic the seven don't already have. Its own behavior is limited to ordering,
   gates (including Gate F's fixes), and hand-offs.
-- **Pre-flight is read-only.** `scope.py` writes nothing. The only write is the `~/.cache/mw-kit`
-  clone or pull, after the user replies `cache` at the `MW_KIT` stop. The `.tooling-sync.json`
-  write happens only inside tooling-sync. The memo write in §3 (`.git/wrap-up/<branch>`, after
-  row 2) is the only other write this skill makes; it is local git metadata, not a commit.
-- **Subagents are read-only.** Only rows 2–6 are ever delegated; tooling-sync and triage always
-  run inline because they prompt and write.
+- **Pre-flight makes no writes outside `.git/`.** The script writes only
+  `.git/wrap-up/run/` (pre-flight facts, the plan, findings files) and the memo
+  (`.git/wrap-up/<branch>`, after row 2). All of it is local git metadata, not a commit. The only
+  `~/.cache/mw-kit` clone or pull happens inside tooling-sync, when row 1 is picked. The
+  `.tooling-sync.json` write happens only inside tooling-sync.
+- **Subagents are read-only,** except their findings file under `.git/wrap-up/run/`. Only rows 2–6
+  are ever delegated; tooling-sync and triage always run inline because they prompt and write.
 
 ## Retro
 

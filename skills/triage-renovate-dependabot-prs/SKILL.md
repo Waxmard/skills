@@ -14,13 +14,22 @@ description: >
 
 Merge dep-bump branches into the **current branch** one at a time. The user's pattern: create a feature branch off the target (`dev`/`main`), drain bot branches into it, then merge it into target as one safer review. The feature branch must already exist and be checked out.
 
-Covers **Renovate** (GitLab, `renovate/*`) and **Dependabot** (GitHub, `dependabot/*`). No `gh`/`glab` CLI required — discovery is pure `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
+Covers **Renovate** (GitLab, `renovate/*`) and **Dependabot** (GitHub, `dependabot/*`). No `gh`/`glab` CLI required; `scripts/renovate.py` runs pre-flight and discovery with `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+| run the script | `bash` tool | the shell | the shell |
 
 ## Prerequisites & Required Tools
 
 Runs on macOS and Linux (on Windows, use WSL).
 
-- `git` (discovery is pure git; no `gh` or `glab` needed)
+- `git` (no `gh` or `glab` needed)
+- `python3`, for `scripts/renovate.py`
 - The package manager and check tools of each ecosystem in the repo (the install and check commands in step 5 of the per-branch loop)
 - `npx` / `uvx` (optional), to run a bumped linter or formatter at its new version
 - `crane` (optional), to compare container-image bumps
@@ -37,59 +46,28 @@ Take the mode from the invocation args or the caller's instructions (`mode: <x>`
 
 ## Pre-flight
 
-Before step 1, check the prerequisites:
+`<skill-dir>` is the directory this SKILL.md was loaded from. Before step 1, check the prerequisites:
 ```bash
-command -v git >/dev/null || echo "missing: git"
+for t in git python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
 ```
-If it prints, stop and tell the user to install git.
+If anything prints, stop and tell the user what to install.
 
-1. Confirm CWD is inside a git repo (`git rev-parse --git-dir`). If not, stop and ask.
-2. Read `git rev-parse --abbrev-ref HEAD`. If it is `main`, `master`, `dev`, `develop`, `release/*`, or `staging` → **refuse** and explain: the pattern requires a feature branch as a buffer. Ask the user to switch or override.
-3. Note the likely target branch (heuristic: whichever of `dev` / `main` exists locally and is not HEAD). Use it only for context messages, not for actions.
-4. `git fetch origin --prune` — refresh remote refs and drop deleted bot branches.
-5. Detect the ecosystem(s) present in the repo root. The same repo can mix several (e.g. a Rust binary with a JS frontend in a subdir). Note them for steps 2 and 5 of the per-branch loop. For each detected ecosystem, `command -v` the package manager its install-from-lock command uses (step 5 of the per-branch loop); if one is missing, stop and name it, because post-merge checks can't run without it.
+1. Run `python3 -B "<skill-dir>/scripts/renovate.py"`. Add `--allow-protected` only after the user explicitly overrides the protected-branch refusal.
+2. Exit 3: refuse, relay stderr, and ask the user to switch branches or override. Exit 1: stop and relay stderr.
+3. Non-empty `missing_tools`: stop and name them, because post-merge checks can't run without them.
+4. Relay `notes`. `ecosystems` feeds steps 2 and 5 of the per-branch loop. `target_hint` is for context messages only, not for actions.
 
 ## Discovery
 
-```bash
-git ls-remote --heads origin 'renovate/*' 'dependabot/*' | awk '{print $2}' | sed 's|^refs/heads/||'
-```
+Present `branches` numbered, each with its `subject`, `redundant` (spell out the reason), predicted `conflicts`, and a summary of `changes`. This is context, **not** a decision. Never mention `merged` branches. Then **proceed automatically**: process branches top-to-bottom, skipping any flagged redundant, without asking which to start from. The user's one decision per branch comes later, at the pre-merge gate (step 3).
 
-Iterate with `while read -r`, never `for b in $(…)` — bot branch names arrive newline-joined and a `for` loop word-splits them into one mangled arg:
+A branch's contribution is always read three-dot (`HEAD...origin/<branch>`), never two-dot: on an old-base branch, two-dot shows thousands of lines of `main`'s later work that the merge will not revert.
 
-```bash
-git ls-remote --heads origin 'renovate/*' 'dependabot/*' | awk '{print $2}' | sed 's|^refs/heads/||' \
-| while read -r branch; do
-    echo "=== $branch ==="
-    git log -1 --format='%s' "origin/$branch"
-    git merge-base --is-ancestor "origin/$branch" HEAD && echo "already merged"
-  done
-```
+**Redundant branches.** The script flags `payload already in HEAD` and `target dep no longer exists in HEAD`. The second would produce a modify/delete conflict, not a bump. Recommend skip for both, with the reason spelled out so the user isn't left guessing why a real-looking version change is being skipped. The bot closes these on its next run.
 
-For each branch, show:
+**Onboarding branches are config adoption, not bumps.** When `onboarding` is true (`renovate/configure`, Renovate's onboarding MR, or a branch whose only payload is a first `renovate.json` or `.github/dependabot.yml`), no dependency changes, so the signal table doesn't apply. Assess who starts receiving bot MRs/PRs (downstream forks inherit the file via template sync unless `.gitattributes` marks it `merge=ours`) and whether the config matches the repo's standard (e.g. PR/MR limits, release-age delay). Gate it as MEDIUM with merge + repair (expand to the standard), merge as-is, and skip as options.
 
-- Branch name
-- HEAD commit subject: `git log -1 --format='%s' "origin/${branch}"`
-- Whether it is already merged into HEAD: `git merge-base --is-ancestor "origin/${branch}" HEAD && echo "already merged"`
-
-Filter out anything already merged. Present the remaining list to the user (numbered) with each branch's redundant/real verdict — for context, **not** for a decision. Then **proceed automatically**: process branches top-to-bottom, skipping any flagged redundant, without asking which to start from. The user's one decision per branch comes later, at the pre-merge gate (step 3).
-
-**Flag redundant branches (payload already in HEAD).** A branch can be *not* an ancestor of HEAD yet contribute nothing new — its bump already landed via a sibling branch that forked off a newer `main`. This is common when bot branches forked weeks apart: the older one's diff looks huge but is mostly `main`'s later progress it lacks, not changes it would add. Two cheap signals, computed at discovery:
-
-```bash
-# Fork age — an old base means a misleading two-dot diff and likely-stale payload
-git log -1 --format='%h %s (%cr)' "$(git merge-base HEAD origin/${branch})"
-# The branch's OWN contribution (three-dot) — what it actually changes, not main's drift
-git diff --stat "HEAD...origin/${branch}"
-```
-
-If the three-dot delta is tiny and that exact bump is **already satisfied in HEAD** (check the manifest value), mark the branch **redundant → recommend skip**: merging yields a no-op merge commit and the bot auto-closes the MR/PR on its next run once it sees the dep already current on `main`. Always read the branch's contribution via three-dot (`HEAD...origin/${branch}`), never two-dot (`HEAD origin/${branch}`) — two-dot on an old-base branch shows thousands of lines of `main`'s later work that the merge will **not** revert, and reads as a terrifying diff that isn't real.
-
-**Second redundancy case: the target dep no longer exists in HEAD.** Check the dep is still in the manifest at all (`git show HEAD:package.json`, `git show HEAD:Cargo.toml`, or the ecosystem's equivalent). A branch whose target was *removed* by later work looks identical to a real bump in three-dot (`^16.4.0 → ^17.0.3`) but merging it produces a **modify/delete conflict**, not a bump — the branch modified a line HEAD deleted. Mark it **redundant → recommend skip**, with the reason spelled out as "target dep no longer exists in HEAD" so the user isn't left guessing why a real-looking version change is being skipped. The bot closes these once the removal lands on the target.
-
-**Onboarding branches are config adoption, not bumps.** `renovate/configure` (Renovate's onboarding MR) or a branch whose only payload is a first `.github/dependabot.yml` changes no dependency, so the signal table doesn't apply. Assess who starts receiving bot MRs (downstream forks inherit the file via template sync unless `.gitattributes` marks it `merge=ours`) and whether the config matches the repo's renovate standard (e.g. MR limits, release-age delay). Gate it as MEDIUM with merge + repair (expand to the standard), merge as-is, and skip as options.
-
-**Check for local drift before ranking anything.** Identify the bot branch's actual PR/MR target from its metadata or bot configuration; the pre-flight target is only a hint. Run `git log --oneline origin/<target>..HEAD`, then filter that range to the manifests and lockfiles. Local dependency changes can make a bot branch stale, but they do not prove every branch conflicts. Use each branch's contribution and merge prediction to identify affected branches. Automatically defer stale-branch conflicts for bot rebase under step 3; do not ask the user to choose that path.
+**Check for local drift before ranking anything.** `drift` lists local commits on HEAD, not yet on `origin/<target_hint>`, that touch manifests or lockfiles. The bot branch's actual PR/MR target comes from its metadata or bot configuration; if it differs from `target_hint`, run `git log --oneline origin/<target>..HEAD` yourself and filter to manifests and lockfiles. Local dependency changes can make a bot branch stale, but they do not prove every branch conflicts. Use each branch's contribution and merge prediction to identify affected branches. Automatically defer stale-branch conflicts for bot rebase under step 3; do not ask the user to choose that path.
 
 ## Per-branch loop
 
@@ -97,25 +75,9 @@ Process branches automatically in discovery order, skipping redundant branches a
 
 ### 1. Show the change
 
-```bash
-git log -1 --format='%s%n%n%b' "origin/${branch}"
-git diff --stat "HEAD...origin/${branch}"
-# Show manifest deltas across all common ecosystems — only those present produce output
-git diff "HEAD...origin/${branch}" -- \
-  'package.json' 'package-lock.json' 'yarn.lock' 'pnpm-lock.yaml' \
-  'pyproject.toml' 'uv.lock' 'poetry.lock' 'requirements*.txt' 'Pipfile*' \
-  'Cargo.toml' 'Cargo.lock' \
-  'go.mod' 'go.sum' \
-  'Gemfile' 'Gemfile.lock' \
-  'pom.xml' 'build.gradle*' 'gradle.lockfile' \
-  'composer.json' 'composer.lock' \
-  'mix.exs' 'mix.lock' \
-  'Dockerfile' '.github/workflows/*.yml' '.gitlab-ci.yml'
-```
+Show `git log -1 --format='%s%n%n%b' origin/<branch>`, the branch's `changes`, `added` / `deleted`, and predicted `conflicts` from the script. `conflicts: null` means the prediction was unavailable: say so and treat the merge as unpredicted. If `small_diff`, also show `git diff HEAD...origin/<branch>`.
 
-Predict the merge before the gate — `git merge-tree --write-tree HEAD "origin/${branch}"` computes the result **without touching the working tree** (exit 1 plus `CONFLICT` lines names the conflicting files). Report predicted conflicts. When bot rebase can remove stale-base conflicts, automatically defer under step 3 instead of offering a merge/skip choice. Do not attempt a merge to discover conflicts.
-
-If the diff is small (<200 lines), show full diff. Otherwise show stat + manifest deltas.
+Stale-base conflicts are deferred automatically under step 3 when bot rebase can remove them, instead of offering a merge/skip choice. Never attempt a merge to discover conflicts.
 
 ### 2. Risk read
 

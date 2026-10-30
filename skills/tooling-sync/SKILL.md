@@ -1,12 +1,14 @@
 ---
 name: tooling-sync
 description: >
-  Use when syncing, comparing, or setting up repo linters, formatters,
-  pre-commit hooks, CI jobs, or Dependabot/Renovate config against the mw-kit
-  playbook (lean, default, or full mode). Reports missing or drifted config,
-  lets the user pick updates, and merges them without clobbering; never
-  commits. Trigger: "sync tooling", "compare tooling", "check tooling against
-  mw-kit", "set up repo linters/CI like my other repos", or /tooling-sync.
+  Use only when the user asks to sync, compare, or set up repo linters,
+  formatters, pre-commit hooks, CI jobs, or Dependabot/Renovate config against
+  the mw-kit playbook (lean, default, or full mode), or when invoked by
+  wrap-up; not when reviewing PR/MR diffs or judging review comments. Reports
+  missing or drifted config, lets the user pick updates, and merges them
+  without clobbering; never commits. Trigger: "sync tooling", "compare
+  tooling", "check tooling against mw-kit", "set up repo linters/CI like my
+  other repos", or /tooling-sync.
 ---
 
 Compare the **current repo** (CWD) against the mw-kit playbook, the user's curated source of truth, and apply chosen updates. The flow is **scope → compare → report → decide → apply**, strictly read-only until the user chooses what to apply.
