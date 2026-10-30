@@ -143,18 +143,18 @@ Ask which to apply. Offer: **all baseline fixes**, **a specific subset** (number
 
 ## Step 5 — Apply
 
-For each chosen item, one at a time:
+For all chosen items:
 
 1. Re-read the canonical block from the page and the current target file.
 2. **Merge, don't clobber.** Bring the playbook's opinionated values into the repo's existing config; preserve repo-specific keys (extra deps, project name, custom scripts, local ignores). Whole-file targets with no existing file → create from the canonical block, adjusted to the repo (paths, project name, roots like `fastapi/` → the repo's actual layout).
-3. Show the proposed change as a diff and **confirm before writing**. Then apply with Edit (fragment merge) or Write (new whole file).
+3. Apply working-tree file changes directly with `Edit` (fragment merge) or `Write` (new whole file). Do **not** print proposed file contents or diffs in chat, and do **not** ask for per-file confirmation: the user reviews applied edits in their editor or via `git diff`.
    - **`agent-instructions` is filesystem plumbing, not a config merge.** `AGENTS.md` is the only instructions file. A `CLAUDE.md` symlink to it → `rm` it. A real `CLAUDE.md` and no `AGENTS.md` → `mv CLAUDE.md AGENTS.md` (Bash, confirm first; plain `mv`, not `git mv` — staging stays the user's job). A real `CLAUDE.md` beside a real `AGENTS.md` → surface the conflict instead of clobbering; let the user pick which content wins, then delete `CLAUDE.md`. Never Write a second copy, and add a symlink only for an agent the user names that doesn't read `AGENTS.md`. A repo that *generates* both files from a template is ⚠️ drift, not satisfied: propose collapsing it to `AGENTS.md` and deleting whatever existed only to duplicate the guide — the template, the build script, its `make` targets, the CI staleness gate, the pre-commit hook. Scope that carefully before proposing it: a generator that also renders genuinely different documents (a README from partials) stays, minus the agent guides; one whose remaining outputs are 1:1 copies goes entirely.
      - **Scrub the body to agent-agnostic after the move.** The rename alone isn't the fix — the page's contract is neutral content, so once `AGENTS.md` is the file, rewrite Claude-specific phrasing in it (`Claude Code` / "Claude" → "the agent" / "AI agents"; drop Claude-only asides) and show that edit as part of the diff. Keep a named-agent line only where the instruction genuinely applies to just that one. Skipping this leaves every other agent reading "Claude"-flavored guidance.
 4. Adjust for repo reality: the playbook examples assume paths like `fastapi/`, `frontend/`, `app/`. Rewrite globs/roots/`source` to the repo's actual structure. Flag anything you couldn't auto-map.
 5. After applying, note any **follow-up** the user must do manually (install a dep, add a CI secret, run a formatter once, add a workflow token) — don't run installs or commits yourself.
 6. **Validate CI and linter changes immediately:** after any `.gitlab-ci.yml` edit, run `glab ci lint` (when `glab` is authenticated) to catch YAML syntax, unknown anchors, or stage errors before handing off. When adding a new lint/SAST job (`hadolint`, `semgrep-sast`, `trivy fs`, `check-line-limit.sh`) whose CLI binary is installed locally (`command -v`), run its script command once against the repo to catch immediate false positives or unconfigured ignores before finishing Apply.
 
-Pause after each applied change. Don't batch silently.
+After applying all chosen items, give a single post-apply summary listing the modified/created files and any manual follow-ups.
 
 ## Step 6 — Record decisions (`.tooling-sync.json`)
 
@@ -187,7 +187,7 @@ Rules for building it:
 - **Delete every tool in `state.orphaned_tools`** while carrying the settled rows forward — its page is gone, so keeping the record means it never surfaces again. Say which ones you dropped. Deleting the record does not delete the artifact: if the report surfaced a leftover workflow/config for that orphan and the user approved, that removal is a separate Step 5 edit, not part of this write.
 - On a report-only run where the user applied nothing: still write the file — record everything you compared (✅ as `synced`, the rest the user explicitly declined; if they didn't rule on an item, leave it out so it stays live next run).
 
-Show the written file once; don't pause per-key. Mention it's part of what to commit.
+Do not dump the file contents in chat; mention that `.tooling-sync.json` was updated and is part of what to commit.
 
 ## Hard rules
 
@@ -207,7 +207,7 @@ The read-only scope+compare phase needs, in addition to defaults:
 - `Bash(python3 ~/.cache/mw-kit/scripts/scope.py:*)` (or your `$MW_KIT` path) — run the scope resolver (does its own git/glob/presence work). **The other key one.**
 - `Bash(git rev-parse:*)` — resolve the consumer repo toplevel to pass to the resolver. (Already allowed globally.)
 
-The apply phase uses `Edit` / `Write` on the consumer repo's own config files. These are intentionally left to prompt (and the skill confirms each change anyway) — don't blanket-allow them. Reading the consumer repo's own files needs no extra permission (it's the workspace).
+The apply phase uses `Edit` / `Write` on the consumer repo's own config files. These are intentionally left to prompt — don't blanket-allow them. Reading the consumer repo's own files needs no extra permission (it's the workspace).
 
 ## Pitfalls
 
