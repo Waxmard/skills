@@ -51,17 +51,23 @@ If a required tool for the repo's scanners prints as missing, stop and tell the 
    Note each job's exact command:
    - **Semgrep**: subcommand (`semgrep ci` or `semgrep scan`), `SEMGREP_RULES` or `--config` packs, `--exclude-rule` flags, and whether `--sarif --output=...` is set.
    - **Trivy**: subcommand (`fs`/`image`/`config`), `--scanners`, `--severity`, `--ignorefile`, `--exit-code`, env vars (such as `TRIVY_INCLUDE_DEV_DEPS`), and target. Note both PR-gate steps (often `severity: CRITICAL`) and non-PR SARIF steps (often `severity: CRITICAL,HIGH,MEDIUM` without `exit-code: '1'`), which still surface findings in the Security tab on merge.
-2. Get the failing job logs. Use the job IDs the user gave you, or the latest failed pipeline on the current branch:
-   - GitLab: `glab api "projects/:id/pipelines/<pipeline_id>/jobs?per_page=100" | jq -r '.[] | select(.status=="failed") | "\(.id) \(.name)"'`, then `glab api "projects/:id/jobs/<job_id>/trace"`. `glab ci view` needs a TTY, so don't use it.
-   - GitHub: `gh run list --branch "$(git branch --show-current)" --limit 5`, then `gh run view <run_id> --log-failed`.
+2. Get the failing job logs. Use the job IDs the user gave you, or the latest pipeline/run for `HEAD`:
+   - GitLab (check jobs even when the pipeline status is `success`, because `trivy-image` may run with `allow_failure: true`):
+     ```bash
+     pipeline_id=$(glab api "projects/:id/pipelines?sha=$(git rev-parse HEAD)&per_page=1" | jq -r '.[0].id // empty')
+     [ -n "$pipeline_id" ] || pipeline_id=$(glab api "projects/:id/pipelines?per_page=1" | jq -r '.[0].id')
+     glab api "projects/:id/pipelines/${pipeline_id}/jobs?per_page=100" | jq -r '.[] | select(.status=="failed") | "\(.id) \(.name) allow_failure=\(.allow_failure)"'
+     ```
+     Download each failed job's trace once to `/tmp/job-<job_id>.log` (`glab api "projects/:id/jobs/<job_id>/trace" > "/tmp/job-${job_id}.log"`) and keep the file until Step 3 finishes so follow-up checks read `/tmp/job-<job_id>.log` locally instead of re-fetching via `glab api`. `glab ci view` needs a TTY, so don't use it.
+   - GitHub: `gh run list --branch "$(git branch --show-current)" --limit 5`, then save the failed log once to `/tmp/job-<job_id>.log` (`gh run view <run_id> --log-failed > "/tmp/job-${run_id}.log"`) and keep it until Step 3 finishes.
    Filter the logs by scanner:
    - **Semgrep logs**: Check the summary (`Findings: N (N blocking)`) and the diff-scan merge base (`Using <sha> as the merge-base`). When CI runs `semgrep ci --sarif --output=semgrep.sarif`, Semgrep writes the finding details only to the SARIF file and omits the finding rows from the job log. Replay the command locally without `--sarif --output=...` (Step 2a) to print the exact rule IDs, files, and line numbers.
-   - **Trivy logs**: Don't read the raw log; image-job summaries can run to hundreds of KB. Save each log to a temp file and filter it:
+   - **Trivy logs**: Don't read the raw log; image-job summaries can run to hundreds of KB. Filter `/tmp/job-<job_id>.log`:
      ```bash
-     grep -E -B2 'Total: [1-9]|Failures: [1-9]|FATAL|ERROR' job.log   # each target with findings, with its Type
-     grep -E 'Version: |(CVE|GHSA)-[0-9]+-[0-9]+ ' job.log            # trivy version + finding rows
+     grep -E -B2 'Total: [1-9]|Failures: [1-9]|FATAL|ERROR' "/tmp/job-${job_id}.log"   # each target with findings, with its Type
+     grep -E 'Version: |(CVE|GHSA)-[0-9]+-[0-9]+ ' "/tmp/job-${job_id}.log"            # trivy version + finding rows
      ```
-     Steps with `format: sarif` write findings to the SARIF file instead of the log; run `trivy` locally with `format: table` to inspect them. If a target shows a non-zero count that the rows don't explain (a misconfig or secret), read only that target's section.
+     When a Trivy table merges repeated `Library` or `Vulnerability` cells across continuation rows, read the table block around `Total: [1-9]` from `/tmp/job-<job_id>.log` (`grep -A 40 'Total: [1-9]' "/tmp/job-${job_id}.log"`). Steps with `format: sarif` write findings to the SARIF file instead of the log; run `trivy` locally with `format: table` to inspect them. If a target shows a non-zero count that the rows don't explain (a misconfig or secret), read only that target's section from `/tmp/job-<job_id>.log`.
 3. If a job fails before or after scanning due to infrastructure (registry auth, image pull, DB download, or SARIF upload `Code scanning is not enabled`), report the error line and stop.
 
 ## Step 1 — Bring scanner pins up to date
