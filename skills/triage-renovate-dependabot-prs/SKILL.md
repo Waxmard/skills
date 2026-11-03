@@ -154,9 +154,9 @@ For example, a Vitest 4 → 5 branch that leaves coverage-v8 on 4 needs a matchi
 
 A bot regenerates against its PR/MR target, not the checked-out feature branch. If the prerequisite dependency changes exist only on the feature branch, the user must push and land those changes on the bot's target before regeneration can incorporate them. Pushing the feature branch alone is insufficient. If the target already contains the changes, defer until the bot refreshes its branch against that target. Do not push, merge to the target, or post remote rebase commands without the required explicit authorization. Report deferral as selected, not rebase as requested or completed unless that action was actually performed.
 
-**Actual LOW (or LOWEST)** → state the verdict, merge, run step 5 checks, log, and auto-advance only when the current user instruction explicitly authorizes that merge. Risk classification and invoking this skill do not substitute for required merge permission; otherwise ask for that permission.
+**Actual LOW (or LOWEST)** → state the verdict, merge, run step 5 checks, log, and auto-advance only when the current user instruction explicitly authorizes that merge. Risk classification and invoking this skill do not substitute for required merge permission; otherwise ask for that permission via `ask` (Harness notes), including the branch summary and verdict in `preview` (and offering to authorize either this branch or all LOW/LOWEST branches in the current drain).
 
-**Actual MEDIUM or HIGH** → stop and wait for the branch-specific decision after completing required research. Present options:
+**Actual MEDIUM or HIGH** → stop and wait for the branch-specific decision via `ask` (Harness notes) after completing required research (even if an earlier review phase used plain-text chat for open-ended discussion). Include the branch's changes, reasoned verdict, and any required repair details in assistant text and `preview`, and present options:
 
 - **merge + repair** — recommended when a bounded repair is required; name the files, dependency changes, and checks before seeking approval.
 - **merge** — apply `git merge --no-ff` when no repair is required.
