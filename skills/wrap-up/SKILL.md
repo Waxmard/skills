@@ -107,6 +107,7 @@ decisions at once.
      a cutover with nothing to replace: a false positive, not a finding. Cite the deleted
      counterpart as the evidence in step 2's skip status.
    - Merge items with the same root cause in the same symbol across different lines.
+   - Carry the user's decision forward when a later row repeats the same issue. Mark a repeated declined finding `user-declined`, reference the earlier finding, and do not ask again. Review distinct root causes independently.
    - For `lean` rows, use the lean bar: definite improvements only, using the smallest change that
      fixes the finding with no adjacent cleanup.
 2. Walk the picked review rows in row order (2 → 6), **one row at a time**. Never print a later
