@@ -1,19 +1,19 @@
 # Removed signals
 
-What to look for on the `-` side of a hunk and which skill owns the judgement. A row here is a lead, never a finding. Route the removal to its owner and report it only once that skill confirms the interface got worse.
+What to look for on the `-` side of a hunk and which domain owns the judgement. A row here is a lead, never a finding. Check the removal against its domain in `SKILL.md` §7 and report it only when the interface concretely got worse.
 
-| Removed from the `-` side | Owner | What to check |
+| Removed from the `-` side | Domain | What to check |
 | --- | --- | --- |
-| `aria-label`, `aria-labelledby`, `aria-describedby`, `aria-live`, `role=` | `better-accessibility` | The control or region lost its accessible name, description, or announcement |
-| `alt=`, `<label`, `for=`, `scope=` | `better-accessibility` | Image, field, or table cell lost its programmatic association |
-| `<button>`, `<a>`, `<nav>`, `<main>`, `<ul>` replaced by `div` or `span` | `better-accessibility` | Keyboard and assistive-technology behavior was traded for styling |
-| `:focus-visible`, `:focus`, `outline`, `tabindex` | `better-accessibility` | Keyboard users lost the focus indicator or the element left the tab order |
-| `prefers-reduced-motion`, `prefers-contrast` | `better-accessibility` | Motion or contrast now ignores the user's system preference |
-| Logical properties swapped for `left` / `right` | `better-layout` | Direction-aware layout was dropped |
-| `lang=`, `dir=` | `better-typography` | Language metadata or text direction was dropped |
-| `text-wrap`, `line-clamp`, `overflow-wrap`, `tabular-nums`, `font-feature-settings` | `better-typography` | Text rendering, wrapping, or numeral alignment silently changed |
-| A color token swapped for a literal, or a token swapped for a lighter one | `better-colors` | The rendered contrast pair may now fail; measure it |
-| A user-facing string deleted or shortened | `better-writing` | A label, error, or empty state lost the information it carried |
+| `aria-label`, `aria-labelledby`, `aria-describedby`, `aria-live`, `role=` | `Accessibility` | The control or region lost its accessible name, description, or announcement |
+| `alt=`, `<label`, `for=`, `scope=` | `Accessibility` | Image, field, or table cell lost its programmatic association |
+| `<button>`, `<a>`, `<nav>`, `<main>`, `<ul>` replaced by `div` or `span` | `Accessibility` | Keyboard and assistive-technology behavior was traded for styling |
+| `:focus-visible`, `:focus`, `outline`, `tabindex` | `Accessibility` | Keyboard users lost the focus indicator or the element left the tab order |
+| `prefers-reduced-motion`, `prefers-contrast` | `Accessibility` | Motion or contrast now ignores the user's system preference |
+| Logical properties swapped for `left` / `right` | `Layout` | Direction-aware layout was dropped (only when the repo localizes to RTL) |
+| `lang=`, `dir=` | `Typography` | Language metadata or text direction was dropped |
+| `text-wrap`, `line-clamp`, `overflow-wrap`, `tabular-nums`, `font-feature-settings` | `Typography` | Text rendering, wrapping, or numeral alignment silently changed |
+| A color token swapped for a literal, or a token swapped for a lighter one | `Colors` | The rendered contrast pair may now fail; measure it |
+| A user-facing string deleted or shortened | `Writing` | A label, error, or empty state lost the information it carried |
 
 ## Equivalent replacements
 
@@ -24,7 +24,6 @@ These clear the signal. Check for them before routing anything, or the report fi
 - `outline` replaced by a `box-shadow` focus ring that still meets the focus-indicator rule.
 - `tabindex="0"` dropped from an element that is now natively focusable.
 - A color literal replaced by a token that measures the same rendered pair.
-- A physical property replaced by its logical counterpart, which is the fix rather than the regression.
 - A string moved into the translation catalogue rather than deleted.
 
 ## Searching the removed side

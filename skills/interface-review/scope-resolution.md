@@ -24,7 +24,7 @@ Read files at that ref with `git show refs/remotes/pr/<n>:path/to/file`. Never o
 
 `gh pr diff <n>` is a fine shortcut for the patch text. It gives no way to read unchanged context or expand to consumers, so fetch the ref as well.
 
-**Citations.** `better-interface` requires `path/to/file:line`, and line numbers from a fetched ref need not match the working tree. Cite against the head ref, and declare that ref and its SHA in the scope block so the numbers resolve.
+**Citations.** Findings require `path/to/file:line`, and line numbers from a fetched ref need not match the working tree. Cite against the head ref, and declare that ref and its SHA in the scope block so the numbers resolve.
 
 **Intent.** The `title` and `body` from `gh pr view` are the stated intent for **Hold the change to its stated intent**. Add the commit subjects when the body is empty.
 
@@ -46,7 +46,7 @@ The tree is clean and `HEAD` is not ahead of the merge base. Gather the facts be
 
 Report those facts, then offer the three routes in **With no change, ask rather than invent one**. State the last commit's SHA and subject inside the offer. The user recognises "a1b2c3d Merge pull request #482" as not what they wanted and cannot recognise "the last commit".
 
-A whole-repository audit is a different review, not this one with a wider net. Hand the repository to `better-interface` directly, without a scope block, statuses, or a pre-existing section.
+A whole-repository audit is a different review, not this one with a wider net. Run it in `full` mode across the repository's UI surfaces, without a scope block, statuses, or a pre-existing section.
 
 ## Renames
 
@@ -67,7 +67,7 @@ Exclude these and name what you excluded in the scope block. They are machine-au
 | Vendored code | `vendor/`, `third_party/`, `node_modules/` |
 | Binaries and media | `*.png`, `*.jpg`, `*.webp`, `*.avif`, `*.woff2`, `*.mp4`, `*.pdf` |
 
-Two exceptions stay in scope. A **font file** added or swapped is a `better-typography` change. An **image** added to a component is a `better-ui` and `better-accessibility` change, through its `alt` text and its outline. Review the code that references them, not the bytes.
+Two exceptions stay in scope. A **font file** added or swapped is a `Typography` change. An **image** added to a component is a `UI` and `Accessibility` change, through its `alt` text and its outline. Review the code that references them, not the bytes.
 
 Apply the exclusions as pathspecs so the file count in the scope block is the reviewed count. Two traps under-exclude silently. `*.lock` catches `yarn.lock` and `Cargo.lock` but not `package-lock.json` or `pnpm-lock.yaml`, so cover every suffix in the table. And `**` needs `:(glob,exclude)` magic: without `glob`, `**` is just two `*` wildcards rather than zero-or-more directories, so `:(exclude)**/dist/**` requires a leading `/` and misses a root-level `dist/`. Run the diff with and without the pathspecs and confirm the count dropped by exactly the files you named.
 

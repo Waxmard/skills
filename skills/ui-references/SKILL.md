@@ -78,7 +78,7 @@ If `local.md` is missing, or an entry's path no longer exists, say so in one lin
 ## Rules
 
 - No generic taste rules or style checklists. The donors and the user's words are the only taste source.
-- Don't load other design skills (`frontend-design`, `better-*`, `interface-design`, `emil-design-eng`, transitions) unless the user asks.
+- Don't load other design skills (`frontend-design`, `modern-web-guidance`) unless the user asks.
 - Copy mechanics, not branding or code across stacks.
 - Host repo rules (`AGENTS.md`, etc.) always win.
 - Accessibility floor only: labeled controls, visible keyboard focus, reachable targets.

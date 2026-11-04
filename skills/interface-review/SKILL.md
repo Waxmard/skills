@@ -4,18 +4,15 @@ disable-model-invocation: true
 description: >
   Use when asked for a UI, frontend, interface, or design review of a branch,
   PR, MR, or diff (lean, default, full). Expands changed files to affected UI
-  surfaces, checks removed lines for regressions, and hands findings to
-  better-interface. Not for general code review (pr-review-toolkit) or
-  whole-app UI audits (better-interface). Trigger: "review the UI changes",
-  "UI review", "interface review", "design review of this PR", or
-  /interface-review.
+  surfaces, checks removed lines for regressions, and reviews accessibility,
+  layout, writing, typography, color, and UI polish. Not for general code
+  review (pr-review-toolkit). Trigger: "review the UI changes", "UI review",
+  "interface review", "design review of this PR", or /interface-review.
 ---
 
 # Change review
 
-This skill reviews a change rather than a screen. It resolves the scope, expands the changed files to the surfaces they affect, reads both sides of the diff and classifies every finding.
-
-Scope is all it owns. Domain rules belong to the `better-*` skills. Severity, consolidation, coverage, the cap and the verdict belong to `better-interface`, which this skill hands the review to.
+This skill reviews a change rather than a screen (or, in `full` mode, a whole repository's UI). It resolves the scope, expands the changed files to the surfaces they affect, reads both sides of the diff, and evaluates Accessibility, Layout, Writing, Typography, Colors, and UI polish to issue one ranked verdict.
 
 Correctness, tests, security and performance belong to the project's general code review. Name the concern once and move on.
 
@@ -31,7 +28,6 @@ Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
 - `gh` (logged in), for `pr <n>` targets, default-branch fallback, and open-PR checks; not needed when reviewing a local branch or range with `origin/HEAD` set
-- Companion skills: `better-interface` and the `better-*` domain skills (`npx skills add jakubkrehel/skills`)
 
 Install missing CLI tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
@@ -53,7 +49,7 @@ A leading `lean` or `full` in the invocation, or `mode: <x>` from a calling skil
 
 - **`lean`**: expand one hop only, tokens and primitives included; report only `HIGH` and `MEDIUM` findings statused `Introduced` or `Regression`; omit the `Pre-existing` section.
 - **Default**: as written.
-- **`full`**: a whole-repository interface audit, not a change review. Hand it to `better-interface` as in **With no change, ask rather than invent one**, third bullet.
+- **`full`**: a whole-repository interface audit across all UI surfaces, reporting findings without a change-scope block, diff statuses (`Introduced`/`Regression`), or `Pre-existing` section.
 
 With no target supplied, resolve in this order and stop at the first match:
 
@@ -73,7 +69,7 @@ State the repository facts you found, then offer the routes and wait. [Nothing t
 
 - **The last commit**, `HEAD~1..HEAD`, named by short SHA and subject, so the user sees what they would get before choosing it.
 - **A target they name**: `pr <n>`, a branch, a ref, or a range, resolved per **Resolve the change scope first**.
-- **A whole-repository interface audit**, which is not a change review. Hand it to `better-interface` as a repository-scope review, without this skill's scope block, statuses, or pre-existing section. With no change, every finding is pre-existing and the classification says nothing.
+- **A whole-repository interface audit** (`full` mode), reviewing all UI surfaces directly without this skill's scope block, statuses, or pre-existing section. With no change, every finding is pre-existing and the classification says nothing.
 
 Check for an open pull request on the current branch before asking, and offer it first. A branch whose commits already landed resolves to no change, while its pull request is still exactly what the user meant.
 
@@ -91,7 +87,7 @@ Review at most five consumers, ordered by [the rule in Scope resolution](scope-r
 
 Regressions are invisible in the post-change state. Read the `-` side of every hunk against [Removed signals](removed-signals.md).
 
-A signal is a lead, not a finding. A removal is only a regression when nothing in the change replaces it, and the domain skill owns that judgement. Route each unmatched removal to its owner, report only what that skill confirms and status it `Regression`. That tells the author they broke something that worked rather than made a new mistake.
+A signal is a lead, not a finding. A removal is only a regression when nothing in the change replaces it, and the removal concretely degrades its domain under **Evaluate domains, rank by impact, and issue the verdict**. Report only confirmed regressions and status them `Regression`. That tells the author they broke something that worked rather than made a new mistake.
 
 ### 5. Classify every finding
 
@@ -107,7 +103,7 @@ Status by what the diff touched, not by which file it sits in: a line the change
 git blame -L <line>,<line> "$BASE" -- path/to/file
 ```
 
-Hand every finding up with its status attached and let `better-interface` apply its cap and verdict rules.
+Apply the cap and verdict rules in **Evaluate domains, rank by impact, and issue the verdict** to `Introduced` and `Regression` findings only.
 
 ### 6. Hold the change to its stated intent
 
@@ -122,25 +118,32 @@ This is what surfaces the **incomplete** change. A surface review cannot see it,
 
 Do not report scope creep. Whether a change does too much is a process question, not an interface one.
 
-### 7. Hand the review to `better-interface`
+### 7. Evaluate domains, rank by impact, and issue the verdict
 
-Hand `better-interface` the scope block, the affected surfaces and a status on every finding. It routes to the domain skills, applies severity, consolidates, enforces the cap and issues the verdict.
+Identify the framework, styling system, component library, design tokens, and convention docs (`AGENTS.md`, `CONTRIBUTING.md`, product specs). Write every fix in the project's own idiom and tokens, preferring the cheapest fix: delete redundant code/chrome first, use native platform elements second, reuse existing project tokens/components third, correct the value fourth, and add new markup or tokens last.
 
-For changed web surfaces, explicitly route these interaction boundaries to the
-owning domain skill:
+Inspect the affected surfaces (including empty, loading, error, and narrow-width states where present) across six domains:
 
-- Accessibility: distinguish repeated card actions in context; check live-region
-  announcements for duplicate messages.
-- Layout: check anchor and keyboard-focus visibility beneath sticky elements,
-  nested scrolling at container boundaries, and missing-image layout stability.
-- UI: verify that hover and focus affordances match actual interactivity,
-  including disabled and non-clickable variants.
+- **Accessibility**: Native interactive elements (`<button>`, `<a href>`) over `<div onclick>`; visible `:focus-visible` indicator (never bare `outline: none` without a replacement); keyboard reachability (`Escape` closes overlays, focus trapped and restored in modals); accessible names on icon-only controls (`aria-label`) and meaningful `alt` text; touch targets (`>= 44x44px` on touch, `>= 24x24px` WCAG AA baseline, no overlapping hit areas); `prefers-reduced-motion` respected; dynamic errors and toasts announced via stable live regions (`role="status"` / `role="alert"` mounted before text updates).
+- **Layout**: Check for collapsed or clipped containers on narrow (`320px`) or short laptop viewports (such as `max-height` + `flex-shrink: 0` siblings crushing a `min-height: 0` scrollable pane); sticky or fixed overlays and toasts covering controls or keyboard focus targets; nested scrolling traps at container boundaries; misaligned sibling controls in a shared row or grid; missing `env(safe-area-inset-*)` where the app uses `viewport-fit=cover`; and missing-image layout stability.
+- **Writing**: Match the product's existing voice, terminology, and capitalization policy (sentence case vs. Title Case per element type); verb-first action labels (never vague noun phrases or bare "Yes"/"No" on consequential actions); error messages that state what went wrong and how to recover; confirmation and fallback copy that matches the actual payload or action; accurate pluralization (`1 item` vs. `2 items`).
+- **Typography**: Heading sizes descend with semantic level (`<h1>` > `<h2>` > `<h3>`); `font-variant-numeric: tabular-nums` on aligned or updating numbers in rows and tables; mobile inputs `>= 16px` to prevent iOS Safari auto-zoom; truncated text that hides critical data must leave the full value reachable in a detail view, sheet, or disclosure.
+- **Colors**: Compute actual WCAG 2 contrast ratios from declared theme tokens in both light and dark modes (`>= 4.5:1` normal text, `>= 3:1` large text and interactive boundaries) rather than guessing; use semantic tokens in their intended role rather than raw literals; keep one primary filled action per view and reserve danger/error hues for destructive actions or errors; never rely on color alone to convey state.
+- **UI**: Verify hover, focus, active (`scale(0.96)` or project press feedback), disabled, and selected states match actual interactivity across all peers (no hover border/cursor on non-clickable cards; no stuck `:hover` on touch without `@media (hover: hover)`); concentric border radii on nested containers; specify exact `transition-property` values instead of `transition: all`.
 
-Report only demonstrated consequences, not checklist violations by themselves.
-Do not require placeholder examples, ellipses, input names, or identical focus
-styling without a concrete usability issue or an applicable project rule.
+**Exclusions (evidence, not ceremony or taste):**
+- Report only demonstrated consequences, not checklist violations by themselves, and never flag behavior mandated by the project's product spec.
+- Do not require placeholder examples, ellipses, input `name` attributes, or identical focus styling without a concrete usability issue or an applicable project rule.
+- Skip screen-reader-only and ARIA ceremony findings (contextual `aria-label` overrides on repeated list/card buttons that already have visible text, `aria-describedby` or `tabindex="0"` on supplementary tooltip hints, `aria-pressed` / `role="group"` / `aria-live` wiring, or `<label for>` ceremony when the visual control is already clear) unless an interactive control has no visible label at all or the user explicitly asked for a screen-reader audit.
+- Skip RTL and CSS logical-property findings (`margin-inline-*`, `padding-inline-*`, `inset-inline-*`, `text-start`) unless the repository actively localizes into RTL languages.
+- Respect intentional fixed card heights and single-line truncation (`.truncate` / `line-clamp`) in dense card grids when the full value is reachable in a detail view or sheet; never require dense card grids to wrap into uneven row heights.
+- Never launch unprompted multi-viewport, 200%-zoom, or RTL browser sweeps.
 
-If `better-interface` is unavailable, report the resolved scope and the file inventory, name it as the missing skill and stop. Do not invent a severity scale, a cap, or a verdict.
+**Severity, consolidation, and cap:**
+- `HIGH`: blocks a task, misleads the user, hides or clips content or controls at supported viewports, fails required text contrast, leaves an interactive control with no accessible name or keyboard/focus path, creates data-loss risk, or uses a destructive/error treatment against its meaning.
+- `MEDIUM`: meaningfully harms comprehension, hierarchy, adaptability, state consistency, or recovery.
+- `LOW`: isolated polish with limited task impact.
+- Consolidate one root cause into a single row listing every confirmed `path/to/file:line` location. Report at most **15** `Introduced` and `Regression` findings, ordered by severity then reach, plus at most **3** `Pre-existing` findings.
 
 ### 8. Never mutate the working tree
 
@@ -156,12 +159,12 @@ Rendered verification is opt-in. Mark visual and runtime claims **Not verified**
 | The last commit reviewed because there was no change | State the facts and offer the last commit, a named target, or a repository audit |
 | Hunks reviewed without their consumers | Expand one hop, two for tokens and primitives, and name what you skipped |
 | Only the `+` side of the diff read | Search the `-` side for removed accessibility, focus, motion and text signals |
-| An equivalent replacement reported as a regression | Route the removal to its owner; report only what it confirms |
+| An equivalent replacement reported as a regression | Check the removal against its domain in §7; report only confirmed regressions |
 | A removal reported as a new mistake | Status it `Regression` so the author knows it used to work |
 | A line near a hunk statused `Introduced` | Status by what the diff touched, confirmed with `git blame` against the base ref |
 | A pull request checked out to review it | Fetch the ref and review it in place |
 | Line numbers cited that do not exist on the reviewed ref | Cite against the head ref named in the scope block |
-| The severity scale or the finding cap restated here | Defer to `better-interface` |
+| One root cause split into per-file rows | Consolidate into one row listing every confirmed `path/to/file:line` |
 | Correctness, test, or security findings in the report | Name the concern once, point at the project's code review and drop it |
 
 ## Review output format
@@ -178,7 +181,11 @@ Open with the scope block:
 | Excluded | `pnpm-lock.yaml`, `src/__snapshots__/`: lockfile and snapshots |
 | Surfaces expanded | `CheckoutPage`, `SettingsPanel`; 3 further `Button` consumers not expanded |
 
-The coverage table follows it unchanged. A domain with no evidence in the change scope is `Not reviewed: no evidence in the change scope`, which is a coverage statement rather than a gap.
+Followed by the domain coverage table across `Accessibility`, `Layout`, `Writing`, `Typography`, `Colors`, and `UI`:
+
+| Domain | Evidence inspected | Result |
+| --- | --- | --- |
+| Accessibility | Files, components, states, or checks | Findings count, `Clear`, or `Not reviewed: no evidence in the change scope` |
 
 Then the findings, with a `Status` column per **Classify every finding**:
 
@@ -194,6 +201,8 @@ Then `Pre-existing` findings, at most three, highest severity first, stated plai
 | --- | --- | --- | --- |
 | MEDIUM | Typography | `src/Toolbar.tsx:7` | Numeric badges use proportional figures; predates this change |
 
+Then list **Verification**: the exact commands or checks run and their results, separated from checks marked **Not verified**.
+
 The cap and the verdict cover `Introduced` and `Regression` only. `Pre-existing` findings sit outside the cap, so touching a legacy file cannot turn into a full-file audit. They sit outside the verdict too, so a change whose only findings are pre-existing is an `Approve`.
 
-End with `Block` when any `HIGH` remains and `Approve` otherwise, leaving the remaining findings in the table as work to do. When `better-interface` is available, the severity scale and the cap come from it.
+End with `Block` when any `HIGH` `Introduced` or `Regression` finding remains and `Approve` otherwise, leaving the remaining findings in the table as work to do.

@@ -84,17 +84,12 @@ reads it first.
 | Companion | Used by |
 |---|---|
 | `ponytail-review` | `wrap-up` |
-| `better-*` | `interface-review` |
 
 ```text
 /marketplace add DietrichGebert/ponytail                 # ponytail-review, omp
 /marketplace install ponytail@ponytail
 /plugin marketplace add DietrichGebert/ponytail          # ponytail-review, Claude Code
 /plugin install ponytail@ponytail
-```
-
-```sh
-npx skills add jakubkrehel/skills              # better-*
 ```
 
 ## Layout
@@ -125,8 +120,6 @@ Builds on — load conditions for each companion are in [Companions](#companions
 
 - [ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert:
   `ponytail-review` in `wrap-up`.
-- [jakubkrehel/skills](https://github.com/jakubkrehel/skills) by Jakub Krehel:
-  `better-*` in `interface-review`.
 
 ## License
 
