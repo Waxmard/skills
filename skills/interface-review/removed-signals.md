@@ -13,7 +13,7 @@ What to look for on the `-` side of a hunk and which domain owns the judgement. 
 | `lang=`, `dir=` | `Typography` | Language metadata or text direction was dropped |
 | `text-wrap`, `line-clamp`, `overflow-wrap`, `tabular-nums`, `font-feature-settings` | `Typography` | Text rendering, wrapping, or numeral alignment silently changed |
 | A color token swapped for a literal, or a token swapped for a lighter one | `Colors` | The rendered contrast pair may now fail; measure it |
-| A user-facing string deleted or shortened | `Writing` | A label, error, or empty state lost the information it carried |
+| A user-facing string deleted or shortened | `Writing` | A label, error, or action affordance lost the information it carried. Supplementary summaries (counts, progress, totals) removed by a deliberate redesign are not regressions unless a product spec requires them and no supported path shows the value |
 
 ## Equivalent replacements
 

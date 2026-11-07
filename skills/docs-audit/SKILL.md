@@ -50,7 +50,7 @@ Classify every finding with one tag and one action:
 - **`commented-out` (`delete`)**: commented-out code. Git keeps the old version.
 - **`banner` (`delete`)**: divider or section-banner comments with no content (`# ---- helpers ----`, `/* ======= */`).
 - **`doc-padding` (`shrink`)**: markdown filler: welcome or "this section describes" intros, a sentence that restates its heading, summary or conclusion sections that repeat the body, lists that restate code line by line, and sections longer than their content needs. Rewrite kept prose per the `docs-style` skill.
-- **`doc-dup` (`merge`)**: the same instructions or facts in two or more files (README and a docs page both explaining setup, a doc copying a script's `--help`). Keep the one canonical copy and replace the others with a link.
+- **`doc-dup` (`merge`)**: the same instructions or facts in two or more files (README and a docs page both explaining setup, a doc copying a script's `--help`). Keep the one canonical copy and replace the others with a link. The exception is a shipped artifact: a docstring, `--help` string, or README section that travels inside the package (npm tarball, PyPI wheel, published binary) must stay self-contained, because its readers never receive the repo doc. Keep that copy's one-line contract and let the repo doc carry the detail — a "see `docs/…`" pointer is fine beside that line, never instead of it.
 - **`stale` (`fix` or `delete`)**: a comment or doc that names a removed or renamed file, flag, config key, function, or behavior. Fix it if the concept still exists; delete it if it doesn't.
 
 ## 3. What to keep (hard guardrails)
