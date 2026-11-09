@@ -4,9 +4,7 @@ What to look for on the `-` side of a hunk and which domain owns the judgement. 
 
 | Removed from the `-` side | Domain | What to check |
 | --- | --- | --- |
-| `aria-label`, `aria-labelledby`, `aria-describedby`, `aria-live`, `role=` | `Accessibility` | The control or region lost its accessible name, description, or announcement |
-| `alt=`, `<label`, `for=`, `scope=` | `Accessibility` | Image, field, or table cell lost its programmatic association |
-| `<button>`, `<a>`, `<nav>`, `<main>`, `<ul>` replaced by `div` or `span` | `Accessibility` | Keyboard and assistive-technology behavior was traded for styling |
+| `<button>`, `<a>`, `<nav>`, `<main>`, `<ul>` replaced by `div` or `span` | `Accessibility` | Native interactive behavior was traded for styling |
 | `:focus-visible`, `:focus`, `outline`, `tabindex` | `Accessibility` | Keyboard users lost the focus indicator or the element left the tab order |
 | `prefers-reduced-motion`, `prefers-contrast` | `Accessibility` | Motion or contrast now ignores the user's system preference |
 | Logical properties swapped for `left` / `right` | `Layout` | Direction-aware layout was dropped (only when the repo localizes to RTL) |
@@ -19,9 +17,7 @@ What to look for on the `-` side of a hunk and which domain owns the judgement. 
 
 These clear the signal. Check for them before routing anything, or the report fills with refactors reported as regressions:
 
-- `aria-label` giving way to `aria-labelledby` pointing at visible text.
-- An explicit `role` dropped because the element became the native equivalent, `role="button"` going as a `div` becomes a `<button>`.
-- `outline` replaced by a `box-shadow` focus ring that still meets the focus-indicator rule.
+- `outline` replaced by a `box-shadow` or background focus treatment that still meets the project's focus-indicator rule.
 - `tabindex="0"` dropped from an element that is now natively focusable.
 - A color literal replaced by a token that measures the same rendered pair.
 - A string moved into the translation catalogue rather than deleted.
@@ -31,7 +27,7 @@ These clear the signal. Check for them before routing anything, or the report fi
 Restrict the search to deleted lines so additions do not mask a removal:
 
 ```bash
-git diff -U0 "$BASE"...HEAD -- '*.tsx' '*.css' | grep -E '^-[^-]' | grep -E 'aria-|role=|alt=|focus|tabindex|prefers-'
+git diff -U0 "$BASE"...HEAD -- '*.tsx' '*.css' | grep -E '^-[^-]' | grep -E 'focus|tabindex|prefers-'
 ```
 
 Read the surrounding hunk before deciding. A removed attribute is meaningless without the element it came from, and `-U0` deliberately hides that context.

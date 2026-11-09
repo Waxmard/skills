@@ -124,7 +124,7 @@ Identify the framework, styling system, component library, design tokens, and co
 
 Inspect the affected surfaces (including empty, loading, error, and narrow-width states where present) across six domains:
 
-- **Accessibility**: Native interactive elements (`<button>`, `<a href>`) over `<div onclick>`; visible `:focus-visible` indicator (never bare `outline: none` without a replacement); keyboard reachability (`Escape` closes overlays, focus trapped and restored in modals); accessible names on icon-only controls (`aria-label`) and meaningful `alt` text; touch targets (`>= 44x44px` on touch, `>= 24x24px` WCAG AA baseline, no overlapping hit areas); `prefers-reduced-motion` respected; dynamic errors and toasts announced via stable live regions (`role="status"` / `role="alert"` mounted before text updates).
+- **Accessibility**: Native interactive elements (`<button>`, `<a href>`) over `<div onclick>`; visible `:focus-visible` indicator (never bare `outline: none` without a replacement unless the project's product spec mandates otherwise); keyboard reachability where supported (`Escape` closes overlays, focus trapped and restored in modals); touch targets (`>= 44x44px` on touch, `>= 24x24px` WCAG AA baseline, no overlapping hit areas); `prefers-reduced-motion` respected.
 - **Layout**: Check for collapsed or clipped containers on narrow (`320px`) or short laptop viewports (such as `max-height` + `flex-shrink: 0` siblings crushing a `min-height: 0` scrollable pane); sticky or fixed overlays and toasts covering controls or keyboard focus targets; nested scrolling traps at container boundaries; misaligned sibling controls in a shared row or grid; missing `env(safe-area-inset-*)` where the app uses `viewport-fit=cover`; and missing-image layout stability.
 - **Writing**: Match the product's existing voice, terminology, and capitalization policy (sentence case vs. Title Case per element type); verb-first action labels (never vague noun phrases or bare "Yes"/"No" on consequential actions); error messages that state what went wrong and how to recover; confirmation and fallback copy that matches the actual payload or action; accurate pluralization (`1 item` vs. `2 items`).
 - **Typography**: Heading sizes descend with semantic level (`<h1>` > `<h2>` > `<h3>`); `font-variant-numeric: tabular-nums` on aligned or updating numbers in rows and tables; mobile inputs `>= 16px` to prevent iOS Safari auto-zoom; truncated text that hides critical data must leave the full value reachable in a detail view, sheet, or disclosure.
@@ -134,13 +134,13 @@ Inspect the affected surfaces (including empty, loading, error, and narrow-width
 **Exclusions (evidence, not ceremony or taste):**
 - Report only demonstrated consequences, not checklist violations by themselves, and never flag behavior mandated by the project's product spec.
 - Do not require placeholder examples, ellipses, input `name` attributes, or identical focus styling without a concrete usability issue or an applicable project rule.
-- Skip screen-reader-only and ARIA ceremony findings (contextual `aria-label` overrides on repeated list/card buttons that already have visible text, `aria-describedby` or `tabindex="0"` on supplementary tooltip hints, `aria-pressed` / `role="group"` / `aria-live` wiring, or `<label for>` ceremony when the visual control is already clear) unless an interactive control has no visible label at all or the user explicitly asked for a screen-reader audit.
+- Skip all screen-reader, assistive-technology, `aria-*`, `role`, `alt`-text, `<label for>`, and live-region (`role="status"` / `role="alert"` / `aria-live`) findings unless the user explicitly asked for a screen-reader audit.
 - Skip RTL and CSS logical-property findings (`margin-inline-*`, `padding-inline-*`, `inset-inline-*`, `text-start`) unless the repository actively localizes into RTL languages.
 - Respect intentional fixed card heights and single-line truncation (`.truncate` / `line-clamp`) in dense card grids when the full value is reachable in an editor, detail view, or sheet; never require dense card grids to wrap into uneven row heights. Supplementary values (counts, progress summaries, totals) may be exposed through those paths; do not require extra visible text solely because the old design showed it. Report information unavailable through any supported path, explicit product requirement violations, and demonstrated task failures.
 - Never launch unprompted multi-viewport, 200%-zoom, or RTL browser sweeps.
 
 **Severity, consolidation, and cap:**
-- `HIGH`: blocks a task, misleads the user, hides or clips content or controls at supported viewports, fails required text contrast, leaves an interactive control with no accessible name or keyboard/focus path, creates data-loss risk, or uses a destructive/error treatment against its meaning.
+- `HIGH`: blocks a task, misleads the user, hides or clips content or controls at supported viewports, fails required text contrast, creates data-loss risk, or uses a destructive/error treatment against its meaning.
 - `MEDIUM`: meaningfully harms comprehension, hierarchy, adaptability, state consistency, or recovery.
 - `LOW`: isolated polish with limited task impact.
 - Consolidate one root cause into a single row listing every confirmed `path/to/file:line` location. Report at most **15** `Introduced` and `Regression` findings, ordered by severity then reach, plus at most **3** `Pre-existing` findings.
@@ -191,7 +191,7 @@ Then the findings, with a `Status` column per **Classify every finding**:
 
 | Severity | Domain | Status | Location | Before | After | Why |
 | --- | --- | --- | --- | --- | --- | --- |
-| HIGH | Accessibility | Regression | `src/Dialog.tsx:42` | `aria-label="Close"` removed in this change | Restore `aria-label="Close"` on the icon-only control | The close control had an accessible name before this change and no longer does |
+| HIGH | Layout | Regression | `src/Dialog.tsx:42` | `min-h-11` removed in this change | Restore `min-h-11` on the close button | The close control shrank below the 44px touch target |
 
 With no `Introduced` or `Regression` findings, omit the table and state "No actionable interface findings in this change."
 
