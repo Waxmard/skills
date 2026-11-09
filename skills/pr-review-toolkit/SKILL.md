@@ -102,6 +102,7 @@ Walk the diff once, file by file, and apply every check the mode enables at the 
 
 Rules for every check:
 - **Confirm before reporting.** Open code outside the diff only to confirm or rule out a suspected finding, and read the enclosing function or block, not the whole file. Drop a suspicion you cannot confirm in live code.
+- **Run runtime claims.** When a finding rests on what code returns at runtime, such as "this list is still empty" or "this wrapper filters nothing", run the narrowest existing test or a one-line probe with the repo's own runner first. Report it only if the output confirms the claim. If you cannot run it, drop the finding or mark the claim unverified.
 - **Review boundaries.** Skip screen-reader-only findings unless the user requested an accessibility audit or project rules explicitly require them. Functional interaction failures, keyboard or touch access failures, hidden recovery controls, and data loss remain reportable. Route visual or design preferences to `interface-review`; do not report a changed design as a bug without a demonstrated supported-task failure or an explicit requirement violation.
 - **Confidence ≥ 80.** Report only issues with a real trigger. Never report pedantic nits.
 
