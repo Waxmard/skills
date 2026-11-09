@@ -49,7 +49,12 @@ Classify every finding with one tag and one action:
 - **`narration` (`delete`)**: comments that narrate the change or the process instead of the code: `# changed to use X`, `# fixed the bug`, `# new:`, `# added for <ticket>`, `# Step 1: ...` walk-throughs, `# Now we ...`. That history belongs in commit messages.
 - **`commented-out` (`delete`)**: commented-out code. Git keeps the old version.
 - **`banner` (`delete`)**: divider or section-banner comments with no content (`# ---- helpers ----`, `/* ======= */`).
-- **`doc-padding` (`shrink`)**: markdown filler: welcome or "this section describes" intros, a sentence that restates its heading, summary or conclusion sections that repeat the body, lists that restate code line by line, and sections longer than their content needs. Rewrite kept prose per the `docs-style` skill.
+- **`doc-padding` (`shrink`)**: markdown filler: welcome or "this section describes" intros, a sentence that restates its heading, summary or conclusion sections that repeat the body, lists that restate code line by line, and sections longer than their content needs. Rewrite kept prose per the `docs-style` skill. Every changed doc file read in full gets these checks; flag each hit rather than judging the file lean overall:
+  - marketing claims or filler words (`eliminate bias`, `simple`, `powerful`, `seamless`, `just`)
+  - a bullet or sentence that repeats the intro, a heading, or another bullet
+  - implementation detail in user-facing docs: API field names, id schemes, rounding or formatting rules, internal function names
+  - an inline list of columns, flags, or files that a link to the canonical source could replace
+  - two or more consecutive blank lines
 - **`doc-dup` (`merge`)**: the same instructions or facts in two or more files (README and a docs page both explaining setup, a doc copying a script's `--help`). Keep the one canonical copy and replace the others with a link. The exception is a shipped artifact: a docstring, `--help` string, or README section that travels inside the package (npm tarball, PyPI wheel, published binary) must stay self-contained, because its readers never receive the repo doc. Keep that copy's one-line contract and let the repo doc carry the detail — a "see `docs/…`" pointer is fine beside that line, never instead of it.
 - **`stale` (`fix` or `delete`)**: a comment or doc that names a removed or renamed file, flag, config key, function, or behavior. Fix it if the concept still exists; delete it if it doesn't.
 

@@ -30,7 +30,7 @@ Steps below use neutral verbs. Map them to your harness:
 | spawn the tasks | one `task` call with no `agent` field (tasks run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every task settles before ending the turn; if a task's findings file is missing, `history://<id>` shows whether it aborted or parked, and `write agent://<id>` revives it | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
 | run the script | `bash` tool, never `eval` (its env omits custom exports) | the shell | the shell |
 | progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; `unblock` the phase when resuming) | TodoWrite | numbered checklist printed in chat |
-| ask the user | `ask` tool (for binary/enum gates; Gate F review decisions use plain-text chat so the report stays visible for discussion) | AskUserQuestion | plain-text question |
+|ask the user|`ask` tool|AskUserQuestion|plain-text question|
 
 ## Prerequisites & Required Tools
 
@@ -119,11 +119,9 @@ decisions at once.
       findings left, mark the row done and advance immediately to the next row in the same turn.
       Otherwise, paste the full `findings --row <N>` report inline in assistant chat prose (`bash`
       tool output alone is collapsed in the UI and does not count as printing the report).
-   2. **Ask decisions for this row only, in plain-text chat.** If any item is marked `DECISION`,
-      present only this row's decision items in assistant chat prose with concrete options and a
-      recommendation at the end of the turn that prints this row's findings, then end the turn and
-      wait for the user's reply. **Never call `ask` for Gate F review findings** — its modal hides
-      the report and prevents follow-up discussion in chat.
+   2. **Ask decisions for this row only.** If any item is marked `DECISION`, ask only this row's
+      decision items with concrete options and a recommendation (Harness notes: ask the user) in
+      the same turn that prints this row's findings, then wait for the user's reply.
    3. Apply this row's fixes in this session, using the smallest change that resolves each
       finding. Run the repo's narrowest check that covers the touched files (from its
       AGENTS.md/Makefile/package.json), plus any configured file-size gate. If a check fails,

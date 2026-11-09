@@ -521,6 +521,13 @@ def collect_facts(top: str, missing: list[str]) -> dict:
     if not git_ok("rev-parse", "--verify", "-q", base, cwd=top):
         base = "origin/master"
     if (
+        branch == "dev"
+        and base == "origin/dev"
+        and git_ok("rev-parse", "--verify", "-q", "origin/main", cwd=top)
+        and git("rev-parse", "origin/dev", cwd=top) == git("rev-parse", "HEAD", cwd=top)
+    ):
+        base = "origin/main"
+    elif (
         branch != "dev"
         and git_ok("rev-parse", "--verify", "-q", "origin/dev", cwd=top)
         and git_ok("merge-base", "--is-ancestor", "origin/dev", "HEAD", cwd=top)
