@@ -296,7 +296,7 @@ SHARED_BLOCK = (
 CONTRACT = """When done, write `{out}`:
 `{{"task": "{tid}", "reports": [{{"row": <N>, "skill": "<name>", "complete": true, "summary": "<the skill report's header line and its net:/verdict line>", "findings": [{{"file": "<repo path>", "line": <int or null>, "severity": "critical|important|suggestion|nit", "tag": "<the skill's tag>", "title": "<one line>", "why": "<1-2 sentences>", "fix": "<concrete change or empty>", "rule": "<project rule cited, or null>", "needs_decision": <bool>}}]}}]}}`
 
-One report per row in this task, in row order.
+One report per row in this task, in row order. This task's rows: {rows}. Use exactly these numbers for "row".
 
 Severity mapping:
 - pr-review-toolkit: Critical -> critical, Important -> important, Suggestions -> suggestion.
@@ -367,7 +367,7 @@ def build_prompt(tid: str, rows: list[int], picked: dict, f: dict, files: list[s
             parts.append("Load `ponytail-review` (mode: full) across all repo source files for a whole-repository pass.")
         else:
             parts.append(f"Load `{sk}` (mode: full) for a whole-repository pass.")
-    parts += ["", CONTRACT.format(out=out, tid=tid)]
+    parts += ["", CONTRACT.format(out=out, tid=tid, rows=", ".join(map(str, rows)))]
     return "\n".join(parts)
 
 

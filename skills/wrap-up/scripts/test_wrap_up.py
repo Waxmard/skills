@@ -149,6 +149,10 @@ class BuildTasks(unittest.TestCase):
         self.assertEqual(ids["F4"]["rows"], [4])
         self.assertEqual(ids["A"]["rows"], [2])
 
+    def test_prompt_names_task_rows(self):
+        for t in self.tasks("go full", repo_has_ui=True):
+            self.assertIn(f"This task's rows: {', '.join(map(str, t['rows']))}.", t["prompt"])
+
     def test_diff_pass_prompt_names_range_and_contract(self):
         t = self.tasks("3 4")[0]
         self.assertIn(f"git diff {'m' * 40}..{'h' * 40} -- a.py", t["prompt"])
