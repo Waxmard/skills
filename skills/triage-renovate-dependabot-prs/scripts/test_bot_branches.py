@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-import renovate as r
+import bot_branches as r
 
 
 def diff(path, old, new):
@@ -45,6 +45,21 @@ class Redundancy(unittest.TestCase):
         ch = self.CH + [{"file": "package.json", "name": "vite", "old": "^5.0.0", "new": "^6.0.0", "bump": "major"}]
         head = {"package.json": '"eslint": "^10.0.0"\n"other": "1"\n'}
         self.assertIsNone(r.redundancy(ch, head))
+
+
+class Bot(unittest.TestCase):
+    def test_host_picks_bot(self):
+        cases = [
+            ("git@github.com:u/r.git", "dependabot"),
+            ("https://github.com/u/r", "dependabot"),
+            ("https://user:tok@github.example.com/u/r.git", "dependabot"),
+            ("git@gitlab.com:org/github-mirror.git", "renovate"),
+            ("ssh://git@gitlab.example.com:2222/g/r.git", "renovate"),
+            ("", "renovate"),
+        ]
+        for url, want in cases:
+            with self.subTest(url=url):
+                self.assertEqual(r.bot_for(url)[0], want)
 
 
 if __name__ == "__main__":

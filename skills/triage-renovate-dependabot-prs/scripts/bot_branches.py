@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pre-flight and per-branch discovery for the triage-renovate-dependabot-prs skill.
 
-Usage: renovate.py [--allow-protected]
+Usage: bot_branches.py [--allow-protected]
 Run inside the repo; prints one JSON object. Stdlib only.
 """
 
@@ -81,6 +81,12 @@ def git_ok(*args: str, cwd: str | Path | None = None) -> bool:
     return subprocess.run(
         ["git", *args], cwd=cwd, capture_output=True, text=True
     ).returncode == 0
+
+
+def bot_for(url: str) -> tuple[str, str]:
+    """(bot, branch pattern) for an origin URL: Dependabot on GitHub hosts, Renovate elsewhere."""
+    host = re.sub(r"^(\w+://)?([^@/]*@)?", "", url).split("/", 1)[0].split(":", 1)[0].lower()
+    return ("dependabot", "dependabot/*") if "github" in host else ("renovate", "renovate/*")
 
 
 def parse_dep_line(path: str, line: str):
@@ -268,8 +274,9 @@ def run(allow_protected: bool) -> int:
         notes.append("fetch failed: using cached remote refs")
     ecosystems, missing_tools = detect_ecosystems(Path(top))
 
+    bot, pattern = bot_for(git("remote", "get-url", "origin", cwd=top))
     ls = subprocess.run(
-        ["git", "ls-remote", "--heads", "origin", "renovate/*", "dependabot/*"],
+        ["git", "ls-remote", "--heads", "origin", pattern],
         cwd=top, capture_output=True, text=True,
     )
     if ls.returncode != 0:
@@ -296,7 +303,7 @@ def run(allow_protected: bool) -> int:
         drift = out.splitlines()
 
     print(json.dumps({
-        "branch": branch, "target_hint": target_hint, "notes": notes, "ecosystems": ecosystems,
+        "branch": branch, "bot": bot, "target_hint": target_hint, "notes": notes, "ecosystems": ecosystems,
         "missing_tools": missing_tools, "merged": merged, "branches": branches, "drift": drift,
     }, indent=2))
     return 0

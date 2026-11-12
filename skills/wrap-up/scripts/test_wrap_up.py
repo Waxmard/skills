@@ -14,7 +14,8 @@ def facts(**kw):
         "base": "origin/main", "mb": "m" * 40, "head0": "h" * 40, "from": "m" * 40, "mode": "full",
         "changed": ["a.py"], "changed_row2": ["a.py"], "added": 10, "added_row2": 10, "nondoc_added": 10,
         "file_lines": {"a.py": 10}, "test_changed": [], "doc_changed": [], "ui_changed": [],
-        "manifests_changed": [], "repo_has_tests": True, "repo_has_ui": False, "others": 0, "renovate": 0,
+        "manifests_changed": [], "repo_has_tests": True, "repo_has_ui": False, "others": 0,
+        "bot": "dependabot", "bot_branches": 0,
         "scope": None, "installed": list(ALL),
     }
     f.update(kw)
@@ -44,7 +45,7 @@ class Verdicts(unittest.TestCase):
         self.assertIn("reply `full`", v["why"])
 
     def test_row7_protected(self):
-        v = by_row(facts(renovate=2, protected=True, branch="main"))[7]
+        v = by_row(facts(bot_branches=2, protected=True, branch="main"))[7]
         self.assertEqual(v["verdict"], "skip")
         self.assertIn("protected branch", v["why"])
 
@@ -59,6 +60,10 @@ class Verdicts(unittest.TestCase):
         self.assertEqual(v["verdict"], "RUN")
         self.assertTrue(v["why"].startswith("1 live tools"))
         self.assertTrue(v["why"].endswith("(lean: pick by number to include)"))
+
+    def test_bot_from_origin_host(self):
+        self.assertEqual(w.bot_for("git@github.com:u/r.git"), ("dependabot", "dependabot/*"))
+        self.assertEqual(w.bot_for("git@gitlab.com:org/github-mirror.git"), ("renovate", "renovate/*"))
 
 
 def run_rows(reply, **kw):
@@ -80,7 +85,7 @@ class ParseReply(unittest.TestCase):
         self.assertEqual(self.rows("none", added=500), {2})
 
     def test_go_lean_drops_inline_rows(self):
-        kw = {"renovate": 1}
+        kw = {"bot_branches": 1}
         self.assertIn(7, self.rows("go", **kw))
         self.assertNotIn(7, self.rows("go lean", **kw))
         self.assertIn(7, self.rows("go 7 lean", **kw))
@@ -114,7 +119,7 @@ class ParseReply(unittest.TestCase):
             self.assertIn(msg, str(cm.exception))
 
     def test_row2_delta_skip_dropped_unless_full(self):
-        kw = {"mode": "delta", "changed_row2": [], "renovate": 1}
+        kw = {"mode": "delta", "changed_row2": [], "bot_branches": 1}
         self.assertEqual(self.rows("run 7", **kw), {7})
         self.assertIn(2, self.rows("2@full", **kw))
 
@@ -183,6 +188,10 @@ def merge(picked, rows_findings, **modes):
 
 
 class Merge(unittest.TestCase):
+    def test_excluded_counts_dropped_nits(self):
+        r = merge([3], {3: [fd(severity="nit"), fd(severity="nit", line=40)]})
+        self.assertEqual((r[3]["findings"], r[3]["excluded"]), ([], 2))
+
     def test_suggestion_needs_fix(self):
         r = merge([2], {2: [fd(severity="suggestion", fix=""), fd(severity="suggestion", line=50)]})
         self.assertEqual(len(r[2]["findings"]), 1)

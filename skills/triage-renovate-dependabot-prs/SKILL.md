@@ -14,7 +14,7 @@ description: >
 
 Merge dep-bump branches into the **current branch** one at a time. The user's pattern: create a feature branch off the target (`dev`/`main`), drain bot branches into it, then merge it into target as one safer review. The feature branch must already exist and be checked out.
 
-Covers **Renovate** (GitLab, `renovate/*`) and **Dependabot** (GitHub, `dependabot/*`). No `gh`/`glab` CLI required; `scripts/renovate.py` runs pre-flight and discovery with `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
+Covers **Dependabot** on GitHub (`dependabot/*`) and **Renovate** on every other host (`renovate/*`). `scripts/bot_branches.py` picks the bot from the `origin` URL, looks only at that bot's branches, and names it in `bot`. Name only that bot when talking to the user: on a GitHub repo, never mention Renovate. No `gh`/`glab` CLI required; the script runs pre-flight and discovery with `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
 
 ## Harness notes
 
@@ -29,7 +29,7 @@ Covers **Renovate** (GitLab, `renovate/*`) and **Dependabot** (GitHub, `dependab
 Runs on macOS and Linux (on Windows, use WSL).
 
 - `git` (no `gh` or `glab` needed)
-- `python3`, for `scripts/renovate.py`
+- `python3`, for `scripts/bot_branches.py`
 - The package manager and check tools of each ecosystem in the repo (the install and check commands in step 5 of the per-branch loop)
 - `npx` / `uvx` (optional), to run a bumped linter or formatter at its new version
 - `crane` (optional), to compare container-image bumps
@@ -52,10 +52,10 @@ for t in git python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
 ```
 If anything prints, stop and tell the user what to install.
 
-1. Run `python3 -B "<skill-dir>/scripts/renovate.py"`. Add `--allow-protected` only after the user explicitly overrides the protected-branch refusal.
+1. Run `python3 -B "<skill-dir>/scripts/bot_branches.py"`. Add `--allow-protected` only after the user explicitly overrides the protected-branch refusal.
 2. Exit 3: refuse, relay stderr, and ask the user to switch branches or override. Exit 1: stop and relay stderr.
 3. Non-empty `missing_tools`: stop and name them, because post-merge checks can't run without them.
-4. Relay `notes`. `ecosystems` feeds steps 2 and 5 of the per-branch loop. `target_hint` is for context messages only, not for actions.
+4. Relay `notes`. `bot` is the one bot this repo uses. `ecosystems` feeds steps 2 and 5 of the per-branch loop. `target_hint` is for context messages only, not for actions.
 
 ## Discovery
 

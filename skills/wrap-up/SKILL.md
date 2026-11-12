@@ -30,7 +30,7 @@ Steps below use neutral verbs. Map them to your harness:
 | spawn the tasks | one `task` call with no `agent` field (tasks run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every task settles before ending the turn; if a task's findings file is missing, `history://<id>` shows whether it aborted or parked, and `write agent://<id>` revives it | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
 | run the script | `bash` tool, never `eval` (its env omits custom exports) | the shell | the shell |
 | progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; when resuming, use `start` or `done` on the next item, since `todo` has no `unblock`) | TodoWrite | numbered checklist printed in chat |
-|ask the user|`ask` tool|AskUserQuestion|plain-text question|
+| ask the user | `ask` tool; decision context goes inside the form (`<p>`, `<ul>`), since the form is what the user reads when deciding | AskUserQuestion; each option's change and cost go in its description, the rest in chat prose directly above the question | plain-text question |
 
 ## Prerequisites & Required Tools
 
@@ -116,12 +116,28 @@ decisions at once.
       only, then re-read each item against the current tree. If an earlier row's fix already
       resolved the item, or deleted or rewrote the code it targets, mark it
       `skipped: resolved by <skill> fix` or `skipped: moot after <skill> fix`. If the row has no
-      findings left, mark the row done and advance immediately to the next row in the same turn.
+      findings left, relay the script's `note:` lines (they say how many optional items were
+      filtered, so the reviewers' counts reconcile), mark the row done and advance immediately to
+      the next row in the same turn.
       Otherwise, paste the full `findings --row <N>` report inline in assistant chat prose (`bash`
       tool output alone is collapsed in the UI and does not count as printing the report).
    2. **Ask decisions for this row only.** If any item is marked `DECISION`, ask only this row's
-      decision items with concrete options and a recommendation (Harness notes: ask the user) in
-      the same turn that prints this row's findings, then wait for the user's reply.
+      decision items (Harness notes: ask the user) in the same turn that prints this row's
+      findings, then wait for the user's reply. Before asking, read the code each option would
+      change, far enough to name what else it affects. The user must be able to decide from the
+      question alone, without the report, the diff, or a follow-up. For each decision item, put
+      these in the question itself, in plain words (say what a code name does the first time it
+      appears):
+      - **What happens now:** the behavior a user or caller sees today, with the reviewer's
+        concrete example when it gave one.
+      - **Why this needs your call:** what the possible fixes disagree on (behavior, user-facing
+        copy, deleted tests, or doubt that the finding is real).
+      - **Each option:** what changes, and what it costs or also affects (side effects, lost
+        behavior, files touched). Always include declining, and say what stays as it is.
+      - **Recommended:** which option, and the reason in one sentence.
+
+      Keep each part to a line or two; a simple call can be four lines. The same rule covers any
+      other decision raised while fixing a row, such as a failed check that needs a design choice.
    3. Apply this row's fixes in this session, using the smallest change that resolves each
       finding. Run the repo's narrowest check that covers the touched files (from its
       AGENTS.md/Makefile/package.json), plus any configured file-size gate. If a check fails,

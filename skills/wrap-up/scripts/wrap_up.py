@@ -72,6 +72,12 @@ def git_ok(*args: str, cwd: str | Path | None = None) -> bool:
     ).returncode == 0
 
 
+def bot_for(url: str) -> tuple[str, str]:
+    """(bot, branch pattern) for an origin URL: Dependabot on GitHub hosts, Renovate elsewhere."""
+    host = re.sub(r"^(\w+://)?([^@/]*@)?", "", url).split("/", 1)[0].split(":", 1)[0].lower()
+    return ("dependabot", "dependabot/*") if "github" in host else ("renovate", "renovate/*")
+
+
 def git_z(*args: str, cwd: str | Path) -> list[str]:
     return [p for p in git(*args, "-z", cwd=cwd).split("\0") if p]
 
@@ -153,12 +159,12 @@ def verdicts(f: dict) -> list[dict]:
     else:
         row(6, "skip", f"no doc files changed, small diff (+{A})")
 
-    if f["renovate"] > 0 and not f["protected"]:
-        row(7, "RUN", f"{f['renovate']} unmerged bot branches", INLINE_TIER)
+    if f["bot_branches"] > 0 and not f["protected"]:
+        row(7, "RUN", f"{f['bot_branches']} unmerged {f['bot']} branches", INLINE_TIER)
     elif f["protected"]:
         row(7, "skip", f"protected branch: triage refuses on `{f['branch']}`", INLINE_TIER)
     else:
-        row(7, "skip", "no unmerged renovate/dependabot branches", INLINE_TIER)
+        row(7, "skip", f"no unmerged {f['bot']} branches", INLINE_TIER)
 
     for r in out:
         if not installed(f, r["row"]):
@@ -575,18 +581,20 @@ def collect_facts(top: str, missing: list[str]) -> dict:
             and not re.search(r"\[bot\]|renovate|dependabot", e, re.I)
         )
 
-    renovate = 0
+    origin = git("remote", "get-url", "origin", cwd=top) if git_ok("remote", "get-url", "origin", cwd=top) else ""
+    bot, pattern = bot_for(origin)
+    bot_branches = 0
     ls = subprocess.run(
-        ["git", "ls-remote", "--heads", "origin", "renovate/*", "dependabot/*"],
+        ["git", "ls-remote", "--heads", "origin", pattern],
         cwd=top, capture_output=True, text=True,
     )
     if ls.returncode != 0:
-        notes.append("renovate/dependabot check failed: ls-remote error")
+        notes.append(f"{bot} check failed: ls-remote error")
     else:
         for line in ls.stdout.splitlines():
             b = line.split("\t", 1)[-1].removeprefix("refs/heads/") if "\t" in line else ""
             if b and not git_ok("merge-base", "--is-ancestor", f"origin/{b}", "HEAD", cwd=top):
-                renovate += 1
+                bot_branches += 1
 
     kit = Path(os.environ.get("MW_KIT") or Path.home() / ".cache" / "mw-kit")
     scope = None
@@ -617,7 +625,8 @@ def collect_facts(top: str, missing: list[str]) -> dict:
         "manifests_changed": [p for p in changed if p.rsplit("/", 1)[-1] in MANIFESTS or REQ_RE.search(p.rsplit("/", 1)[-1])],
         "repo_has_tests": any(TEST_RE.search(p) for p in tracked),
         "repo_has_ui": any(UI_RE.search(p) for p in tracked),
-        "baseline": status, "uncommitted": uncommitted, "others": others, "renovate": renovate,
+        "baseline": status, "uncommitted": uncommitted, "others": others,
+        "bot": bot, "bot_branches": bot_branches,
         "scope": scope, "installed": inst, "notes": notes,
     }
     facts["verdicts"] = verdicts(facts)
@@ -785,8 +794,14 @@ def cmd_findings(a: argparse.Namespace) -> int:
     if r is None:
         print(f"row {a.row} not picked", file=sys.stderr)
         return 2
+    if r["excluded"]:
+        r["notes"].append(
+            f"{r['excluded']} excluded as optional (nits without a project rule, suggestions without a fix)"
+        )
     if not r["findings"]:
         print(f"### Gate F: {r['skill']}\nno findings to fix")
+        for note in r["notes"]:
+            print(f"note: {note}")
         return 0
     print(f"### {r['skill']} ({r['tier']})")
     if r["summaries"]:
