@@ -149,5 +149,3 @@ After printing the report (unless step 1.6 was skipped), write the memo. Fill in
 ## 5. Hard Rules
 
 - **Read-only**: Never edit working-tree files, commit, push, or approve/merge MR/PRs automatically. The only write is the memo under `.git` (step 1.6).
-- **Cite live code**: Reference exact `file:line` locations and symbol names.
-- **No false positives**: Confirm each finding against the surrounding code, never the isolated hunk alone.

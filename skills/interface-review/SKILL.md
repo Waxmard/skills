@@ -150,22 +150,6 @@ A change review is read-only, including the checkout. Fetch pull request refs; n
 
 Rendered verification is opt-in. Mark visual and runtime claims **Not verified** unless the project exposes a cheap preview or the user asks for a rendered review. When they do, use an isolated worktree (`git worktree add /tmp/review-<n> refs/remotes/pr/<n>`) and remove it when done.
 
-## Before you finish
-
-| Mistake | Fix |
-| --- | --- |
-| One stray edit reviewed instead of the branch | Check `merge-base` before the working tree, and report both counts |
-| The last commit reviewed because there was no change | State the facts and offer the last commit, a named target, or a repository audit |
-| Hunks reviewed without their consumers | Expand one hop, two for tokens and primitives, and name what you skipped |
-| Only the `+` side of the diff read | Search the `-` side for removed accessibility, focus, motion and text signals |
-| An equivalent replacement reported as a regression | Check the removal against its domain in §7; report only confirmed regressions |
-| A removal reported as a new mistake | Status it `Regression` so the author knows it used to work |
-| A line near a hunk statused `Introduced` | Status by what the diff touched, confirmed with `git blame` against the base ref |
-| A pull request checked out to review it | Fetch the ref and review it in place |
-| Line numbers cited that do not exist on the reviewed ref | Cite against the head ref named in the scope block |
-| One root cause split into per-file rows | Consolidate into one row listing every confirmed `path/to/file:line` |
-| Correctness, test, or security findings in the report | Name the concern once, point at the project's code review and drop it |
-
 ## Review output format
 
 Open with the scope block:
@@ -201,7 +185,5 @@ Then `Pre-existing` findings, at most three, highest severity first, stated plai
 | MEDIUM | Typography | `src/Toolbar.tsx:7` | Numeric badges use proportional figures; predates this change |
 
 Then list **Verification**: the exact commands or checks run and their results, separated from checks marked **Not verified**.
-
-The cap and the verdict cover `Introduced` and `Regression` only. `Pre-existing` findings sit outside the cap, so touching a legacy file cannot turn into a full-file audit. They sit outside the verdict too, so a change whose only findings are pre-existing is an `Approve`.
 
 End with `Block` when any `HIGH` `Introduced` or `Regression` finding remains and `Approve` otherwise, leaving the remaining findings in the table as work to do.

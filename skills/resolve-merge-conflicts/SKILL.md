@@ -218,15 +218,10 @@ State:
 
 ## Common pitfalls
 
-- **Ours/theirs flipped during rebase**: in `git rebase`, `--ours` is the upstream you're rebasing **onto**, the opposite of `git merge`; restate the mapping with branch names before suggesting either flag.
-- **Merge-preserving rebase flips ours/theirs back**: a stop on a `merge` command (`MERGE_HEAD` present, or the last `done` line starts with `merge`) is a real merge with merge semantics, while `pick` stops stay inverted. One rebase can interleave both, so re-derive on every `--continue`.
 - **diff3 / zdiff3 conflict markers**: when `merge.conflictstyle = diff3` or `zdiff3`, the conflict block includes a `|||||||` base section showing the common ancestor. The marker grep in step 4 must include `\|{7}`, and the proposal in step 4 should reference the base to detect "both sides changed away from the same value" cases.
-- **Rename-vs-edit silent bugs**: `git status` shows `UD` / `DU`. Picking either side feels resolved, but you've either lost the edit or kept a dead reference. The post-resolve grep for the old identifier is essential.
-- **Lockfile hand-resolution**: never edit `package-lock.json` / `Cargo.lock` / etc. by hand. Pick one side, then regenerate. Follow the repo's own regeneration notes if it has any.
 - **Submodule conflicts** (`git status` shows the submodule path as `UU` with a commit-hash conflict): the resolution is a `git submodule update` to the chosen commit, not a marker edit. Flag and hand to the user.
 - **Whitespace-only conflicts caused by line-ending differences**: if both sides "differ" but `git diff --ignore-cr-at-eol --ignore-space-at-eol` shows no diff, the conflict is line-ending churn. Take either side. Investigate `.gitattributes` afterwards — the repo is missing a normalization rule.
 - **Conflicts in deleted files** (`AU` / `UA` / `DU` / `UD`): the diff tool shows hunks only for the side that still has the file. Decide explicitly: keep deleted (`git rm <file>`) or keep added (`git add <file>` after taking the surviving side's content). Don't leave in the limbo state.
-- **Operation finished externally**: user may run `git merge --continue` in another terminal. The sentinel file (`MERGE_HEAD`) disappears. Detect and stop — don't keep proposing edits to a clean tree.
 - **Re-conflict on `--continue` during rebase**: rebases can reconflict on each replayed commit. After the user runs `git rebase --continue`, conflicts may reappear on a different commit. Treat each reappearance as a fresh invocation of this skill — re-run pre-flight to re-derive ours/theirs (still inverted for rebase).
 
 ## Retro

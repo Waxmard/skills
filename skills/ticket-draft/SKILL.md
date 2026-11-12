@@ -84,7 +84,6 @@ Formatting:
 - Use bullets, never paragraphs. Each bullet holds one idea in about 20 words or fewer.
 - Start each bullet with a **bold** label of 1–3 words (`- **Gap:** …`, `- **IAM:** …`).
 - Use inline code only for literal identifiers someone will copy (paths, column names, permissions, config values). Write product names as plain text.
-- State each fact once. Drop References when everything in it is already cited above.
 - Section titles are headings; bold is only for bullet labels. Leave a blank line between a heading and its list, or jira-cli posts the bullets as literal "- " text.
 - Write every ticket key as a link (`[KEY-123](<tracker-url>/browse/KEY-123)`). Create a tracker link only for a real dependency, meaning one ticket cannot start or finish until the other is done, using the blocking type (`Blocks` in Jira) in the correct direction. Never link for a mention, a shared parent, siblings, the ticket's own parent or subtasks, a merge, or provenance: the description or merge comment already carries the key.
 - Desired state names the outcome; Acceptance criteria hold the specific checks. Don't restate one in the other, and don't repeat a Dependency as a Risk.
@@ -130,7 +129,7 @@ When the user asks for an intake form, intake doc, or TPM review document, outpu
 Give each draft as plain blocks ready to review or paste:
 1. **Title** (`Verb + deliverable + scope`)
 2. **Description** (compact SOP format by default, or the 2-table intake form if requested)
-3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Every ticket gets a Reporter: the Alternate POC, or the user when none is known and the user is not the Assignee. The Reporter is never the Assignee. Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
+3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
 
 Then offer to post. If the user agrees, post one ticket at a time:
 1. Re-check the tracker for tickets created since drafting; if one now covers a draft, merge into it or skip the draft.

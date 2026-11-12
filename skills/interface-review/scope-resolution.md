@@ -44,9 +44,7 @@ The tree is clean and `HEAD` is not ahead of the merge base. Gather the facts be
 
 `gh pr status` succeeds when no pull request is open. It omits `currentBranch`, so an empty result is an answer, not an error. It fails outright without `gh`, without authentication and on a repository with no GitHub remote. Treat any failure as "no pull request found", say so and offer the remaining routes rather than stopping.
 
-Report those facts, then offer the three routes in **With no change, ask rather than invent one**. State the last commit's SHA and subject inside the offer. The user recognises "a1b2c3d Merge pull request #482" as not what they wanted and cannot recognise "the last commit".
-
-A whole-repository audit is a different review, not this one with a wider net. Run it in `full` mode across the repository's UI surfaces, without a scope block, statuses, or a pre-existing section.
+Report those facts, then offer the routes in `SKILL.md` section 2.
 
 ## Renames
 

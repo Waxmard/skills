@@ -84,11 +84,12 @@ reads it first.
 | Companion | Used by |
 |---|---|
 | `ponytail-review` | `wrap-up` |
+| `ponytail-audit` | `wrap-up` (full mode) |
 
 ```text
-/marketplace add DietrichGebert/ponytail                 # ponytail-review, omp
+/marketplace add DietrichGebert/ponytail                 # ponytail-review, ponytail-audit, omp
 /marketplace install ponytail@ponytail
-/plugin marketplace add DietrichGebert/ponytail          # ponytail-review, Claude Code
+/plugin marketplace add DietrichGebert/ponytail          # ponytail-review, ponytail-audit, Claude Code
 /plugin install ponytail@ponytail
 ```
 

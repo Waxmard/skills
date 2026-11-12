@@ -281,14 +281,11 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 
 ## Common pitfalls
 
-- **Already-fixed comments**: If reviewer requested a change already present/resolved in current HEAD, mark **`disagree`** (e.g., "Already addressed in commit `c833a09` — lockfile regenerated and CI passing").
-- **Force-push staleness**: comments anchored to lines that no longer exist (`line: null` on GH, missing `position` on GL) — mark **stale**, don't guess at the new location.
 - **Outdated review threads**: GH marks a review comment `outdated: true` when the file changed since. Still worth assessing — the underlying point may still apply elsewhere — but flag it.
 - **Suggestion blocks**: GitHub `suggestion` blocks (\`\`\`suggestion ... \`\`\`) are concrete diffs. Read them carefully; they're often more precise than prose comments and easier to verdict.
 - **Bot summary comments**: many AI reviewers (coderabbit, claude) post one big "summary" review-level comment listing N findings as a bulleted list. Don't treat it as one comment — split each bullet into its own verdict line. Number them `5a`, `5b`, `5c` under the parent index.
 - **Threaded replies**: GH `in_reply_to_id` and GL `discussion_id` chain replies. Don't re-verdict each reply — judge the root comment, note if a reply changed the ask.
 - **Cross-repo PRs (forks)**: anchored file paths are relative to the fork's branch, which is what's checked out locally. No special handling needed, but be aware if reading fails.
-- **No PR for branch**: user may be on a branch with no PR yet — fail clearly with `gh pr create` / `glab mr create` hint, don't silently fall back to `main`.
 
 ## Harness notes
 

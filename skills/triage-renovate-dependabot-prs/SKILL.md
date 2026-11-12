@@ -272,10 +272,7 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 
 ## Common pitfalls (ecosystem-agnostic unless noted)
 
-- **Stale remote refs**: skipped the `git fetch --prune`, so `origin/renovate/foo` points at last week's HEAD. Always fetch in pre-flight.
-- **"Already up to date"**: branch was merged via the platform UI but the local feature branch wasn't refreshed. Skip and continue.
 - **Hidden major bumps in lockfiles**: bot groupings can sneak a major version into a transitive dep. When risk-reading a grouped PR, scan the lockfile diff for `"version": "Y."` (npm), `version = "Y."` (Cargo / uv / poetry), or `vY.0.0` (go.sum) where Y is a new major, not just the top-level manifest deltas.
-- **CI-config bumps** (`docker/build-push-action@vN`, `actions/checkout@vN`, `setup-node@vN`, `setup-python@vN`): touch `.github/workflows/` or `.gitlab-ci.yml` and need the same scrutiny as code deps. Auto-checks won't catch CI breakage — flag and let the user decide whether to push and watch the pipeline.
 - **npm + macOS lockfile bug** (project-specific gotcha — surfaces in some repos via their `AGENTS.md` or the harness's rules file): if a merged Renovate PR regenerated `package-lock.json` inside a Linux container, do **not** run `npm install` locally on macOS afterward — it can prune Linux-only optional deps and break CI. The lockfile from the PR is authoritative. If unsure, check that file for a note about this.
 - **Python lockfile resolver drift**: `uv.lock` / `poetry.lock` are platform- and Python-version-aware. Regenerating locally on a different OS or interpreter can produce a different solution than the bot's. Don't re-resolve unless necessary (a lockfile conflict or a stale lock makes it necessary).
 - **Cargo `[patch]` / git deps**: a major bump that resolves through a `[patch.crates-io]` section can silently bypass the version constraint. Read `Cargo.toml` end-to-end on major bumps.
