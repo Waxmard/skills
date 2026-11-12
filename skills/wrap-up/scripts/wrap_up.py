@@ -241,8 +241,7 @@ def parse_reply(reply: str, vs: list[dict], facts: dict) -> dict:
             picked.add(5)
 
     def mode_of(n: int) -> str:
-        m = over.get(n, {}).get("mode")
-        return gmode if m in (None, "default") else m
+        return over.get(n, {}).get("mode") or gmode
 
     verdict_of = {v["row"]: v["verdict"] for v in vs}
     if verdict_of[2] == "skip" and mode_of(2) != "full":
@@ -813,7 +812,7 @@ def cmd_memo(a: argparse.Namespace) -> int:
             d = json.loads((Path(plan["run"]) / f"{t['id']}.json").read_text())
             rep = next(r for r in d["reports"] if r.get("row") == 2)
             ok = rep.get("complete") is True
-        except (OSError, ValueError, KeyError, StopIteration, TypeError):
+        except (OSError, ValueError, KeyError, StopIteration, TypeError, AttributeError):
             ok = False
         if not ok:
             print(f"row 2 incomplete in {t['id']}; memo not written")
