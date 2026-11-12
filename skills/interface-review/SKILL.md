@@ -191,7 +191,7 @@ Then the findings, with a `Status` column per **Classify every finding**:
 
 | Severity | Domain | Status | Location | Before | After | Why |
 | --- | --- | --- | --- | --- | --- | --- |
-| HIGH | Layout | Regression | `src/Dialog.tsx:42` | `min-h-11` removed in this change | Restore `min-h-11` on the close button | The close control shrank below the 44px touch target |
+| HIGH | Accessibility | Regression | `src/Dialog.tsx:42` | `min-h-11` removed in this change | Restore `min-h-11` on the close button | The close control shrank below the 44px touch target |
 
 With no `Introduced` or `Regression` findings, omit the table and state "No actionable interface findings in this change."
 
