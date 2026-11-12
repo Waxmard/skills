@@ -29,7 +29,7 @@ Steps below use neutral verbs. Map them to your harness:
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
 | spawn the tasks | one `task` call with no `agent` field (tasks run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every task settles before ending the turn; if a task's findings file is missing, `history://<id>` shows whether it aborted or parked, and `write agent://<id>` revives it | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
 | run the script | `bash` tool, never `eval` (its env omits custom exports) | the shell | the shell |
-| progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; `unblock` the phase when resuming) | TodoWrite | numbered checklist printed in chat |
+| progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; when resuming, use `start` or `done` on the next item, since `todo` has no `unblock`) | TodoWrite | numbered checklist printed in chat |
 |ask the user|`ask` tool|AskUserQuestion|plain-text question|
 
 ## Prerequisites & Required Tools
