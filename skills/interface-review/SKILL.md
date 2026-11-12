@@ -1,6 +1,5 @@
 ---
 name: interface-review
-disable-model-invocation: true
 description: >
   Use when asked for a UI, frontend, interface, or design review of a branch,
   PR, MR, or diff (lean, default, full). Expands changed files to affected UI
