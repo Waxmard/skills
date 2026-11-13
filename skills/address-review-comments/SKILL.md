@@ -4,8 +4,8 @@ description: >
   Use when checking, evaluating, or replying to review comments or threads on a
   PR or MR (GitHub or GitLab, human or AI reviewers), or when the user asks
   what reviewers said. Judges each comment against the code
-  (agree/disagree/answer) and can post confirmed replies; never resolves
-  threads or edits files. Trigger: "review the PR comments", "review the MR
+  (agree/disagree/answer), fixes agreed items when asked, and posts confirmed
+  replies to the rest; never resolves threads. Trigger: "review the PR comments", "review the MR
   comments", "reviewer feedback", "respond to threads", "post replies", or
   /address-review-comments.
 ---
@@ -208,34 +208,32 @@ Agreed `n=9999` is a magic number. But `max(len(a), len(b))` still leaves a boun
 Summary: N comments — agree X / disagree Y / partial Z / stale A / defer B / needs-info C / answer D
 ```
 
-Then run **Respond → Stage 1**. With no `answer` verdicts it skips straight to the fix list.
+Then run **Respond → Stage 1**.
 
-## Respond: post or draft replies
+## Respond: fix, discuss, then reply
 
-Replies go out in two stages: answers to reviewer questions first, then fix replies once fixes land. Question answers claim no code change, so they don't wait for a push.
+The push answers every fixed thread, so fixed threads get no reply. Replies go only to threads that keep the code as is, and only after the user has pushed the fixes.
 
-### Stage 1: Question replies
+### Stage 1: Fix list and discussion
 
-Runs right after the tally. With no `answer` verdicts, skip to step 4.
+Runs right after the tally.
 
-1. **Flag questions that need a change.** Ask once with the structured question tool, multi-select: "Which questions need a code change?". Give one option per `answer` verdict, labelled `N. <file>:<line>` (the question's first few words when unanchored), plus `None`. If the tool caps the option count, split the options across several questions in the same call. Unless the user already asked to post, put the **Posting** mode question in the same call.
-2. **Hold flagged questions.** A flagged question joins the fix list (step 4) and gets its reply in Stage 2: the answer first, then the fix. Don't post it now.
-3. **Post the rest.** Post every unflagged `answer` reply per **Posting**, reusing the drafted reply as-is. Skip the pushed check: these replies claim no change, and their links pin `head_sha`, which is already on the remote.
-4. **Fix list.** Print the threads that need a code change, in comment order: `agree` and `partial` verdicts plus flagged questions.
+1. **Fix list.** Print the threads that need a code change, in comment order: `agree` verdicts and the agreed half of `partial` ones.
 
        **Fix list**
        - **N.** `<file>:<line>` — <change, one clause>
 
-   Then add one line: address these (or a subset), push, then ask to post the Stage 2 replies. If the list is empty, say there's nothing to fix and offer to post the remaining finding replies.
+   Then offer the default next steps in one line: fix the list, then go through each `defer` and `needs-info` in chat. If the list is empty, say there's nothing to fix.
+2. **Fix.** Edit only after the user asks to address the fix list (or a subset). Run the repo's checks, then leave commit and push to the user.
+3. **Discuss.** Go through `defer` and `needs-info` verdicts in chat, one at a time, with options and a recommendation. Each ends as `agree` (joins the fix list, no reply) or `disagree` (gets a reply in Stage 2). For `answer` verdicts, ask once which need a code change; those join the fix list and get no reply.
 
-### Stage 2: Fix replies
+### Stage 2: Replies
 
-Run when the user asks to post or respond to the remaining threads, either after fixes land or right away for threads that need no fix.
+Run after the user has committed and pushed the fixes, or right away when the fix list is empty.
 
-1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop, so replies don't claim "fixed" against an old diff.
-2. **Scope.** Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: `discussions --scope open`), which drops threads the user already answered. Reply to every remaining in-scope thread (or the subset the user asked to post). Skip any thread the user says they're declining. Question replies posted in Stage 1 drop out here, because the author now wrote the last note.
-3. **Content.** If posting a verdict reply as-is (no code change for that thread), reuse the reply already drafted in the verdict run. If fixes landed for the thread, draft a reply in Reply style with links pinned to the new `head_sha`: what changed, plus the *why* only where the fix differs from or goes past the ask (different mechanism, wider scope, a bug found along the way). Answer a direct question in the thread before describing the change. Verify every link with `git show <head_sha>:<path>`.
-   - **Link the fix commit** (when a fix landed). Find the commit that changed the cited code: `git log -s --format='%h %H %s' <base_sha>..<head_sha> -L<a>,<b>:<path>` on the reply's main linked range at `head_sha`. Take the newest commit listed. Open a finding reply with `Fixed in [<short_sha>](<commit_url>).`. For a Question, answer first, then name the commit inline where the change is described. `<commit_url>` is `<blob_base>/-/commit/<sha>` on GitLab and `<blob_base>/commit/<sha>` on GitHub. The link text is the plain 8-char short sha, no backticks.
+1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop.
+2. **Scope.** Reply only to threads that keep the code as is: `disagree`, `stale`, `answer`, and the pushed-back half of a `partial`. Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: `discussions --scope open`), which drops threads the user already answered. Skip any thread the user says they're declining.
+3. **Content.** Reuse the reply drafted in the verdict run, with links re-pinned to the new `head_sha` and checked with `git show <head_sha>:<path>`. Never mention fixes, landed or pending, in any reply.
 4. **Mode.** Post per **Posting**.
 
 ### Posting
@@ -245,7 +243,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 - **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the full body in the option preview where the tool supports one, otherwise in the question text. Then post:
   - GitLab: write a spec of `reply` items (`{"kind": "reply", "discussion_id": "<record id>", "body": "..."}`) for the replies answered `Post`, run `python3 -B "<mr-script>" post <spec> --mr <iid> --apply`, and report its table; it verifies the new note count.
   - GitHub inline comment: write each body to a temp file and run `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`), then re-fetch and verify the new comment count.
-  - GitHub review summary or conversation comment: these have no thread, so run `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>` with the body opening on a link to the comment's `html_url`, then re-fetch and verify the new comment count.
+  - GitHub review summary or conversation comment: these have no thread, so run `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>` with the body opening on a link to the comment's `html_url`, then re-fetch and verify the new comment count. Take that `html_url` from the reviewer's own comment record and check its author before posting; the PR author's comments sit beside it with nearby ids. Sub-bullets split from one summary comment go out together as a single comment per posting round, each under the reviewer's own number or bullet title, confirmed with one question.
 
   Never resolve or reopen threads.
 - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL in angle brackets on its own line:
@@ -272,7 +270,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 
 - **Read-only unless the user picks Draft and post** in Respond, and then post only replies confirmed in that same turn. Never `gh pr review`, `glab mr approve`, or any other write API.
 - **Never resolve threads** — that's a write op too.
-- **Never edit files.** Even if you agree with the fix. User explicitly chose summary-only output.
+- **The verdict run never edits files.** Even if you agree with the fix. Edit only after the user asks to address the fix list.
 - **Never `git push`** or commit.
 - **No author bias.** Judge claude / review-bot / copilot / human comments by the same standard. State disagreement plainly.
 - **Cite the live code, not the comment's diff snippet.** Snippets go stale after force-pushes.
@@ -283,7 +281,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 
 - **Outdated review threads**: GH marks a review comment `outdated: true` when the file changed since. Still worth assessing — the underlying point may still apply elsewhere — but flag it.
 - **Suggestion blocks**: GitHub `suggestion` blocks (\`\`\`suggestion ... \`\`\`) are concrete diffs. Read them carefully; they're often more precise than prose comments and easier to verdict.
-- **Bot summary comments**: many AI reviewers (coderabbit, claude) post one big "summary" review-level comment listing N findings as a bulleted list. Don't treat it as one comment — split each bullet into its own verdict line. Number them `5a`, `5b`, `5c` under the parent index.
+- **Bot summary comments**: many AI reviewers (coderabbit, claude) post one big "summary" review-level comment listing N findings as a bulleted list. Don't treat it as one comment — split each bullet into its own verdict line. Number them `5a`, `5b`, `5c` under the parent index. Skip bullets where the reviewer asks for nothing (a confirmation, "no behavior change"): no verdict, no reply, no mention.
 - **Threaded replies**: GH `in_reply_to_id` and GL `discussion_id` chain replies. Don't re-verdict each reply — judge the root comment, note if a reply changed the ask.
 - **Cross-repo PRs (forks)**: anchored file paths are relative to the fork's branch, which is what's checked out locally. No special handling needed, but be aware if reading fails.
 
