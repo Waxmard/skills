@@ -242,7 +242,7 @@ Run when the user asks to post or respond to the remaining threads, either after
 
 If the user explicitly asked to post (e.g. "post it", "post the replies"), use **Draft and post** directly. If they already picked a mode earlier in this run, reuse it. Otherwise ask once with the structured question tool: `Draft and post` (recommended) or `Copy-paste`.
 
-- **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the body as preview. Then post:
+- **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the full body in the option preview where the tool supports one, otherwise in the question text. Then post:
   - GitLab: write a spec of `reply` items (`{"kind": "reply", "discussion_id": "<record id>", "body": "..."}`) for the replies answered `Post`, run `python3 -B "<mr-script>" post <spec> --mr <iid> --apply`, and report its table; it verifies the new note count.
   - GitHub inline comment: write each body to a temp file and run `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`), then re-fetch and verify the new comment count.
   - GitHub review summary or conversation comment: these have no thread, so run `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>` with the body opening on a link to the comment's `html_url`, then re-fetch and verify the new comment count.
@@ -291,9 +291,11 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 
 | Step says | omp | Claude Code | Other agents |
 |---|---|---|---|
-| spawn subagents | one `task` call, default agent when tasks run shell commands (`scout` has no `bash`); `task` returns at once, so `wait` until every agent settles before using results or ending the turn | Agent tool calls in one message | no subagents: run inline and say so |
+| invoke with args | `/skill:address-review-comments <args>` | `/address-review-comments <args>` | first message |
+| load skill `<name>` | `read skill://<name>` | Skill tool | read its `SKILL.md` |
+| spawn subagents | one `task` call, default agent (`scout` lacks `bash`/`write`); `wait` until settled | Agent tool calls in one message | no subagents: run inline |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
-| run the script | `bash` tool | the shell | the shell |
+| run the script | `bash` tool (not `eval`) | the shell | the shell |
 
 ## Retro
 

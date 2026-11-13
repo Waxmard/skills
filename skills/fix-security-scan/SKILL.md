@@ -156,3 +156,11 @@ Done when every replayed command exits 0. If one still fails, go back to Step 2 
 ## Report
 
 Don't commit or push.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+| run the script | `bash` tool (not `eval`) | the shell | the shell |

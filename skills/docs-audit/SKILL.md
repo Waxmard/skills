@@ -81,7 +81,7 @@ Never flag:
 |---|---|---|---|
 | invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
 | load skill `<name>` | `read skill://<name>` | Skill tool | read its `SKILL.md` |
-| spawn subagents | one `task` call, default agent when tasks run shell commands (`scout` has no `bash`); `task` returns at once, so `wait` until every agent settles before using results or ending the turn (agents still running at a session exit or resume are aborted) | Agent tool calls in one message | no subagent support: run inline and say so |
+| spawn subagents | one `task` call with `agent: "scout"`; `wait` until settled | Agent tool calls in one message | no subagents: run inline |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
 
 ## 5. Output format and fix loop

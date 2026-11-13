@@ -27,9 +27,9 @@ Steps below use neutral verbs. Map them to your harness:
 |---|---|---|---|
 | invoke with args | `/skill:wrap-up run go` | `/wrap-up run go` | first message `run go` |
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
-| spawn the tasks | one `task` call with no `agent` field (tasks run `git diff`; `scout` has no `bash`), `effort: "med"` (fast) or `"hi"` (strong); avoid `effort: "lo"` on Gemini Vertex models (`THINKING_LEVEL_MINIMAL` 400); `task` returns at once, so `wait` until every task settles before ending the turn; if a task's findings file is missing, `history://<id>` shows whether it aborted or parked, and `write agent://<id>` revives it | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
+| spawn the tasks | one `task` call, default agent (`scout` lacks `bash`/`write`), `effort: "med"`/`"hi"` when supported; `wait` until settled; `history://<id>` / `write agent://<id>` to check or revive | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
 | run the script | `bash` tool, never `eval` (its env omits custom exports) | the shell | the shell |
-| progress list | `todo` `init` (when stopping at a commit or decision gate, call `todo` `block` with `phase` to block all remaining items in one call so open todos don't trigger auto-continue reminders; when resuming, use `start` or `done` on the next item, since `todo` has no `unblock`) | TodoWrite | numbered checklist printed in chat |
+| progress list | `todo` (`init`/`done`; at Gate A/F commit gates, clear open items with untargeted `todo rm` instead of non-existent `block`, then re-`init` remaining items from `.git/wrap-up/run/plan.json` on resume) | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool; decision context goes inside the form (`<p>`, `<ul>`), since the form is what the user reads when deciding | AskUserQuestion; each option's change and cost go in its description, the rest in chat prose directly above the question | plain-text question |
 
 ## Prerequisites & Required Tools
@@ -52,8 +52,8 @@ for t in git python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
 ```
 Missing git: stop. Missing python3: stop, "python3 is required for scripts/wrap_up.py".
 
-Then run, with the harness's shell tool (Harness notes), adding `--missing ponytail-review` and
-`--missing ponytail-audit` for each one not in this session's skill list:
+Then run, with the harness's shell tool (Harness notes), adding `--missing <skill>` for
+ponytail-review, ponytail-audit, or any catalog skill absent from this session's skill list:
 ```bash
 python3 -B "<skill-dir>/scripts/wrap_up.py" preflight
 ```
@@ -119,8 +119,8 @@ decisions at once.
       findings left, relay the script's `note:` lines (they say how many optional items were
       filtered, so the reviewers' counts reconcile), mark the row done and advance immediately to
       the next row in the same turn.
-      Otherwise, paste the full `findings --row <N>` report inline in assistant chat prose (`bash`
-      tool output alone is collapsed in the UI and does not count as printing the report).
+      Otherwise, paste the full `findings --row <N>` report inline in assistant chat prose (shell
+      tool output may be collapsed by the harness UI and does not count as printing the report).
    2. **Ask decisions for this row only.** If any item is marked `DECISION`, ask only this row's
       decision items (Harness notes: ask the user) in the same turn that prints this row's
       findings, then wait for the user's reply. Before asking, read the code each option would
@@ -179,7 +179,7 @@ Inline rows:
       `git show --stat HEAD` to confirm the tree matches `baseline` and every follow-up from
       step 1 (e.g. a regenerated lockfile) is in the commit. If one isn't, add it now and wait for
       the user to amend or commit it before continuing.
-   3. **Offer a compaction beat.** If context is already heavy, tell the user they can `/compact`
+   3. **Offer a compaction beat.** If context is already heavy, tell the user they can compact the session (for example, `/compact` where supported)
       before continuing: the playbook page reads are dead weight from here, and the next phases
       load their own instructions on invocation. Their call, not a gate.
 

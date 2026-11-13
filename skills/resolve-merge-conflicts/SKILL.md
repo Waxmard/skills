@@ -143,7 +143,7 @@ If **all** hunks in the file lean the same way ("take ours" or "take theirs"), c
 When hunks are mixed or require inline editing:
 
 1. **All hunks in the file are confident (step 2)**:
-   - Use `Edit` to apply the merged resolution and remove all conflict markers (`<<<<<<<`, `=======`, `|||||||`, `>>>>>>>`).
+   - Edit the file to apply the merged resolution and remove all conflict markers (`<<<<<<<`, `=======`, `|||||||`, `>>>>>>>`).
    - Log a one-sentence rationale per hunk naming how both intents were preserved (or why one side superseded the other).
 2. **One or more hunks in the file are ambiguous**:
    - Apply any confident hunks in the file first, or prepare the full proposed resolution.
@@ -233,3 +233,10 @@ the skills repo source (`skills/resolve-merge-conflicts/SKILL.md`), never the in
 nothing fired, say nothing. Typical signals here: a `git status` code not in Pitfalls, a
 lockfile/generated-file regen step not listed, a tool with non-obvious ours/theirs semantics, or a
 marker grep that missed a conflict style.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:resolve-merge-conflicts <args>` | `/resolve-merge-conflicts <args>` | first message |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |

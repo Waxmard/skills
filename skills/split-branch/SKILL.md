@@ -21,16 +21,6 @@ allowed-tools: >
   Read Grep Glob
 ---
 
-The `allowed-tools` grant covers the whole job, local and remote:
-
-- The grant exists so there is one prompt-free run, not a prompt per cherry-pick or per push.
-- The phase-3 checkpoint is therefore mandatory: it replaces those prompts with one confirmation that shows the full outward-facing manifest.
-- `git rebase`, `git reset`, `git branch -D` and bare `git push` still prompt. The grant is `git push -u origin *` only, so an arbitrary refspec, a branch deletion (`git push origin :branch`), or a push to another remote also stops.
-- `--force` after a matching prefix would slip through the pattern, so this rule guards it, not the allowlist.
-- `glab api` / `gh api` are granted for user lookup, but the pattern cannot distinguish a `GET` from a `DELETE`: the only writes made through them are the ones named in the checkpoint manifest.
-- `glab mr update` is only for setting reviewers on the MRs this run just created, never a pre-existing MR.
-- The grant lasts only the turn the skill is invoked on and clears on the user's next message. Re-invoke `/split-branch execute` after approval to re-apply it, or expect a prompt per command.
-
 Take a branch that grew several unrelated changes and split it into correctly scoped branches, **each with its own MR/PR**.
 
 **The target shape: every branch sits directly on the current base and any two of them merge in either order without a conflict.** A reviewer merges whichever MR is ready, nobody rebases a chain, and no branch waits on another's review round.
@@ -319,7 +309,7 @@ Runs only after phase 2's four verifications pass. A branch that failed its gate
 
 ### Publish checkpoint — stop here
 
-**Stop and confirm before the first `git push`.** The permission layer will not stop you: pushing and MR creation are pre-approved in `allowed-tools`, so this checkpoint is the only thing standing between a verified split and a remote that has five new MRs on it. Nothing here is reversible by `git branch -D`.
+**Stop and confirm before the first `git push`.** The permission layer will not stop you: when a harness pre-approves git, gh, and glab commands, this checkpoint is the only thing standing between a verified split and a remote that has five new MRs on it. Nothing here is reversible by `git branch -D`.
 
 Resolve reviewers first (below) — they are part of what the manifest has to show. Then print the full manifest and wait for a yes:
 
@@ -367,7 +357,7 @@ Rules:
 **Reviewers**: **ask, once, at the publish checkpoint, and apply the one answer to every new MR.** Never guessed and never carried across silently — a split turns one review request into four or five, and who gets four notifications is the user's call, not an inference.
 
 Ask with the candidates already resolved, so the answer is usually one keystroke:
-- Reviewers the user passed when invoking the skill (`/split-branch --reviewer alice,bob`) skip the question entirely — that *is* the answer.
+- Reviewers the user passed when invoking the skill (`--reviewer alice,bob`) skip the question entirely — that *is* the answer.
 - Otherwise, offer the **original MR's** reviewers as the default. A split's replacements usually want the same eyes, and on a bot-reviewed repo that set includes the review bot, whose username is project-scoped and unguessable (`project_<id>_bot_<hash>`) — read it off the payload, never construct it.
 - Offer **none** as a real answer, and accept a free-typed list.
 
@@ -432,5 +422,24 @@ End every run with this block. It is the only record the user gets of what the s
 - Always clean up scratch worktrees, including on the error path.
 - If the union check fails, say so plainly with the diff. A split that silently drops a hunk is worse than no split.
 - Never open an MR for a branch whose verification failed, and never close the original MR.
-- Never push or create an MR without passing the phase 3 checkpoint, even though `allowed-tools` pre-approves those commands. A pre-approved command is not an authorized one.
+- Never push or create an MR without passing the phase 3 checkpoint, even when a harness pre-approves those commands. A pre-approved command is not an authorized one.
 - If analysis and reality disagree (a pair the plan called clean conflicts in phase 2), stop and re-plan. Do not force the plan, and do not ship the conflict as a caveat.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:split-branch <args>` | `/split-branch <args>` | first message |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+
+### Claude Code allowed-tools grant
+
+The `allowed-tools` grant covers the whole job, local and remote:
+
+- The grant exists so there is one prompt-free run, not a prompt per cherry-pick or per push.
+- The phase-3 checkpoint is therefore mandatory: it replaces those prompts with one confirmation that shows the full outward-facing manifest.
+- `git rebase`, `git reset`, `git branch -D` and bare `git push` still prompt. The grant is `git push -u origin *` only, so an arbitrary refspec, a branch deletion (`git push origin :branch`), or a push to another remote also stops.
+- `--force` after a matching prefix would slip through the pattern, so this rule guards it, not the allowlist.
+- `glab api` / `gh api` are granted for user lookup, but the pattern cannot distinguish a `GET` from a `DELETE`: the only writes made through them are the ones named in the checkpoint manifest.
+- `glab mr update` is only for setting reviewers on the MRs this run just created, never a pre-existing MR.
+- The grant lasts only the turn the skill is invoked on and clears on the user's next message. Re-invoking `split-branch` with `execute` after approval re-applies it, or expect a prompt per command.

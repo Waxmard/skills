@@ -15,6 +15,25 @@ Compare the **current repo** (CWD) against the mw-kit playbook, the user's curat
 
 **Source of truth:** the mw-kit playbook at `$MW_KIT` if set; otherwise a clone of `https://github.com/Waxmard/mw-kit` at `~/.cache/mw-kit`, which the Step 1 block auto-clones and pulls. To use your own playbook, fork mw-kit and set `MW_KIT`. The index is `playbook/MANIFEST.md` there; each row points at a page whose `## Config` block is the canonical config to diff against.
 
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:tooling-sync <args>` | `/tooling-sync <args>` | first message `<args>` |
+| spawn subagents | one `task` call with `agent: "scout"`; `wait` until settled | Agent tool calls in one message | no subagents: run inline |
+| run the script | `bash` tool (not `eval`) | the shell | the shell |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+
+### Claude Code permissions
+
+The read-only scope+compare phase needs, in addition to defaults:
+
+- `Read(~/.cache/mw-kit/**)` (or your `$MW_KIT` path) — read the playbook + page bodies (outside the workspace, so it prompts otherwise). **This is the key one.**
+- `Bash(python3 ~/.cache/mw-kit/scripts/scope.py:*)` (or your `$MW_KIT` path) — run the scope resolver (does its own git/glob/presence work). **The other key one.**
+- `Bash(git rev-parse:*)` — resolve the consumer repo toplevel to pass to the resolver. (Already allowed globally.)
+
+The apply phase uses `Edit` / `Write` on the consumer repo's own config files. These are intentionally left to prompt — don't blanket-allow them. Reading the consumer repo's own files needs no extra permission (it's the workspace).
+
 ## Prerequisites & Required Tools
 
 Runs on macOS and Linux (on Windows, use WSL).
@@ -147,7 +166,7 @@ For all chosen items:
 
 1. Re-read the canonical block from the page and the current target file.
 2. **Merge, don't clobber.** Bring the playbook's opinionated values into the repo's existing config; preserve repo-specific keys (extra deps, project name, custom scripts, local ignores). Whole-file targets with no existing file → create from the canonical block, adjusted to the repo (paths, project name, roots like `fastapi/` → the repo's actual layout).
-3. Apply working-tree file changes directly with `Edit` (fragment merge) or `Write` (new whole file). Do **not** print proposed file contents or diffs in chat, and do **not** ask for per-file confirmation: the user reviews applied edits in their editor or via `git diff`.
+3. Apply working-tree file changes directly by editing existing files in place (fragment merge) or writing a new file (new whole file). Do **not** print proposed file contents or diffs in chat, and do **not** ask for per-file confirmation: the user reviews applied edits in their editor or via `git diff`.
    - **`agent-instructions` is filesystem plumbing, not a config merge.** `AGENTS.md` is the only instructions file. A `CLAUDE.md` symlink to it → `rm` it. A real `CLAUDE.md` and no `AGENTS.md` → `mv CLAUDE.md AGENTS.md` (Bash, confirm first; plain `mv`, not `git mv` — staging stays the user's job). A real `CLAUDE.md` beside a real `AGENTS.md` → surface the conflict instead of clobbering; let the user pick which content wins, then delete `CLAUDE.md`. Never Write a second copy, and add a symlink only for an agent the user names that doesn't read `AGENTS.md`. A repo that *generates* both files from a template is ⚠️ drift, not satisfied: propose collapsing it to `AGENTS.md` and deleting whatever existed only to duplicate the guide — the template, the build script, its `make` targets, the CI staleness gate, the pre-commit hook. Scope that carefully before proposing it: a generator that also renders genuinely different documents (a README from partials) stays, minus the agent guides; one whose remaining outputs are 1:1 copies goes entirely.
      - **Scrub the body to agent-agnostic after the move.** The rename alone isn't the fix — the page's contract is neutral content, so once `AGENTS.md` is the file, rewrite Claude-specific phrasing in it (`Claude Code` / "Claude" → "the agent" / "AI agents"; drop Claude-only asides) and show that edit as part of the diff. Keep a named-agent line only where the instruction genuinely applies to just that one. Skipping this leaves every other agent reading "Claude"-flavored guidance.
 4. Adjust for repo reality: the playbook examples assume paths like `fastapi/`, `frontend/`, `app/`. Rewrite globs/roots/`source` to the repo's actual structure. Flag anything you couldn't auto-map.
@@ -162,7 +181,7 @@ After the user has decided everything (applied, declined, or report-only), write
 
 Record decisions automatically after the user decides, including report-only runs; do not ask for separate permission to write the state file.
 
-Write the file with the `Write` tool at the repo root. Schema:
+Write `.tooling-sync.json` at the repo root. Schema:
 
 ```json
 {
@@ -193,21 +212,11 @@ Do not dump the file contents in chat; mention that `.tooling-sync.json` was upd
 
 - **Read-only until the user picks.** Steps 1–3 never modify the repo.
 - **Never commit, never push, never `git add`** — global rule. Apply edits to the working tree only; the user commits.
-- **Never clobber a config wholesale** when the repo already has one — merge. Only Write a fresh file when none exists.
+- **Never clobber a config wholesale** when the repo already has one — merge. Only write a fresh file when none exists.
 - **Never run installs** (`npm install`, `uv add`, `pip install`) — surface them as follow-ups.
 - **Respect local overrides.** A documented or obviously-intentional divergence is flagged, not overwritten. A value the repo's own tests assert against — a viewport size, a port, a magic threshold — is positive evidence the value is intentional: aligning it to the canonical block leaves the test red, so classify the tool 🔧 `override` and record the reason instead of "fixing" it.
 - **The resolver owns scope.** Don't re-derive scope by hand-globbing or reading every page — trust `scope.py`'s plan. If a page exists but the resolver never considers it (missing from its output entirely), the manifest/frontmatter may be stale; tell the user to run `python3 scripts/build_manifest.py` in mw-kit. Never run either script *from* the consumer repo.
 - **The resolver owns incremental state too.** Don't hand-compute which pages changed or hand-edit `.tooling-sync.json`'s recall logic — read `state` off the plan, and only ever *write* the file in Step 6. To force a full re-compare, re-run the resolver with `--no-state` rather than deleting the file.
-
-## Permissions (pre-approve these)
-
-The read-only scope+compare phase needs, in addition to defaults:
-
-- `Read(~/.cache/mw-kit/**)` (or your `$MW_KIT` path) — read the playbook + page bodies (outside the workspace, so it prompts otherwise). **This is the key one.**
-- `Bash(python3 ~/.cache/mw-kit/scripts/scope.py:*)` (or your `$MW_KIT` path) — run the scope resolver (does its own git/glob/presence work). **The other key one.**
-- `Bash(git rev-parse:*)` — resolve the consumer repo toplevel to pass to the resolver. (Already allowed globally.)
-
-The apply phase uses `Edit` / `Write` on the consumer repo's own config files. These are intentionally left to prompt — don't blanket-allow them. Reading the consumer repo's own files needs no extra permission (it's the workspace).
 
 ## Pitfalls
 

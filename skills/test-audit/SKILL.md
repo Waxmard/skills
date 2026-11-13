@@ -57,6 +57,14 @@ Read each in-scope test file alongside the production module(s) it covers. Class
 - **Small scope (≤ 5 test files)**: Audit inline in the current session.
 - **Large scope or `full` whole-repo pass (> 5 test files)**: Group test files by suite/directory (for example, `test/python/`, `test/lib/`, `test/bin/`) and fan out parallel read-only subagents on a fast, low-cost model. Each subagent reads its assigned test files and the production modules they test, classifying every test file and reporting exact test names, line ranges, tag, and justification.
 
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
+| spawn subagents | one `task` call with `agent: "scout"`; `wait` until settled | Agent tool calls in one message | no subagents: run inline |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+
 ## 5. Output Format & Fix Loop
 
 Print a single `1..N` numbered findings list so the user or `wrap-up` Gate F can reference items by number:

@@ -137,3 +137,10 @@ Then offer to post. If the user agrees, post one ticket at a time:
 3. On Post, create it with every field the CLI can set (including weight, parent, assignee when known, and labels); create any confirmed subtasks; create the blocking links; add it to the sprint; and report the key.
 
 Merges follow the same confirm-first flow: comment on the target, move any blocking links that still apply to the target, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation.
+
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |

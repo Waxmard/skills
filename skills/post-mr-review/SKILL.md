@@ -107,7 +107,7 @@ Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" discussions --mr <iid>`. This
 ## Confirm
 
 - Before asking, write the agreed drafts as a spec file (format in Post) in `$(mktemp -d)` and run `gitlab_mr.py post <spec> --mr <iid>` without `--apply`. Fix every reported item (move a line that's not in the diff to the general comment or a nearby changed line) before showing the questions.
-- Ask the user in one call with one question per post, using the harness's structured question tool directly (see Harness notes), never from inside a script cell whose timeout can kill the prompt and the drafts. The question text names the target thread or line and repeats the effect line. Options: `Post` (with the full body as the option preview where the tool supports one, otherwise in the question text; markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
+- Ask the user in one call with one question per post, using the harness's structured question tool directly (see Harness notes), never from inside a shell command or script execution whose timeout can kill the prompt and the drafts. The question text names the target thread or line and repeats the effect line. Options: `Post` (with the full body as the option preview where the tool supports one, otherwise in the question text; markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
 - If any target thread is resolved, add one question "Reopen threads I reply in?" with options `Reopen` and `Leave resolved`. For threads a human resolved, repeat in the question text who resolved it and why (from the plan line), so the reopen decision is made with that context.
 - Post only items answered `Post`. If the user answers with edits ("Other"), revise and re-ask for just that item.
 
@@ -146,8 +146,9 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 
 | Step says | omp | Claude Code | Other agents |
 |---|---|---|---|
+| invoke with args | `/skill:post-mr-review <args>` | `/post-mr-review <args>` | first message |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
-| run the script | `bash` tool | the shell | the shell |
+| run the script | `bash` tool (not `eval`) | the shell | the shell |
 
 ## Retro
 

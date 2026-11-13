@@ -150,6 +150,13 @@ A change review is read-only, including the checkout. Fetch pull request refs; n
 
 Rendered verification is opt-in. Mark visual and runtime claims **Not verified** unless the project exposes a cheap preview or the user asks for a rendered review. When they do, use an isolated worktree (`git worktree add /tmp/review-<n> refs/remotes/pr/<n>`) and remove it when done.
 
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
+| ask the user | `ask` tool | AskUserQuestion | plain-text question |
+
 ## Review output format
 
 Open with the scope block:

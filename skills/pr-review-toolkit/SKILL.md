@@ -112,6 +112,14 @@ Rules for every check:
 
 `full` with more than 30 files or 1500 changed lines after step 1.4's exclusions: group the files by top-level directory (at most 15 files per group) and spawn one subagent per group, each applying every `full` check to its files only. Then run the contract-break check across groups yourself and merge the reports, dropping duplicates.
 
+## Harness notes
+
+| Step says | omp | Claude Code | Other agents |
+|---|---|---|---|
+| invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
+| spawn subagents | one `task` call, default agent (`scout` lacks `bash`/`write`); `wait` until settled | Agent tool calls in one message | no subagents: run inline |
+| run the script | `bash` tool (not `eval`) | the shell | the shell |
+
 ## 4. Output Format
 
 ```markdown

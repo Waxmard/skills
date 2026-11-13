@@ -22,7 +22,7 @@ Covers **Dependabot** on GitHub (`dependabot/*`) and **Renovate** on every other
 |---|---|---|---|
 | invoke with args | `/skill:<skill> <args>` | `/<skill> <args>` | first message |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
-| run the script | `bash` tool | the shell | the shell |
+| run the script | `bash` tool (not `eval`) | the shell | the shell |
 
 ## Prerequisites & Required Tools
 
