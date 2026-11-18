@@ -46,7 +46,14 @@ Missing `git`: stop.
 Classify every finding with one tag and one action:
 
 - **`restates-code` (`delete`)**: a comment or docstring that paraphrases the code next to it (`# increment counter` above `count += 1`), or a docstring that only repeats the parameter names and types the signature already states.
-- **`narration` (`delete`)**: comments that narrate the change or the process instead of the code: `# changed to use X`, `# fixed the bug`, `# new:`, `# added for <ticket>`, `# Step 1: ...` walk-throughs, `# Now we ...`. That history belongs in commit messages.
+- **`narration` (`delete` or `fix`)**: text that narrates the change or the process instead of the code or the subject.
+  - In comments, delete it: `# changed to use X`, `# fixed the bug`, `# new:`, `# added for <ticket>`, `# Step 1: ...` walk-throughs, `# Now we ...`. That history belongs in commit messages.
+  - In doc files, fix it: state the present fact (`In this revision, we added a table that lists each protocol.` becomes `The table lists each protocol.`), or delete the sentence when no fact remains. Flag each of these:
+    - draft history: `in this revision`, `this section was added`, `updated above`
+    - authoring process: `after reviewing the config, I found`, `we searched`, `during this analysis`
+    - a comparison with a version the reader can't see: `the new approach`, `unlike the old implementation`, `no longer`
+    - a note to a reviewer or to the author: `for the reviewer:`, `TODO before publishing`, `insert diagram here`
+    - a reference the reader can't open: an absolute local path, a scratch file, or a chat or agent session (`see this session`, `the conversation above`). Replace it with a repo-relative path, URL, or ticket. When the reference was the only support for a claim and no replacement exists, delete the claim too, and say so in *Why*.
 - **`commented-out` (`delete`)**: commented-out code. Git keeps the old version.
 - **`banner` (`delete`)**: divider or section-banner comments with no content (`# ---- helpers ----`, `/* ======= */`).
 - **`doc-padding` (`shrink`)**: markdown filler: welcome or "this section describes" intros, a sentence that restates its heading, summary or conclusion sections that repeat the body, lists that restate code line by line, and sections longer than their content needs. Rewrite kept prose per the `docs-style` skill. Every changed doc file read in full gets these checks; flag each hit rather than judging the file lean overall:
@@ -66,7 +73,8 @@ Never flag:
 - Tool directives and machine-read comments: shebangs, `# noqa`, `// eslint-disable...`, `// @ts-expect-error`, `# type:`, `//go:` directives, `# shellcheck`, license headers, and codegen markers.
 - Doc comments on a public API that ship as reference docs, and comments a project convention requires (for example, a header comment per function in a shell helper library).
 - `TODO`/`FIXME` lines that name an issue or owner.
-- Historical records: past `CHANGELOG` entries, ADRs, and release notes. `stale` doesn't apply to them.
+- Historical records: past `CHANGELOG` entries, ADRs, and release notes. `stale` and `narration` don't apply to them.
+- Docs whose subject is the change or the process: migration and upgrade guides, postmortems, and handoff notes. `narration` doesn't apply to them.
 - Agent-instruction files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `SKILL.md`) are docs: audit them, but never delete a rule an agent needs; only cut repetition and padding.
 
 ## 4. Execution

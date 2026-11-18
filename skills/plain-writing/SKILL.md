@@ -45,13 +45,14 @@ The goal is text the user can send on the first try. Every rule here comes from 
 14. Use people's names, never "a user" or "the team" when you know who. Credit people by name for what they did ("Maya built the CSV importer; Jordan added row-level error reports").
 15. When suggesting changes to someone else's work, suggest; don't order. Use "We suggest", "It may help to", "This would make X accurate". Say what is true today, then what would close the gap.
 16. Use the present tense for current facts. For anything that can go stale, give the date ("as of April 2026"), not "currently" or "still".
+17. Write from the finished text's point of view. Leave out how it was made: draft history ("in this revision"), your own process ("after reviewing the logs, I found"), comparisons with a version the reader never saw ("the new approach"), and references the reader can't open (a local path, a scratch file, this chat). State the fact and cite a source the reader can open. Keep history only when it is the subject, as in a changelog, migration note, postmortem, or handoff.
 
 **Formatting**
-17. Use bullets for sets of facts and numbered lists for steps or ranked items. Start each bullet with a 1 to 3 word **bold label** followed by a colon when the list has more than three items or will be scanned.
-18. Use bold only for labels and for the few numbers or phrases that carry the message. Bold scattered through sentences reads as noise.
-19. Use inline code only for literal identifiers someone will copy (paths, commands, config values). Write product names as plain text.
-20. Write links as descriptive text, never "here" or "this link". Link every ticket, PR/MR, and file reference when the channel renders links.
-21. Use a table only when the reader compares the same fields across rows and the channel renders tables. Otherwise use bullets.
+18. Use bullets for sets of facts and numbered lists for steps or ranked items. Start each bullet with a 1 to 3 word **bold label** followed by a colon when the list has more than three items or will be scanned.
+19. Use bold only for labels and for the few numbers or phrases that carry the message. Bold scattered through sentences reads as noise.
+20. Use inline code only for literal identifiers someone will copy (paths, commands, config values). Write product names as plain text.
+21. Write links as descriptive text, never "here" or "this link". Link every ticket, PR/MR, and file reference when the channel renders links.
+22. Use a table only when the reader compares the same fields across rows and the channel renders tables. Otherwise use bullets.
 
 ## Channel presets
 
@@ -70,8 +71,9 @@ The goal is text the user can send on the first try. Every rule here comes from 
 Before showing the draft:
 1. Re-check every number, date, name, and claim of credit against its source.
 2. Cut every sentence the reader would not miss. Then cut again; the user usually wants it shorter than the first draft.
-3. Read it as the target reader. Rewrite any term they would have to look up.
-4. Check that the channel preset holds (no tables in a paste, one line per slide bullet).
+3. If you rewrote or shortened existing text, compare the draft with the original. Every number, date, name, identifier, link, command, warning, and caveat is still there or was cut on purpose, and the draft states no fact the original lacks. If you cut a warning or caveat on purpose, say so in one line after the draft.
+4. Read it as the target reader. Rewrite any term they would have to look up.
+5. Check that the channel preset holds (no tables in a paste, one line per slide bullet).
 
 Show the result once, without a preamble about what you changed unless the user asked.
 
@@ -88,3 +90,6 @@ Suggestion: "We suggest listing the 5-second webhook timeout in the partner guid
 
 Generic credit: "Someone on the backend team fixed the search indexing lag."
 Named: "Jordan Kim and Elena Rostova cut search indexing lag from 12 minutes to 8 seconds."
+
+Process residue: "After reviewing the config in this session, I found that the new listener uses TLS 1.3."
+Finished: "The listener uses TLS 1.3."

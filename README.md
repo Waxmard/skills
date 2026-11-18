@@ -116,6 +116,9 @@ Adapted from:
   by Anthropic: used to author these skills.
 - [jakubkrehel/skills](https://github.com/jakubkrehel/skills) by Jakub Krehel:
   `interface-review`.
+- [alexw91/homedir](https://github.com/alexw91/homedir/tree/main/.kiro/skills)
+  by Alex Weibel: the process-residue checks in `docs-audit` and
+  `plain-writing`, and the nothing-dropped check in `plain-writing`.
 
 Builds on — load conditions for each companion are in [Companions](#companions):
 
