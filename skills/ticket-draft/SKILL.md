@@ -25,7 +25,7 @@ Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, 
 
 Find out which tracker and project the ticket goes to. If it's unclear, ask. Then pull 10–20 recent tickets the user wrote there, so the voice and weights match. Tracker commands, known scales, title examples, and repo path conventions live in `references/<tracker>-<project>.md`. Those files are local to this machine and never synced; read the matching one. Before pulling them, check the tracker's CLI with `command -v <cli>` (plus `glab auth status` or `gh auth status` for GitLab or GitHub issues). If it fails, stop and tell the user what to install, configure, or log in to.
 
-No reference for the tracker yet? Use its CLI (`glab issue list`, `gh issue list`, etc.) to read recent tickets, then add a `references/<tracker>-<project>.md` with what you learned.
+No reference for the tracker yet? Use its CLI (`glab issue list`, `gh issue list`, etc.) to read recent tickets, then add a `references/<tracker>-<project>.md` with what you learned. Do not inherit native-field duplicates or repeated boilerplate from older tickets (`priority::*` labels, `**Story Points**: N` body lines, bare inline blocker lists, or repo-wide architecture/wiki footers already linked from README).
 
 ## Merge & readiness first
 
@@ -80,7 +80,7 @@ Use this compact section layout inside the ticket description body:
 ```
 
 Formatting:
-- Omit `Dependencies`, `Risks / security / change`, and `References` when none apply. No raw line numbers or speculative option essays.
+- Omit `Dependencies`, `Risks / security / change`, and `References` when none apply. Omit `### Dependencies` when a native blocking link already carries a ticket-to-ticket prerequisite, and omit `### References` for repo-wide architecture docs already linked in the repo README. No raw line numbers or speculative option essays.
 - Use bullets, never paragraphs. Each bullet holds one idea in about 20 words or fewer.
 - Start each bullet with a **bold** label of 1–3 words (`- **Gap:** …`, `- **IAM:** …`).
 - Use inline code only for literal identifiers someone will copy (paths, column names, permissions, config values). Write product names as plain text.
@@ -89,6 +89,7 @@ Formatting:
 - Desired state names the outcome; Acceptance criteria hold the specific checks. Don't restate one in the other, and don't repeat a Dependency as a Risk.
 - Keep the text above Acceptance criteria to about 60 words: at most 4 Background bullets and one Desired-state bullet. Write at most 5 acceptance criteria, one line each, one per distinct outcome.
 - Background states what the requester saw, one bullet per problem. Leave out root-cause guesses, evidence trails, cleanup caveats, and answers to side questions; they go in the chat reply or a Task.
+- When editing an existing ticket's scope in place, update the existing sections directly instead of appending dated changelog headings (`### Scope (YYYY-MM-DD)`).
 
 ## Sizing, ownership & breakdown
 
@@ -137,6 +138,8 @@ Then offer to post. If the user agrees, post one ticket at a time:
 3. On Post, create it with every field the CLI can set (including weight, parent, assignee when known, and labels); create any confirmed subtasks; create the blocking links; add it to the sprint; and report the key.
 
 Merges follow the same confirm-first flow: comment on the target, move any blocking links that still apply to the target, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation.
+
+Before changing any existing ticket (comment, link, edit, sprint or milestone move, delete, close), check the ticket's assignee via the tracker CLI (or its reference). If it's assigned to anyone other than the user, or the check fails, ask a second, separate question after the per-ticket confirmation. Name the ticket, its assignee, and every change planned for it in one question (e.g. "KEY-123 is assigned to Sam Lee. Comment and move 1 link anyway?"). Offer "Don't touch, give me the text" first, as the default, then "<changes> anyway". On "Don't touch", print the comment or change for the user to apply and move to the next ticket. Unassigned tickets and the user's own tickets need only the per-ticket confirmation.
 
 ## Harness notes
 
