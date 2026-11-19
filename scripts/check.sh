@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Validates tracked JSON and SKILL.md frontmatter (name matches dir, description present).
+# Validates tracked JSON, runs tracked test_*.py, and checks SKILL.md frontmatter (name matches dir, description present).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 git ls-files -z '*.json' | xargs -0 jq empty
+git ls-files -z '*/test_*.py' | xargs -0 -n1 python3 -B
 
 fail=0
 while IFS= read -r f; do
