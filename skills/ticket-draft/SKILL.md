@@ -2,11 +2,12 @@
 name: ticket-draft
 description: >-
   Use when asked to draft, write, or file a ticket or issue (Jira, GitLab
-  issues, GitHub issues, Linear) from a bug, investigation, or feature idea,
-  with intake forms and story-point weights. Checks for overlapping open
-  tickets and offers to post after confirmation; not for status updates.
+  issues, GitHub issues, Linear) from a bug, spike, investigation, or feature
+  idea, file follow-up tickets from a spike, or tighten unstarted backlog
+  tickets, with intake forms and story-point weights. Checks for overlapping
+  open tickets and offers to post after confirmation; not for status updates.
   Trigger: "write a ticket", "create a Jira", "file an issue", "open an
-  issue", "turn this into a ticket", or /ticket-draft.
+  issue", "turn this into a ticket", "tighten tickets", or /ticket-draft.
 ---
 
 # Ticket drafting
@@ -59,7 +60,7 @@ Use this compact section layout inside the ticket description body:
 
 ### Desired state / proposed outcome
 
-- **<Label>:** <one fact: target end state or component-level approach>
+- **<Label>:** <one fact: target end state or user-visible outcome>
 
 ### Dependencies
 
@@ -85,8 +86,9 @@ Formatting:
 - Start each bullet with a **bold** label of 1–3 words (`- **Gap:** …`, `- **IAM:** …`).
 - Use inline code only for literal identifiers someone will copy (paths, column names, permissions, config values). Write product names as plain text.
 - Section titles are headings; bold is only for bullet labels. Leave a blank line between a heading and its list, or jira-cli posts the bullets as literal "- " text.
-- Write every ticket key as a link (`[KEY-123](<tracker-url>/browse/KEY-123)`). Create a tracker link only for a real dependency, meaning one ticket cannot start or finish until the other is done, using the blocking type (`Blocks` in Jira) in the correct direction. Never link for a mention, a shared parent, siblings, the ticket's own parent or subtasks, a merge, or provenance: the description or merge comment already carries the key.
+- Write every ticket or epic key as a clickable link (`[KEY-123](<tracker-url>/browse/KEY-123)`, or bare `#123` / `&12` where the tracker auto-links); never wrap tracker refs in backticks, which disables auto-linking. Only reference timeboxes, boards, or groupings by a link or the exact label visible in the tracker UI; never invent names or numbers from hidden API fields (such as turning GitLab `iteration.sequence` into "Sprint 3"). Create a tracker link only for a real dependency, meaning one ticket cannot start or finish until the other is done, using the blocking type (`Blocks` in Jira, `blocks` / `is_blocked_by` in GitLab) in the correct direction. Never link for a mention, a shared parent, siblings, the ticket's own parent or subtasks, a merge, or provenance: the description or merge comment already carries the key.
 - Desired state names the outcome; Acceptance criteria hold the specific checks. Don't restate one in the other, and don't repeat a Dependency as a Risk.
+- **Outcome, not implementation:** State the problem, hard constraints (security, compliance, external contracts), and verifiable acceptance criteria. Omit schemas, column or function names, internal config keys, and step-by-step build recipes (`Proposed implementation`, file-by-file `Scope` lists) unless a fixed external contract requires them; leave design space for the assignee.
 - Keep the text above Acceptance criteria to about 60 words: at most 4 Background bullets and one Desired-state bullet. Write at most 5 acceptance criteria, one line each, one per distinct outcome.
 - Background states what the requester saw, one bullet per problem. Leave out root-cause guesses, evidence trails, cleanup caveats, and answers to side questions; they go in the chat reply or a Task.
 - When editing an existing ticket's scope in place, update the existing sections directly instead of appending dated changelog headings (`### Scope (YYYY-MM-DD)`).
@@ -119,7 +121,7 @@ When the user asks for an intake form, intake doc, or TPM review document, outpu
   - `Target date / milestone` (date + whether fixed or preferred, or `N/A — <reason>`)
 - **2. Thorough description** (markdown table):
   - `Background / current state` (what exists today, what problem is occurring, or what requirement triggered this work)
-  - `Desired state / proposed outcome` (what will be true when complete, plus high-level approach and subtask breakdown if needed)
+  - `Desired state / proposed outcome` (what will be true when complete, and subtask breakdown if needed)
   - `Dependencies` (upstream/downstream tickets, external teams, approvals, access, vendor actions, or `N/A — <reason>`)
   - `Risks / security / change` (IAM, data sensitivity, network exposure, compliance, outage, rollback, or `N/A — <reason>`)
   - `References / evidence` (links to design docs, ADRs, diagrams, runbooks, logs, MRs, related tickets, or `N/A — <reason>`)
@@ -130,16 +132,16 @@ When the user asks for an intake form, intake doc, or TPM review document, outpu
 Give each draft as plain blocks ready to review or paste:
 1. **Title** (`Verb + deliverable + scope`)
 2. **Description** (compact SOP format by default, or the 2-table intake form if requested)
-3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
+3. **Planned metadata**: `Type`, `Parent / Initiative`, `Primary POC (Assignee)`, `Reporter (Alternate POC)`, `Weight (SP)`, `Labels`, `Sprint / Iteration / Milestone`, `Target date` (if any), `Subtasks` (if any), and `Links` (blocking dependencies only, with direction, e.g. `Blocked by KEY-123`; omit when none). Only when the tracker has no settable reporter, append an "Alternate POC: <name>" line above the Acceptance criteria heading.
 
 Then offer to post. If the user agrees, post one ticket at a time:
 1. Re-check the tracker for tickets created since drafting; if one now covers a draft, merge into it or skip the draft.
-2. Show the draft with its metadata and ask Post / Skip / Post without links.
-3. On Post, create it with every field the CLI can set (including weight, parent, assignee when known, and labels); create any confirmed subtasks; create the blocking links; add it to the sprint; and report the key.
+2. Show the draft with its metadata and ask the user: Post / Skip / Post without links. In the same question, ask whether it goes in the current sprint, iteration, or milestone, naming it; never assume either answer.
+3. On Post, create it with every field the CLI can set (including weight, parent, assignee when known, and labels); create any confirmed subtasks; create the blocking links; add it to the sprint, iteration, or milestone only if the user said so; and report the key.
 
 Merges follow the same confirm-first flow: comment on the target, move any blocking links that still apply to the target, then delete the merged-away ticket only if the user agrees. Never create, edit, or delete tickets without that per-ticket confirmation.
 
-Before changing any existing ticket (comment, link, edit, sprint or milestone move, delete, close), check the ticket's assignee via the tracker CLI (or its reference). If it's assigned to anyone other than the user, or the check fails, ask a second, separate question after the per-ticket confirmation. Name the ticket, its assignee, and every change planned for it in one question (e.g. "KEY-123 is assigned to Sam Lee. Comment and move 1 link anyway?"). Offer "Don't touch, give me the text" first, as the default, then "<changes> anyway". On "Don't touch", print the comment or change for the user to apply and move to the next ticket. Unassigned tickets and the user's own tickets need only the per-ticket confirmation.
+Before changing any existing ticket (comment, link, edit, sprint, iteration, or milestone move, delete, close), check the ticket's assignee via the tracker CLI (or its reference). If it's assigned to anyone other than the user, or the check fails, ask a second, separate question after the per-ticket confirmation. Name the ticket, its assignee, and every change planned for it in one question (e.g. "KEY-123 is assigned to Sam Lee. Comment and move 1 link anyway?"). Offer "Don't touch, give me the text" first, as the default, then "<changes> anyway". On "Don't touch", print the comment or change for the user to apply and move to the next ticket. Unassigned tickets and the user's own tickets need only the per-ticket confirmation.
 
 ## Harness notes
 

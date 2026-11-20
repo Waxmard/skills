@@ -29,7 +29,7 @@ Steps below use neutral verbs. Map them to your harness:
 | load skill `<name>` | `read skill://<name>` | Skill tool | read that skill's `SKILL.md` |
 | spawn the tasks | one `task` call, default agent (`scout` lacks `bash`/`write`), `effort: "med"`/`"hi"` when supported; `wait` until settled; `history://<id>` / `write agent://<id>` to check or revive | Agent tool calls in one message, `model: haiku` (fast) or `opus` (strong) | no subagents: run each task's prompt inline in order, note "ran inline: no subagents" |
 | run the script | `bash` tool, never `eval` (its env omits custom exports) | the shell | the shell |
-| progress list | `todo` (`init`/`done`; at Gate A/F commit gates, clear open items with untargeted `todo rm` instead of non-existent `block`, then re-`init` remaining items from `.git/wrap-up/run/plan.json` on resume) | TodoWrite | numbered checklist printed in chat |
+| progress list | `todo` (`init`/`done`; at Gate A/F commit gates, clear open items with `todo rm` targeting the active phase, e.g. `phase="Tasks"`, instead of non-existent `block`, then re-`init` remaining items from `.git/wrap-up/run/plan.json` on resume) | TodoWrite | numbered checklist printed in chat |
 | ask the user | `ask` tool; decision context goes inside the form (`<p>`, `<ul>`), since the form is what the user reads when deciding | AskUserQuestion; each option's change and cost go in its description, the rest in chat prose directly above the question | plain-text question |
 
 ## Prerequisites & Required Tools
