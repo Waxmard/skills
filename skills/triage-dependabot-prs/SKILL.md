@@ -1,20 +1,19 @@
 ---
-name: triage-renovate-dependabot-prs
+name: triage-dependabot-prs
 description: >
-  Use when triaging or batch-merging Renovate (GitLab) or Dependabot (GitHub)
-  dependency-bump branches into the current feature branch (lean, default, or
-  full mode). Reviews each bump's changelog and call sites, auto-resolves
-  lockfile conflicts, runs post-merge checks, and gates risky or ambiguous
-  bumps. Trigger: "merge renovate PRs", "merge dependabot PRs", "triage
-  renovate", "drain renovate branches", "merge bot PRs", "merge dependency
-  bumps", or /triage-renovate-dependabot-prs.
+  Use when triaging or batch-merging Dependabot dependency-bump branches into
+  the current feature branch (lean, default, or full mode). Reviews each bump's
+  changelog and call sites, auto-resolves lockfile conflicts, runs post-merge
+  checks, and gates risky or ambiguous bumps. Trigger: "merge dependabot PRs",
+  "triage dependabot", "drain dependabot branches", "merge bot PRs", "merge
+  dependency bumps", or /triage-dependabot-prs.
 ---
 
 # Triage dependency updates
 
 Merge dep-bump branches into the **current branch** one at a time. The user's pattern: create a feature branch off the target (`dev`/`main`), drain bot branches into it, then merge it into target as one safer review. The feature branch must already exist and be checked out.
 
-Covers **Dependabot** on GitHub (`dependabot/*`) and **Renovate** on every other host (`renovate/*`). `scripts/bot_branches.py` picks the bot from the `origin` URL, looks only at that bot's branches, and names it in `bot`. Name only that bot when talking to the user: on a GitHub repo, never mention Renovate. No `gh`/`glab` CLI required; the script runs pre-flight and discovery with `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
+Covers **Dependabot** on GitHub (`dependabot/*`). `scripts/bot_branches.py` looks at `dependabot/*` branches and names `"dependabot"` in `bot`. No `gh` CLI required; the script runs pre-flight and discovery with `git`. The risk-read and post-merge-check steps detect the ecosystem from manifest files in the repo root.
 
 ## Harness notes
 
@@ -28,7 +27,7 @@ Covers **Dependabot** on GitHub (`dependabot/*`) and **Renovate** on every other
 
 Runs on macOS and Linux (on Windows, use WSL).
 
-- `git` (no `gh` or `glab` needed)
+- `git` (no `gh` needed)
 - `python3`, for `scripts/bot_branches.py`
 - The package manager and check tools of each ecosystem in the repo (the install and check commands in step 5 of the per-branch loop)
 - `npx` / `uvx` (optional), to run a bumped linter or formatter at its new version
@@ -65,9 +64,9 @@ A branch's contribution is always read three-dot (`HEAD...origin/<branch>`), nev
 
 **Redundant branches.** The script flags `payload already in HEAD` and `target dep no longer exists in HEAD`. The second would produce a modify/delete conflict, not a bump. Recommend skip for both, with the reason spelled out so the user isn't left guessing why a real-looking version change is being skipped. The bot closes these on its next run.
 
-**Onboarding branches are config adoption, not bumps.** When `onboarding` is true (`renovate/configure`, Renovate's onboarding MR, or a branch whose only payload is a first `renovate.json` or `.github/dependabot.yml`), no dependency changes, so the signal table doesn't apply. Assess who starts receiving bot MRs/PRs (downstream forks inherit the file via template sync unless `.gitattributes` marks it `merge=ours`) and whether the config matches the repo's standard (e.g. PR/MR limits, release-age delay). Gate it as MEDIUM with merge + repair (expand to the standard), merge as-is, and skip as options.
+**Onboarding branches are config adoption, not bumps.** When `onboarding` is true (a branch whose only payload is a first `.github/dependabot.yml`), no dependency changes, so the signal table doesn't apply. Assess who starts receiving bot PRs (downstream forks inherit the file via template sync unless `.gitattributes` marks it `merge=ours`) and whether the config matches the repo's standard (e.g. PR limits, release-age cooldown). Gate it as MEDIUM with merge + repair (expand to the standard), merge as-is, and skip as options.
 
-**Check for local drift before ranking anything.** `drift` lists local commits on HEAD, not yet on `origin/<target_hint>`, that touch manifests or lockfiles. The bot branch's actual PR/MR target comes from its metadata or bot configuration; if it differs from `target_hint`, run `git log --oneline origin/<target>..HEAD` yourself and filter to manifests and lockfiles. Local dependency changes can make a bot branch stale, but they do not prove every branch conflicts. Use each branch's contribution and merge prediction to identify affected branches. Automatically defer stale-branch conflicts for bot rebase under step 3; do not ask the user to choose that path.
+**Check for local drift before ranking anything.** `drift` lists local commits on HEAD, not yet on `origin/<target_hint>`, that touch manifests or lockfiles. The bot branch's actual PR target comes from its metadata or `.github/dependabot.yml`; if it differs from `target_hint`, run `git log --oneline origin/<target>..HEAD` yourself and filter to manifests and lockfiles. Local dependency changes can make a bot branch stale, but they do not prove every branch conflicts. Use each branch's contribution and merge prediction to identify affected branches. Automatically defer stale-branch conflicts for bot rebase under step 3; do not ask the user to choose that path.
 
 ## Per-branch loop
 
@@ -93,12 +92,12 @@ Parse the dep delta from the manifest diff and classify. The categories are stac
 | Major bump of linter / formatter / type-checker | Yes | Examples by ecosystem: JS/TS (eslint, prettier, biome, tsc), Python (ruff, mypy, black, pyright), Rust (clippy, rustfmt — rare, tied to toolchain), Go (golangci-lint, staticcheck), Ruby (rubocop). |
 | Major bump of build / packaging tooling | Yes | Examples: JS (vite, webpack, rollup, esbuild, turbopack), Python (uv, poetry, hatch, setuptools), Rust (cargo itself rarely bumps via bot; build-rs deps do), Go (rarely bot-bumped), JVM (gradle, maven plugins). |
 | Major bump of framework / runtime | Yes | Examples: React, Vue, Angular, Next, Django, FastAPI, Rails, Spring, Actix, Axum, Gin. |
-| Touches `.github/workflows/`, `.gitlab-ci.yml`, `Dockerfile`, `docker-compose.*`, `Containerfile` | Yes | Infra/CI change — auto-checks won't catch pipeline breakage, so the deep read below can't fully clear this one either; still needs a human watching the pipeline post-merge. |
+| Touches `.github/workflows/`, `Dockerfile`, `docker-compose.*`, `Containerfile` | Yes | Infra/CI change — auto-checks won't catch pipeline breakage, so the deep read below can't fully clear this one either; still needs a human watching the pipeline post-merge. |
 | Touches build / lint config files | Yes | Examples: `tsconfig.json`, `vite.config.*`, `webpack.config.*`, `eslint.config.*`, `pyproject.toml` (ruff/mypy sections), `Cargo.toml` (features/edition), `.golangci.yml`. |
 | Minor bump (`1.2.x → 1.3.x`) on direct dep | No | Actual defaults to LOW; escalate only if something else about the PR looks off. |
 | Patch bump (`1.2.3 → 1.2.4`) | No | Actual defaults to LOW. |
 | Lockfile-only delta | No | Actual defaults to LOWEST. Watch for hidden major bumps inside the lockfile (see pitfalls) — if one's found, that dep triggers a deep read same as a manifest-level major. |
-| Grouped PR (renovate often bumps 5+ packages at once) | Inherit highest | Score each dep individually before rolling up — don't gate on the title alone. |
+| Grouped PR (Dependabot group bumps multiple packages at once) | Inherit highest | Score each dep individually before rolling up — don't gate on the title alone. |
 
 #### Reasoned verdict (the only thing shown)
 
@@ -152,7 +151,7 @@ For example, a Vitest 4 → 5 branch that leaves coverage-v8 on 4 needs a matchi
 
 **Bot rebase takes precedence.** When a regenerated bot branch can remove predicted conflicts caused by stale manifest or lockfile state, automatically choose **defer for bot rebase** before any merge attempt or decision prompt. State the affected branches, count, conflict files, and the target-branch prerequisite. Continue with unaffected branches; if none remain, end the drain with the deferred list. This is a deferral of the current bot payload, not rejection of the updates. Do not manufacture this option for genuine incompatibility or a repair the bot cannot generate.
 
-A bot regenerates against its PR/MR target, not the checked-out feature branch. If the prerequisite dependency changes exist only on the feature branch, the user must push and land those changes on the bot's target before regeneration can incorporate them. Pushing the feature branch alone is insufficient. If the target already contains the changes, defer until the bot refreshes its branch against that target. Do not push, merge to the target, or post remote rebase commands without the required explicit authorization. Report deferral as selected, not rebase as requested or completed unless that action was actually performed.
+A bot regenerates against its PR target, not the checked-out feature branch. If the prerequisite dependency changes exist only on the feature branch, the user must push and land those changes on the bot's target before regeneration can incorporate them. Pushing the feature branch alone is insufficient. If the target already contains the changes, defer until the bot refreshes its branch against that target. Do not push, merge to the target, or post remote rebase commands without the required explicit authorization. Report deferral as selected, not rebase as requested or completed unless that action was actually performed.
 
 **Actual LOW (or LOWEST)** → state the verdict, merge, run step 5 checks, log, and auto-advance only when the current user instruction explicitly authorizes that merge. Risk classification and invoking this skill do not substitute for required merge permission; otherwise ask for that permission via `ask` (Harness notes), including the branch summary and verdict (and offering to authorize either this branch or all LOW/LOWEST branches in the current drain).
 
@@ -165,7 +164,7 @@ A bot regenerates against its PR/MR target, not the checked-out feature branch. 
 - **stop** — exit the loop.
 
 When a user skips an update because of a persistent compatibility constraint, offer a narrowly
-scoped ignore rule in the existing Dependabot or Renovate configuration so the bot does not
+scoped ignore rule in the existing Dependabot configuration so the bot does not
 repeatedly propose it. Explain the constraint and preserve safe update types. Ask before editing;
 do not add ignores for temporary failures or branches deferred for rebase.
 
@@ -238,7 +237,7 @@ Then detect the stack from repo root files and **run** the matching checks (not 
 | `build.gradle*` | `./gradlew check -x test` |
 | `composer.json` | `composer validate && vendor/bin/phpstan analyse` (if configured) |
 | `mix.exs` | `mix compile --warnings-as-errors && mix credo` (if configured) |
-| Merge touched only `.github/workflows/`, `.gitlab-ci.yml`, or `Dockerfile` | Parse-check the changed CI files (`uv run --with pyyaml python -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"`, or `docker build --check`). Catches syntax breakage only — real verification is a pipeline run, so remind the user to watch CI after pushing. |
+| Merge touched only `.github/workflows/` or `Dockerfile` | Parse-check the changed CI files (`uv run --with pyyaml python -c "import yaml,glob; [yaml.safe_load(open(f)) for f in glob.glob('.github/workflows/*.yml')]"`, or `docker build --check`). Catches syntax breakage only — real verification is a pipeline run, so remind the user to watch CI after pushing. |
 | None of the above | Skip checks, tell the user. |
 
 When the bump is itself a test runner or browser driver (`@playwright/test`, `cypress`, `vitest`, `jest`), also run the suite that runner drives — even when the detected command omits it. An aggregate like `npm run ci` that excludes e2e reports green for the one dep that changed, leaving the bump's whole risk surface unexercised.
@@ -273,12 +272,12 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 ## Common pitfalls (ecosystem-agnostic unless noted)
 
 - **Hidden major bumps in lockfiles**: bot groupings can sneak a major version into a transitive dep. When risk-reading a grouped PR, scan the lockfile diff for `"version": "Y."` (npm), `version = "Y."` (Cargo / uv / poetry), or `vY.0.0` (go.sum) where Y is a new major, not just the top-level manifest deltas.
-- **npm + macOS lockfile bug** (project-specific gotcha — surfaces in some repos via their `AGENTS.md` or the harness's rules file): if a merged Renovate PR regenerated `package-lock.json` inside a Linux container, do **not** run `npm install` locally on macOS afterward — it can prune Linux-only optional deps and break CI. The lockfile from the PR is authoritative. If unsure, check that file for a note about this.
+- **npm + macOS lockfile bug** (project-specific gotcha — surfaces in some repos via their `AGENTS.md` or the harness's rules file): if a merged Dependabot PR regenerated `package-lock.json` inside a Linux container, do **not** run `npm install` locally on macOS afterward — it can prune Linux-only optional deps and break CI. The lockfile from the PR is authoritative. If unsure, check that file for a note about this.
 - **Python lockfile resolver drift**: `uv.lock` / `poetry.lock` are platform- and Python-version-aware. Regenerating locally on a different OS or interpreter can produce a different solution than the bot's. Don't re-resolve unless necessary (a lockfile conflict or a stale lock makes it necessary).
 - **Cargo `[patch]` / git deps**: a major bump that resolves through a `[patch.crates-io]` section can silently bypass the version constraint. Read `Cargo.toml` end-to-end on major bumps.
 - **Go minimum version module graph**: `go.mod` may bump indirect deps that other modules pin lower. After merging a `go.mod` change, `go mod tidy` may want to make further edits — don't blindly accept; verify with the user.
-- **Manifest-only bump, stale lockfile**: the branch changes `package.json` / `pyproject.toml` but the lockfile still pins the old version (giveaway: post-merge `npm ci` / `uv lock --check` fails with "lock out of sync" — note `uv sync --frozen` will *not* fail here, it just installs the stale pin). The bot's runner couldn't run the package manager (missing private-registry auth, blocked egress, or a repo-specific lockfile toolchain it lacks — e.g. a docker-pinned `npm run lockfile` that builds in a Linux container). You must regenerate the lock yourself mid-merge before checks pass, then fold it into the merge commit. The bot config can't be fixed from here — note it to the user (it's a runner-capability gap, not a `packageRules`/`postUpdateOptions` issue). If the repo has a docker-based lockfile script, daemon may be down (e.g. colima) — start it first.
-- **Lockfile regen blocked by a release-age policy**: if the repo sets `min-release-age` (`.npmrc`) or `exclude-newer` (uv/cargo `pyproject.toml`), regenerating the lock for a *fresh* major fails with `ETARGET … No matching version found for <pkg>@^N with a date before <date>` — the bump is newer than the age floor, and there may be no older release in that major to pin to. You can't complete the merge: the manifest wants vN but the lock can't move to it. **Don't bypass the guard** (it's a deliberate supply-chain defense). Revert the merge (`git reset --hard HEAD~1` — confirm with the user first), skip the branch, and let it age; the bot re-offers it once the version clears the window. Note the renovate-side fix: `minimumReleaseAge` **plus** `internalChecksFilter: "strict"` are both required to stop these surfacing early — `minimumReleaseAge` alone still creates the pending branch, which is how a too-new bump reaches triage in the first place.
+- **Manifest-only bump, stale lockfile**: the branch changes `package.json` / `pyproject.toml` but the lockfile still pins the old version (giveaway: post-merge `npm ci` / `uv lock --check` fails with "lock out of sync" — note `uv sync --frozen` will *not* fail here, it just installs the stale pin). The bot's runner couldn't run the package manager (missing private-registry auth, blocked egress, or a repo-specific lockfile toolchain it lacks — e.g. a docker-pinned `npm run lockfile` that builds in a Linux container). You must regenerate the lock yourself mid-merge before checks pass, then fold it into the merge commit. The bot config can't be fixed from here — note it to the user (it's a runner-capability gap). If the repo has a docker-based lockfile script, daemon may be down (e.g. colima) — start it first.
+- **Lockfile regen blocked by a release-age policy**: if the repo sets `min-release-age` (`.npmrc`) or `exclude-newer` (uv/cargo `pyproject.toml`), regenerating the lock for a *fresh* major fails with `ETARGET … No matching version found for <pkg>@^N with a date before <date>` — the bump is newer than the age floor, and there may be no older release in that major to pin to. You can't complete the merge: the manifest wants vN but the lock can't move to it. **Don't bypass the guard** (it's a deliberate supply-chain defense). Revert the merge (`git reset --hard HEAD~1` — confirm with the user first), skip the branch, and let it age; the bot re-offers it once the version clears the window. Note the Dependabot-side fix: configure `cooldown` in `.github/dependabot.yml`.
 - **`node_modules` poisons in-place lockfile regen**: `npm install --package-lock-only` reads the existing `node_modules/` for resolution context, so the *old* installed version anchors the resolver and emits phantom ERESOLVE conflicts (`Found: <pkg>@<old-version>` for a version nothing in the manifest requests). Regenerate from a clean state — `mv node_modules /tmp/stash` (or a temp dir with only the manifest), regen, restore. If a bump's lockfile won't resolve, test it in a clean dir before believing the conflict is real.
 - **Transitive→peer promotion in a major**: a major can move a bundled dep to a peer (e.g. `eslint-plugin-vue` 9→10 moved `vue-eslint-parser` from `dependencies` to `peerDependencies`). The bot bumps the parent but can't add the now-required peer — it was never in the manifest, so nothing to group or bump. Resolves on paper, then strict install fails on the unmet peer. Fix = manually add the peer (peer + dev) *with* the merge. On HIGH-risk majors, skim the changelog for "moved to peerDependencies" before merging. Beware OR-range peers the bot widens (`"^9 || ^10"`): the resolver can seat the *lower* major, dragging its old transitive peers into conflict — tighten to the major you actually adopt.
 - **Merging into a feature branch with unpushed commits**: harmless, but warn the user so they don't lose track of which merges are local vs pushed.
@@ -288,7 +287,7 @@ Do **not** push. Then **auto-advance**: move to the next non-redundant branch an
 After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a
 user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated.
 Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
-the skills repo source (`skills/triage-renovate-dependabot-prs/SKILL.md`), never the installed
+the skills repo source (`skills/triage-dependabot-prs/SKILL.md`), never the installed
 copy. If nothing fired, say nothing. Typical signals here: a bot-branch ecosystem or lockfile the
 post-merge checks didn't auto-detect, a risk-read pattern that recurred across branches, or a
 discovery quirk on this host/platform.

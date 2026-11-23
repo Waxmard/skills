@@ -43,7 +43,7 @@ PROTECTED_RE = re.compile(r"main|master|dev|develop|release/.*|staging")
 
 ROW_SKILL = {
     1: "tooling-sync", 2: "pr-review-toolkit", 3: "ponytail-review", 4: "test-audit",
-    5: "interface-review", 6: "docs-audit", 7: "triage-renovate-dependabot-prs",
+    5: "interface-review", 6: "docs-audit", 7: "triage-dependabot-prs",
 }
 EXTERNAL = {"ponytail-review", "ponytail-audit"}
 INLINE_TIER = "inline · fast+"
@@ -71,11 +71,6 @@ def git_ok(*args: str, cwd: str | Path | None = None) -> bool:
         ["git", *args], cwd=cwd, capture_output=True, text=True
     ).returncode == 0
 
-
-def bot_for(url: str) -> tuple[str, str]:
-    """(bot, branch pattern) for an origin URL: Dependabot on GitHub hosts, Renovate elsewhere."""
-    host = re.sub(r"^(\w+://)?([^@/]*@)?", "", url).split("/", 1)[0].split(":", 1)[0].lower()
-    return ("dependabot", "dependabot/*") if "github" in host else ("renovate", "renovate/*")
 
 
 def git_z(*args: str, cwd: str | Path) -> list[str]:
@@ -578,18 +573,16 @@ def collect_facts(top: str, missing: list[str]) -> dict:
             1 for e in emails
             if e.lower() != me.lower()
             and not (name and f"+{name}@users.noreply".lower() in e.lower())
-            and not re.search(r"\[bot\]|renovate|dependabot", e, re.I)
+            and not re.search(r"\[bot\]|dependabot", e, re.I)
         )
 
-    origin = git("remote", "get-url", "origin", cwd=top) if git_ok("remote", "get-url", "origin", cwd=top) else ""
-    bot, pattern = bot_for(origin)
     bot_branches = 0
     ls = subprocess.run(
-        ["git", "ls-remote", "--heads", "origin", pattern],
+        ["git", "ls-remote", "--heads", "origin", "dependabot/*"],
         cwd=top, capture_output=True, text=True,
     )
     if ls.returncode != 0:
-        notes.append(f"{bot} check failed: ls-remote error")
+        notes.append("dependabot check failed: ls-remote error")
     else:
         for line in ls.stdout.splitlines():
             b = line.split("\t", 1)[-1].removeprefix("refs/heads/") if "\t" in line else ""

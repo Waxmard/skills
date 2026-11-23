@@ -1,26 +1,26 @@
 ---
-name: post-mr-review
+name: post-pr-review
 description: >
   Use to post code-review findings from the current conversation as inline
-  GitLab MR comments after user confirmation. Dedupes against existing MR
-  threads, pins links to the MR head SHA, and adds suggestion blocks; never
+  GitHub PR comments after user confirmation. Dedupes against existing PR
+  threads, pins links to the PR head SHA, and adds suggestion blocks; never
   posts unconfirmed and never judges existing comments (use
-  address-review-comments). Trigger: "post these on the MR", "put the findings
-  as comments", "post the review", "leave these comments on the MR", or
-  /post-mr-review.
+  address-review-comments). Trigger: "post these on the PR", "put the findings
+  as comments", "post the review", "leave these comments on the PR", or
+  /post-pr-review.
 ---
 
-Turn review findings already in the conversation (from reviewer subagents or the user's own review) into posted GitLab MR discussions, iterating with the user on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
+Turn review findings already in the conversation (from reviewer subagents or the user's own review) into posted GitHub PR comments and review threads, iterating with the user on what to post: trim, reword, consolidate, drop. **Nothing is posted, edited, or reopened without an explicit per-post confirmation from the user in the current turn (see Confirm).** Never approve, merge, resolve, assign, commit, or push.
 
-GitLab only (`glab`).
+GitHub only (`gh`).
 
 ## Prerequisites & Required Tools
 
 Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
-- `glab`, logged in to the MR's host
-- `python3`, for `scripts/gitlab_mr.py` (MR fetches and posts)
+- `gh`, logged in (`gh auth status`)
+- `python3`, for `scripts/github_pr.py` (PR fetches and posts)
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
@@ -28,33 +28,33 @@ Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, 
 
 Before step 1, check the prerequisites:
 ```bash
-for t in git glab python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
-glab auth status >/dev/null 2>&1 || echo "glab: not logged in"
+for t in git gh python3; do command -v "$t" >/dev/null || echo "missing: $t"; done
+gh auth status >/dev/null 2>&1 || echo "gh: not logged in"
 ```
 If anything prints, stop and tell the user what to install or log in to.
 
 1. If the conversation has no review findings, stop and tell the user to run a review first. Do not run one yourself.
-2. Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" context` (`<skill-dir>` is the directory this SKILL.md was loaded from) with `--mr <iid>` if given, else `--branch <the branch that was reviewed>` (not necessarily HEAD). Exit 3: stop and relay stderr. If `fetched` is false, stop: anchors and links can't be checked locally.
-3. Compare the reviewed commit with `head_sha`. If they differ, tell the user the MR moved since the review and offer to re-check the findings against the new head before drafting. Line anchors and "still present" claims must be true at `head_sha`.
+2. Run `python3 -B "<skill-dir>/scripts/github_pr.py" context` (`<skill-dir>` is the directory this SKILL.md was loaded from) with `--pr <num>` if given, else `--branch <the branch that was reviewed>` (not necessarily HEAD). Exit 3: stop and relay stderr. If `fetched` is false, stop: anchors and links can't be checked locally.
+3. Compare the reviewed commit with `head_sha`. If they differ, tell the user the PR moved since the review and offer to re-check the findings against the new head before drafting. Line anchors and "still present" claims must be true at `head_sha`.
 
 ## Fetch existing discussions
 
-Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" discussions --mr <iid>`. This skill uses these record fields: `kind` (`me`, `bot`, `human`), `path`, `line`, `resolved`, `resolved_by`, `body`, `replies`, `after_me`, `pushed_after`, `url`.
+Run `python3 -B "<skill-dir>/scripts/github_pr.py" discussions --pr <num>`. This skill uses these record fields: `id`, `comment_id`, `surface`, `kind` (`me`, `bot`, `human`), `path`, `line`, `resolved`, `resolved_by`, `outdated`, `body`, `replies`, `after_me`, `url`.
 
-`after_me` counts non-system notes after the user's last note, so push notes don't count as replies.
+`after_me` counts replies after the user's last comment in the thread.
 
 ## Build the posting plan
 
 - **Dedupe.** For each finding, check whether an existing thread by anyone already raises the same issue. Same file or line is not enough; it must be the same problem. By default, drop already-raised findings and tell the user which thread covers each. If a thread raised it and the author "fixed" it wrongly, it is not a duplicate: reply in that thread.
 - **Follow-up rounds.** When the user's own earlier threads have author replies ("Fixed", "Acknowledged", "By design"), verify each claim against the code at `head_sha` before drafting. Mark each VERIFIED, PARTIAL, NOT FIXED, or WRONG-CLAIM. Only NOT FIXED and PARTIAL become posts. A reply that restates an earlier round's fix without addressing the new point counts as NOT FIXED. A thread resolved with no change and no reply counts as NOT FIXED.
-- **Human-resolved threads.** Before planning to reopen a thread that a human resolved (any author other than `me` or a reviewer bot), read the full thread: `resolved_by`, the resolving note, any "changed this line in version N" system note, and the code at `head_sha`. In the plan, under the table, give one line per such thread: who resolved it, why they most likely did (e.g. "applied the bot's suggestion verbatim", "replied By design", "resolved with no reply after a push"), and why that doesn't close our point (their fix answered a different question, it's incomplete, or the premise was wrong). If their resolution fully covers our point, drop the finding instead of reopening. Prefer replying in an unresolved thread on the same issue over reopening a resolved one.
-- **Green pipeline.** If the MR pipeline passed, name for each finding the CI job that should catch it and why it didn't (e.g. the Docker build deletes the lockfile, `lint:typecheck` only runs pyright). If no job could catch it, say so in the plan notes to the user, never in the posted body. Expect the user to ask "how is this a finding if CI passed?" and answer it before they do.
-- **Targets, in order:** (a) reply in an existing thread about the same code or issue, ours or a bot's; (b) a new inline diff comment; (c) the general MR comment. Fold related items into one post per thread or file to keep new MR interactions low. Items that can't anchor to the diff (unchanged files, docs outside the MR) go into a single general comment.
+- **Human-resolved threads.** Before planning to reopen a thread that a human resolved (any author other than `me` or a reviewer bot), read the full thread: `resolved_by`, the resolving reply, whether the thread is `outdated`, and the code at `head_sha`. In the plan, under the table, give one line per such thread: who resolved it, why they most likely did (e.g. "applied the bot's suggestion verbatim", "replied By design", "resolved with no reply after a push"), and why that doesn't close our point (their fix answered a different question, it's incomplete, or the premise was wrong). If their resolution fully covers our point, drop the finding instead of reopening. Prefer replying in an unresolved thread on the same issue over reopening a resolved one.
+- **Green checks.** If the PR checks passed, name for each finding the CI job that should catch it and why it didn't (e.g. the Docker build deletes the lockfile, `lint:typecheck` only runs pyright). If no job could catch it, say so in the plan notes to the user, never in the posted body. Expect the user to ask "how is this a finding if CI passed?" and answer it before they do.
+- **Targets, in order:** (a) reply in an existing thread about the same code or issue, ours or a bot's; (b) a new inline diff comment; (c) the general PR comment. Fold related items into one post per thread or file to keep new PR interactions low. Items that can't anchor to the diff (unchanged files, docs outside the PR) go into a single general comment.
 - **Present the plan as one table:**
 
   | # | Target | Labels | Effect line(s) |
   |---|---|---|---|
-  | 1 | thread `a1b2c3` `path:line` / new inline `path:line` / general | must-fix, nit | what the post leads with |
+  | 1 | thread `PRRT_...` `path:line` / new inline `path:line` / general | must-fix, nit | what the post leads with |
 
   Below it, list what was dropped and why: already raised (name the thread) or verified fixed.
 
@@ -87,13 +87,13 @@ Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" discussions --mr <iid>`. This
 - **Effect line (line 1):** bold, one sentence of at most ~15 words stating the **practical consequence**, not the code mechanism: what breaks, for whom, or what an attacker or user can now do ("Any private-network caller can list and call MCP tools without auth." not "The `/mcp/admin/` prefix check is too broad."). If the effect is conditional, append the condition in the same sentence ("…when `auth.mode` is on.").
 - **Cause block:** at most 2 sentences, with linked `file:line` references for any code outside the inline diff snippet being commented on. Don't restate the effect. When the effect lands outside the diffed file (another service, a consumer, a later job), trace the hops in one sentence with a link at each hop (`upload` → `_move` → clean bucket) instead of citing only the diffed line.
 - **Fix line:** `**Fix:**` plus one line of prose or inline code, or a suggestion block in its place when one applies. Omit only when the fix is genuinely "decide X", and then state the decision needed.
-- **Evidence block:** omit by default. Include only observed output the body does not already state: a repro table from a run, command or test output, a log excerpt. Restated rules or code, "not reproduced" disclaimers, and CI-green reasoning are not evidence. Never add the block just to have one. When included, collapse it in `<details><summary>Evidence</summary>` with blank lines inside the tags so GitLab renders the markdown. Never put long evidence in the visible body. For a command you ran, put the exact command line above its raw output.
+- **Evidence block:** omit by default. Include only observed output the body does not already state: a repro table from a run, command or test output, a log excerpt. Restated rules or code, "not reproduced" disclaimers, and CI-green reasoning are not evidence. Never add the block just to have one. When included, collapse it in `<details><summary>Evidence</summary>` with blank lines inside the tags so GitHub renders the markdown. Never put long evidence in the visible body. For a command you ran, put the exact command line above its raw output.
 - **Budget:** the visible body of each finding (excluding `<details>`, suggestion blocks, and suggested commit message blocks) stays at or under ~60 words. Over budget → cut the cause block first.
 - **Several findings in one post:** separate with a line containing only `---`, blank lines around it, ordered by label severity.
 - **Several nits in one post:** one bold effect line `**<n> small cleanups.**`, then one bullet per nit: `<what> [file:line](…): <fix>`. No cause blocks for nits.
 - **Follow-up replies** in an existing thread start with a one-line status before the template: `Still present at `<short_sha>`.`, `Half fixed: <done part> is in; <open part> is not.`, or `Resolved without a change.` The template for the remaining finding follows. Never re-explain what the thread already says; "see above" at most.
-- **File links** pin to `head_sha`: `[<file>:<a>-<b>](https://<host>/<project_path>/-/blob/<head_sha>/<path>#L<a>-<b>)`. Inline the link directly after the phrase it supports; never wrap it in parentheses. Deleted files or removed code pin to `base_sha`. Omit `file:line` links when the referenced line is already visible in the inline diff snippet the comment is posted on; link every other `file:line` reference and referenced symbol definition you can locate. Before posting, verify each linked line with `git show <sha>:<path>` and check the content matches the claim.
-- **Suggestion blocks** (```` ```suggestion:-0+N ````) only for mechanical replacements on new inline comments anchored at `head_sha`: delete a line, swap an import, change a literal. Match source indentation exactly and stay within the repo line length (`line-length` in `pyproject.toml`). When one suggestion depends on another (e.g. an import), say so in both comments. Never put suggestions in replies to existing threads; they apply to the thread's original, possibly shifted, line. After every `suggestion` block (separated by one blank line, and before any `<details><summary>Evidence</summary>` block), append a copyable Conventional Commit message block honoring the target repo's `.git-ai-instructions` or commit conventions when present (widen the fence to ```` ```` ```` if the commit message contains triple backticks):
+- **File links** pin to `head_sha`: `[<file>:<a>-<b>](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)`. Inline the link directly after the phrase it supports; never wrap it in parentheses. Deleted files or removed code pin to `base_sha`. Omit `file:line` links when the referenced line is already visible in the inline diff snippet the comment is posted on; link every other `file:line` reference and referenced symbol definition you can locate. Before posting, verify each linked line with `git show <sha>:<path>` and check the content matches the claim.
+- **Suggestion blocks** (```` ```suggestion ````) only for mechanical replacements on new inline comments anchored at `head_sha`: delete a line, swap an import, change a literal. For multi-line replacements, set `"start_line"` and `"line"` in the inline spec item so GitHub applies the suggestion across `start_line..line`. Match source indentation exactly and stay within the repo line length (`line-length` in `pyproject.toml`). When one suggestion depends on another (e.g. an import), say so in both comments. Never put suggestions in replies to existing threads; they apply to the thread's original, possibly shifted, line. After every `suggestion` block (separated by one blank line, and before any `<details><summary>Evidence</summary>` block), append a copyable Conventional Commit message block honoring the target repo's `.git-ai-instructions` or commit conventions when present (widen the fence to ```` ```` ```` if the commit message contains triple backticks):
 
   ````
   **Suggested commit message:**
@@ -106,22 +106,22 @@ Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" discussions --mr <iid>`. This
 
 ## Confirm
 
-- Before asking, write the agreed drafts as a spec file (format in Post) in `$(mktemp -d)` and run `gitlab_mr.py post <spec> --mr <iid>` without `--apply`. Fix every reported item (move a line that's not in the diff to the general comment or a nearby changed line) before showing the questions.
+- Before asking, write the agreed drafts as a spec file (format in Post) in `$(mktemp -d)` and run `python3 -B "<skill-dir>/scripts/github_pr.py" post <spec> --pr <num>` without `--apply`. Fix every reported item (move a line that's not in the diff to the general comment or a nearby changed line) before showing the questions.
 - Ask the user in one call with one question per post, using the harness's structured question tool directly (see Harness notes), never from inside a shell command or script execution whose timeout can kill the prompt and the drafts. The question text names the target thread or line and repeats the effect line. Options: `Post` (with the full body as the option preview where the tool supports one, otherwise in the question text; markdown links collapsed to plain `` `file:line` ``, `<details>` shown expanded) and `Skip`.
 - If any target thread is resolved, add one question "Reopen threads I reply in?" with options `Reopen` and `Leave resolved`. For threads a human resolved, repeat in the question text who resolved it and why (from the plan line), so the reopen decision is made with that context.
 - Post only items answered `Post`. If the user answers with edits ("Other"), revise and re-ask for just that item.
 
 ## Post
 
-Write a spec JSON file with only the items answered `Post`, plus a `reopen` item per thread when `Reopen` was confirmed. Add an `edit` item only when the user asked to edit a posted note; take `note_id` from the `discussions` output's `note_id` or `replies[].id`, matched by body text. The spec is a list of items:
+Write a spec JSON file with only the items answered `Post`, plus a `reopen` item per thread when `Reopen` was confirmed. Add an `edit` item only when the user asked to edit a posted comment; take `comment_id` from the `discussions` output's `comment_id` or `replies[].id`, matched by body text (and set `"surface": "issue"` for a general PR conversation comment). The spec is a list of items:
 
-- `{"kind": "inline", "path": "<new path>", "line": <int>, "body": "..."}`; add `"side": "old"` to anchor a deleted line by its old path and old line.
-- `{"kind": "reply", "discussion_id": "<id>", "body": "..."}`
+- `{"kind": "inline", "path": "<new path>", "line": <int>, "body": "..."}`; add `"side": "old"` to anchor a deleted or old-side context line by its old path and old line, and `"start_line": <int>` (with `start_line < line`) for a multi-line range or suggestion block.
+- `{"kind": "reply", "comment_id": <int>, "body": "..."}`
 - `{"kind": "general", "body": "..."}`
-- `{"kind": "reopen", "discussion_id": "<id>"}`
-- `{"kind": "edit", "discussion_id": "<id>", "note_id": <int>, "body": "..."}`
+- `{"kind": "reopen", "thread_id": "<id>"}`
+- `{"kind": "edit", "comment_id": <int>, "body": "..."}`; add `"surface": "issue"` for a general conversation comment.
 
-Run `python3 -B "<skill-dir>/scripts/gitlab_mr.py" post <spec> --mr <iid> --apply` and report its table. Exit 1: report its output verbatim.
+Run `python3 -B "<skill-dir>/scripts/github_pr.py" post <spec> --pr <num> --apply` and report its table. Exit 1: report its output verbatim.
 
 ## Report
 
@@ -138,7 +138,6 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 ## Common pitfalls
 
 - **Stale author replies**: replies often answer the previous round ("handlers now called at 3 sites") instead of the new point. Verify against code, not the reply.
-- **Remote CI components** (`component: $CI_SERVER_FQDN/<group>/<project>/<name>@<ref>`) can be read without cloning: `glab api "projects/<url-encoded group/project>/repository/files/templates%2F<name>.yml/raw?ref=<ref>"` (list with `repository/tree?ref=<ref>&recursive=true`). Read the component's rules before calling a `needs:` or job-presence risk unverified.
 - **Bot "looks good"** summaries are not verification.
 - **Throwaway repros** go in a `git worktree add /tmp/<name> <sha>` checkout with `uv sync`. Remove it afterwards with `git worktree remove --force`.
 
@@ -146,10 +145,10 @@ A table of what was posted (# / target / labels / gist), the threads reopened, a
 
 | Step says | omp | Claude Code | Other agents |
 |---|---|---|---|
-| invoke with args | `/skill:post-mr-review <args>` | `/post-mr-review <args>` | first message |
+| invoke with args | `/skill:post-pr-review <args>` | `/post-pr-review <args>` | first message |
 | ask the user | `ask` tool | AskUserQuestion | plain-text question |
 | run the script | `bash` tool (not `eval`) | the shell | the shell |
 
 ## Retro
 
-After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated. Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in the skills repo source (`skills/post-mr-review/SKILL.md`), never the installed copy. If nothing fired, say nothing. Signals specific to this skill: a thread type, bot format, or GitLab position/API quirk the pitfalls miss; drafts the user rewrote in a consistent direction; or an override of the dedupe/target rules.
+After the run, propose an edit to this skill only on real signal: a case these steps didn't cover, a user correction or repeated instruction, a wrong or stale step, or a manual workaround you repeated. Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in the skills repo source (`skills/post-pr-review/SKILL.md`), never the installed copy. If nothing fired, say nothing. Signals specific to this skill: a thread type, bot format, or GitHub position/API quirk the pitfalls miss; drafts the user rewrote in a consistent direction; or an override of the dedupe/target rules.

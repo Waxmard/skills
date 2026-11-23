@@ -47,19 +47,11 @@ class Redundancy(unittest.TestCase):
         self.assertIsNone(r.redundancy(ch, head))
 
 
-class Bot(unittest.TestCase):
-    def test_host_picks_bot(self):
-        cases = [
-            ("git@github.com:u/r.git", "dependabot"),
-            ("https://github.com/u/r", "dependabot"),
-            ("https://user:tok@github.example.com/u/r.git", "dependabot"),
-            ("git@gitlab.com:org/github-mirror.git", "renovate"),
-            ("ssh://git@gitlab.example.com:2222/g/r.git", "renovate"),
-            ("", "renovate"),
-        ]
-        for url, want in cases:
-            with self.subTest(url=url):
-                self.assertEqual(r.bot_for(url)[0], want)
+class Filters(unittest.TestCase):
+    def test_infra_and_onboarding(self):
+        self.assertTrue(r.INFRA_RE.search(".github/workflows/ci.yml"))
+        self.assertFalse(r.INFRA_RE.search("README.md"))
+        self.assertEqual(r.ONBOARDING_FILES, {"dependabot.yml", "dependabot.yaml"})
 
 
 if __name__ == "__main__":

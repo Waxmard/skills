@@ -1,10 +1,10 @@
 ---
 name: wrap-up
 description: >
-  Use at the end of a branch, before opening or merging a PR or MR, or for a
+  Use at the end of a branch, before opening or merging a PR, or for a
   "repo spa day" pre-merge checklist. Runs pr-review-toolkit and selects which
   of tooling-sync, ponytail-review, test-audit, docs-audit, interface-review,
-  and triage-renovate-dependabot-prs to run, then fixes findings behind commit
+  and triage-dependabot-prs to run, then fixes findings behind commit
   gates. Trigger: "wrap up this branch", "I'm done with this branch", "end of
   branch", "pre-merge checklist", "ready to merge", "repo spa day", or
   /wrap-up.
@@ -164,10 +164,10 @@ Inline rows:
 
    1. **Run any follow-up installs** tooling-sync flagged (e.g. `npm i -D @commitlint/cli
       @commitlint/config-conventional`, `lefthook install`). These you *may* run — they're not
-      commits. Surface anything else (CI secrets, GitLab approval toggles) as a reminder. Before
+      commits. Surface anything else (CI secrets, branch protection / approval toggles) as a reminder. Before
       calling a follow-up blocked on private-registry credentials, check the tokens already in the
-      environment (e.g. `UV_INDEX_<NAME>_PASSWORD="$GITLAB_TOKEN" uv lock`; `glab auth status`
-      shows where glab's token comes from).
+      environment (e.g. `UV_INDEX_<NAME>_PASSWORD="$GH_TOKEN" uv lock`; `gh auth status`
+      or env vars show what is configured).
    2. **Stop and wait for the user to commit** the tooling-sync changes whenever `tooling-sync`
       modified the working tree (`git status --short` differs from `baseline`). Show
       `git status --short` and suggest a commit subject (`chore: sync repo tooling with mw-kit`).
@@ -185,7 +185,7 @@ Inline rows:
 
    Only continue to the review wave once the tree matches `baseline`. If tooling-sync produced no
    changes, there's nothing to commit, so proceed immediately.
-2. `triage-renovate-dependabot-prs`: load skill `triage-renovate-dependabot-prs` and follow
+2. `triage-dependabot-prs`: load skill `triage-dependabot-prs` and follow
    it in row 7's mode (`lean`, `default`, or `full`). It owns discovery, the per-branch risk read, the per-merge confirmation gate, post-merge
    checks, and the never-push rule. Don't second-guess its prompts: let it drive. When
    triage offers fix / revert / accept after a failed check, recommend **fix in place**. Revert
@@ -200,7 +200,7 @@ Inline rows:
    - Blocked: <row: skill — the gate that stopped it>, …   (omit line if none)
    - Fixes: <N fixed, M skipped/declined> (Gate F)
    - Tree: clean | <N uncommitted files — commit before pushing>
-   - Next: push is yours (`git push`), then open the MR/PR.
+   - Next: push is yours (`git push`), then open the PR.
    ```
 
 ## Hard rules
@@ -214,7 +214,7 @@ Inline rows:
 - **Never dump multiple review reports or cross-phase decisions in one turn.** Present and resolve
   rows 2–6 one report at a time in row order.
 - **Don't duplicate the underlying skills.** If `pr-review-toolkit`, `ponytail-review`,
-  `test-audit`, `docs-audit`, `interface-review`, `tooling-sync` or `triage-renovate-dependabot-prs`
+  `docs-audit`, `interface-review`, `tooling-sync` or `triage-dependabot-prs`
   behavior needs changing, edit that skill — not this wrapper.
 - **Every skill can still run alone.** This is only the convenience path; it adds no
   review/sync/merge logic the seven don't already have. Its own behavior is limited to ordering,
@@ -243,4 +243,4 @@ A pre-flight verdict that was wrong (RUN on a skill that found nothing useful, o
 user ran anyway and it mattered) is a signal to adjust that row's threshold. A tier that was wrong
 (a `fast` review missed something a `strong` re-run caught) is a signal to move that row's default
 tier up. If the change belongs in `pr-review-toolkit`, `ponytail-review`, `test-audit`,
-`docs-audit`, `interface-review`, `tooling-sync` or `triage-renovate-dependabot-prs`, point there instead.
+`docs-audit`, `interface-review`, `tooling-sync` or `triage-dependabot-prs`, point there instead.

@@ -61,10 +61,6 @@ class Verdicts(unittest.TestCase):
         self.assertTrue(v["why"].startswith("1 live tools"))
         self.assertTrue(v["why"].endswith("(lean: pick by number to include)"))
 
-    def test_bot_from_origin_host(self):
-        self.assertEqual(w.bot_for("git@github.com:u/r.git"), ("dependabot", "dependabot/*"))
-        self.assertEqual(w.bot_for("git@gitlab.com:org/github-mirror.git"), ("renovate", "renovate/*"))
-
 
 def run_rows(reply, **kw):
     f = facts(**kw)

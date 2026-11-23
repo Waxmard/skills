@@ -1,23 +1,23 @@
 ---
 name: pr-review-toolkit
 description: >-
-  Use when reviewing a PR, MR, branch diff, or local changes for bugs,
+  Use when reviewing a PR, branch diff, or local changes for bugs,
   regressions, silent failures, test gaps, and broken callers (lean, default,
   or full mode). Single-pass code review; not for judging existing review
-  comments (address-review-comments) or posting findings (post-mr-review).
-  Trigger: "review this PR", "review this MR", "review my branch", "review the
+  comments (address-review-comments) or posting findings (post-pr-review).
+  Trigger: "review this PR", "review my branch", "review the
   diff", "code review", "check my changes before opening a PR", or
   /pr-review-toolkit.
 ---
 
-Review a Merge Request (GitLab), Pull Request (GitHub), or local branch diff in one pass. Read the diff once and open other code only to confirm or rule out a suspected finding.
+Review a Pull Request (GitHub) or local branch diff in one pass. Read the diff once and open other code only to confirm or rule out a suspected finding.
 
 ## Prerequisites & Required Tools
 
 Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
-- `glab` (GitLab MR source) or `gh` (GitHub PR source), logged in; not needed for a local branch review
+- `gh` (GitHub PR source), logged in; not needed for a local branch review
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
@@ -27,17 +27,11 @@ Before step 1, check the prerequisites:
 ```bash
 command -v git >/dev/null || echo "missing: git"
 ```
-Missing git: stop. For an MR/PR source, step 2 needs `glab` or `gh` installed and logged in (`glab auth status` / `gh auth status`); if it isn't, use the Local Branch diff source and say once that the MR/PR diff was skipped and why.
+Missing git: stop. For a PR source, step 2 needs `gh` installed and logged in (`gh auth status`); if it isn't, use the Local Branch diff source and say once that the PR diff was skipped and why.
 
 1. Confirm repo: `git rev-parse --git-dir`
 2. Resolve the mode. Take it from the invocation args or the caller's instructions (`mode: <x>`): `lean`, `default`, or `full`. None given: `default`. Remove the mode word before reading the other args.
 3. Determine the diff source:
-   - **GitLab MR**: if in a GitLab repo or `--mr <iid>` is provided:
-     ```bash
-     glab mr diff
-     # or fetch metadata:
-     glab mr view --output json
-     ```
    - **GitHub PR**: if in a GitHub repo or `--pr <num>` is provided:
      ```bash
      gh pr diff
@@ -54,7 +48,7 @@ Missing git: stop. For an MR/PR source, step 2 needs `glab` or `gh` installed an
    A caller-pinned range (for example `<from>..<to>`) overrides all three.
 4. List the changed files before reading any diff: `git diff --numstat <range>`. Exclude machine-authored paths and name them in the report header: lockfiles (`*.lock`, `package-lock.json`, `pnpm-lock.yaml`, `go.sum`), snapshots (`__snapshots__/`, `*.snap`), generated or minified output (`dist/`, `build/`, `coverage/`, `*.min.*`, `*.map`, `*.gen.*`, `*.generated.*`), vendored code (`vendor/`, `third_party/`, `node_modules/`), and binaries. Then read the diff of the remaining files once, passing them as pathspecs.
 5. Read project rules: the root `AGENTS.md` (or `CLAUDE.md` / `GEMINI.md` when there is no `AGENTS.md`). In `default` and `full`, also read any of those files in a directory that contains a changed file.
-6. **Memo** (`lean` and `default` only). Skip this step entirely, with no snapshot and no memo read or write, when the mode is `full`, when the caller names an exact range to review (for example, a pinned `<from>..<to>` range), or when the current branch isn't the MR/PR head branch (`source_branch` / `headRefName`). Otherwise take a snapshot of the working tree:
+6. **Memo** (`lean` and `default` only). Skip this step entirely, with no snapshot and no memo read or write, when the mode is `full`, when the caller names an exact range to review (for example, a pinned `<from>..<to>` range), or when the current branch isn't the PR head branch (`headRefName`). Otherwise take a snapshot of the working tree:
    ```bash
    top=$(git rev-parse --show-toplevel)
    idx=$(mktemp)
@@ -62,7 +56,7 @@ Missing git: stop. For an MR/PR source, step 2 needs `glab` or `gh` installed an
    GIT_INDEX_FILE="$idx" git -C "$top" add -A
    tree=$(GIT_INDEX_FILE="$idx" git -C "$top" write-tree)
    rm -f "$idx"
-   base=origin/<target_branch|baseRefName>   # MR/PR target branch; local branch: origin/main, else origin/master
+  base=origin/<baseRefName>   # PR target branch; local branch: origin/main, else origin/master
    mb=$(git merge-base HEAD "$base")
    ```
    The memo is `$(git rev-parse --git-path pr-review-toolkit)/<branch>/`: `state` holds `tree` and `mb` lines, and `findings.md` holds the last report verbatim. Review the whole range if any of these is true:
@@ -123,7 +117,7 @@ Rules for every check:
 ## 4. Output Format
 
 ```markdown
-# MR/PR Review Summary
+# PR Review Summary
 
 Mode: <lean|default|full> · <full|delta> · <N> files vs <base> · excluded: <paths or "none">
 
@@ -156,4 +150,4 @@ After printing the report (unless step 1.6 was skipped), write the memo. Fill in
 
 ## 5. Hard Rules
 
-- **Read-only**: Never edit working-tree files, commit, push, or approve/merge MR/PRs automatically. The only write is the memo under `.git` (step 1.6).
+- **Read-only**: Never edit working-tree files, commit, push, or approve/merge PRs automatically. The only write is the memo under `.git` (step 1.6).

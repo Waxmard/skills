@@ -20,8 +20,7 @@ Get the repo's Semgrep and Trivy CI jobs back to green with the smallest correct
 Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
-- `gh`, logged in (Step 1 looks up Semgrep and Trivy releases with `gh api`, on any forge; GitHub repos also read run logs with it)
-- `glab`, logged in, and `jq`, for GitLab CI logs
+- `gh`, logged in (looks up Semgrep and Trivy releases with `gh api` and reads GitHub Actions run logs)
 - `semgrep`, for repos with Semgrep jobs (or `docker` to run the pinned `semgrep/semgrep` image)
 - `trivy` at the CI-pinned version, or `docker` to run the pinned trivy image, for repos with Trivy jobs
 - `docker`, for `trivy image` jobs that need a local build
@@ -38,9 +37,6 @@ for t in git gh; do command -v "$t" >/dev/null || echo "missing: $t"; done
 gh auth status >/dev/null 2>&1 || echo "gh: not logged in"
 command -v semgrep >/dev/null || command -v docker >/dev/null || echo "missing: semgrep (or docker)"
 command -v trivy >/dev/null || command -v docker >/dev/null || echo "missing: trivy (or docker)"
-# GitLab repos only:
-for t in glab jq; do command -v "$t" >/dev/null || echo "missing: $t"; done
-glab auth status >/dev/null 2>&1 || echo "glab: not logged in"
 ```
 If a required tool for the repo's scanners prints as missing, stop and tell the user what to install or log in to. Check `docker` and the package manager when a step first needs them; if one is missing then, stop and name it.
 
@@ -51,15 +47,8 @@ If a required tool for the repo's scanners prints as missing, stop and tell the 
    Note each job's exact command:
    - **Semgrep**: subcommand (`semgrep ci` or `semgrep scan`), `SEMGREP_RULES` or `--config` packs, `--exclude-rule` flags, and whether `--sarif --output=...` is set.
    - **Trivy**: subcommand (`fs`/`image`/`config`), `--scanners`, `--severity`, `--ignorefile`, `--exit-code`, env vars (such as `TRIVY_INCLUDE_DEV_DEPS`), and target. Note both PR-gate steps (often `severity: CRITICAL`) and non-PR SARIF steps (often `severity: CRITICAL,HIGH,MEDIUM` without `exit-code: '1'`), which still surface findings in the Security tab on merge.
-2. Get the failing job logs. Use the job IDs the user gave you, or the latest pipeline/run for `HEAD`:
-   - GitLab (check jobs even when the pipeline status is `success`, because `trivy-image` may run with `allow_failure: true`):
-     ```bash
-     pipeline_id=$(glab api "projects/:id/pipelines?sha=$(git rev-parse HEAD)&per_page=1" | jq -r '.[0].id // empty')
-     [ -n "$pipeline_id" ] || pipeline_id=$(glab api "projects/:id/pipelines?per_page=1" | jq -r '.[0].id')
-     glab api "projects/:id/pipelines/${pipeline_id}/jobs?per_page=100" | jq -r '.[] | select(.status=="failed") | "\(.id) \(.name) allow_failure=\(.allow_failure)"'
-     ```
-     Download each failed job's trace once to `/tmp/job-<job_id>.log` (`glab api "projects/:id/jobs/<job_id>/trace" > "/tmp/job-${job_id}.log"`) and keep the file until Step 3 finishes so follow-up checks read `/tmp/job-<job_id>.log` locally instead of re-fetching via `glab api`. `glab ci view` needs a TTY, so don't use it.
-   - GitHub: `gh run list --branch "$(git branch --show-current)" --limit 5`, then save the failed log once to `/tmp/job-<job_id>.log` (`gh run view <run_id> --log-failed > "/tmp/job-${run_id}.log"`) and keep it until Step 3 finishes.
+2. Get the failing job logs. Use the job IDs the user gave you, or the latest run for `HEAD`:
+   Run `gh run list --branch "$(git branch --show-current)" --limit 5`, then save the failed log once to `/tmp/job-<job_id>.log` (`gh run view <run_id> --log-failed > "/tmp/job-${run_id}.log"`) and keep it until Step 3 finishes.
    Filter the logs by scanner:
    - **Semgrep logs**: Check the summary (`Findings: N (N blocking)`) and the diff-scan merge base (`Using <sha> as the merge-base`). When CI runs `semgrep ci --sarif --output=semgrep.sarif`, Semgrep writes the finding details only to the SARIF file and omits the finding rows from the job log. Replay the command locally without `--sarif --output=...` (Step 2a) to print the exact rule IDs, files, and line numbers.
    - **Trivy logs**: Don't read the raw log; image-job summaries can run to hundreds of KB. Filter `/tmp/job-<job_id>.log`:
@@ -87,7 +76,7 @@ If the CI log hid the finding rows behind `--sarif --output=...`, run Semgrep lo
 ```bash
 # PR diff scan (matches semgrep ci in GitHub Actions):
 SEMGREP_RULES="<packs from workflow>" semgrep ci --baseline-commit=<merge_base> <CI --exclude-rule flags>
-# Full repo scan (catches findings outside the baseline diff or on GitLab):
+# Full repo scan (catches findings outside the baseline diff):
 semgrep scan --error --config <pack1> --config <pack2> <CI --exclude-rule flags> .
 ```
 

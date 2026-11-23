@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pre-flight and per-branch discovery for the triage-renovate-dependabot-prs skill.
+"""Pre-flight and per-branch discovery for the triage-dependabot-prs skill.
 
 Usage: bot_branches.py [--allow-protected]
 Run inside the repo; prints one JSON object. Stdlib only.
@@ -17,6 +17,8 @@ import sys
 from pathlib import Path
 
 PROTECTED_RE = re.compile(r"main|master|dev|develop|release/.*|staging")
+BOT = "dependabot"
+BRANCH_PATTERN = "dependabot/*"
 ECOSYSTEMS = [
     ("package-lock.json", "npm", "npm"), ("pnpm-lock.yaml", "pnpm", "pnpm"),
     ("yarn.lock", "yarn", "yarn"), ("uv.lock", "uv", "uv"),
@@ -29,19 +31,16 @@ JS_LOCKS = ("package-lock.json", "pnpm-lock.yaml", "yarn.lock")
 MANIFESTS = [
     "package.json", "composer.json", "pyproject.toml", "requirements*.txt", "Pipfile",
     "Cargo.toml", "go.mod", "Gemfile", "build.gradle*", "mix.exs", "Dockerfile*",
-    "docker-compose.*", "Containerfile", ".gitlab-ci.yml", ".github/workflows/*.yml",
+    "docker-compose.*", "Containerfile", ".github/workflows/*.yml",
     ".github/workflows/*.yaml",
 ]
 LOCKFILES = {
     "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "uv.lock", "poetry.lock", "Cargo.lock",
     "go.sum", "Gemfile.lock", "composer.lock", "mix.lock", "gradle.lockfile", "Pipfile.lock",
 }
-ONBOARDING_FILES = {
-    "renovate.json", "renovate.json5", ".renovaterc", ".renovaterc.json",
-    "dependabot.yml", "dependabot.yaml",
-}
+ONBOARDING_FILES = {"dependabot.yml", "dependabot.yaml"}
 INFRA_RE = re.compile(
-    r"(^|/)(\.gitlab-ci\.yml|\.github/workflows/[^/]+\.ya?ml|Dockerfile[^/]*|docker-compose\.[^/]+|Containerfile)$"
+    r"(^|/)(\.github/workflows/[^/]+\.ya?ml|Dockerfile[^/]*|docker-compose\.[^/]+|Containerfile)$"
 )
 BUILD_RE = re.compile(
     r"(^|/)(tsconfig[^/]*\.json|vite\.config\.[^/]+|webpack\.config\.[^/]+|eslint\.config\.[^/]+"
@@ -63,7 +62,6 @@ DEP_RES = [
         re.compile(r"^\s*FROM\s+(?:--platform=\S+\s+)?([^\s:@]+)((?::[^\s@]+)?(?:@sha256:[0-9a-f]+)?)"),
     ),
     (None, re.compile(r"""^\s*-?\s*image:\s*["']?([^\s:@"']+)[:@]([^\s"']+)""")),
-    (None, re.compile(r"^\s*-?\s*component:\s*(\S+)@(\S+)")),
     (None, re.compile(r"""^\s*-?\s*uses:\s*["']?([\w.\-]+/[\w.\-/]+)@([^\s#"']+)""")),
     (None, re.compile(r"""^\s*gem\s+["']([^"']+)["']\s*,\s*["']([^"']+)""")),
     (None, re.compile(r'\{:(\w+),\s*"([^"]+)"')),
@@ -82,11 +80,6 @@ def git_ok(*args: str, cwd: str | Path | None = None) -> bool:
         ["git", *args], cwd=cwd, capture_output=True, text=True
     ).returncode == 0
 
-
-def bot_for(url: str) -> tuple[str, str]:
-    """(bot, branch pattern) for an origin URL: Dependabot on GitHub hosts, Renovate elsewhere."""
-    host = re.sub(r"^(\w+://)?([^@/]*@)?", "", url).split("/", 1)[0].split(":", 1)[0].lower()
-    return ("dependabot", "dependabot/*") if "github" in host else ("renovate", "renovate/*")
 
 
 def parse_dep_line(path: str, line: str):
@@ -244,7 +237,7 @@ def branch_entry(top: str, b: str, notes: list[str]) -> dict:
         "lockfile_only": bool(files) and all(x in LOCKFILES for x in bases),
         "touches_infra": any(INFRA_RE.search(f) for f in files),
         "touches_build_config": any(BUILD_RE.search(f) for f in files),
-        "onboarding": b == "renovate/configure" or (bool(bases) and all(x in ONBOARDING_FILES for x in bases)),
+        "onboarding": bool(bases) and all(x in ONBOARDING_FILES for x in bases),
         "conflicts": predict_conflicts(top, r, notes),
         "small_diff": added + deleted < 200,
         "redundant": redundancy(changes, head_texts),
@@ -274,9 +267,8 @@ def run(allow_protected: bool) -> int:
         notes.append("fetch failed: using cached remote refs")
     ecosystems, missing_tools = detect_ecosystems(Path(top))
 
-    bot, pattern = bot_for(git("remote", "get-url", "origin", cwd=top))
     ls = subprocess.run(
-        ["git", "ls-remote", "--heads", "origin", pattern],
+        ["git", "ls-remote", "--heads", "origin", BRANCH_PATTERN],
         cwd=top, capture_output=True, text=True,
     )
     if ls.returncode != 0:
@@ -303,7 +295,7 @@ def run(allow_protected: bool) -> int:
         drift = out.splitlines()
 
     print(json.dumps({
-        "branch": branch, "bot": bot, "target_hint": target_hint, "notes": notes, "ecosystems": ecosystems,
+        "branch": branch, "bot": BOT, "target_hint": target_hint, "notes": notes, "ecosystems": ecosystems,
         "missing_tools": missing_tools, "merged": merged, "branches": branches, "drift": drift,
     }, indent=2))
     return 0

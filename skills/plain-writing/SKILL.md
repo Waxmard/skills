@@ -3,7 +3,7 @@ name: plain-writing
 description: >-
   Use when drafting, rewriting, or simplifying prose a person will read:
   Slack/Jira/email messages, status/sprint updates, customer notes, slides,
-  wiki pages, PR/MR comments, and review write-ups. Keeps text plain, short,
+  wiki pages, PR comments, and review write-ups. Keeps text plain, short,
   sourced, and ready to send; for repo docs (READMEs, CHANGELOGs, API docs),
   load docs-style. Trigger: "write this up", "draft a message", "for Slack",
   "for the slide", "make this simpler", "too wordy", "reword", or
@@ -18,7 +18,7 @@ The goal is text the user can send on the first try. Every rule here comes from 
 
 1. **Know the reader.** Who reads it (customer, lead, teammate, the user in chat), and what they do with it (decide, approve, learn, present). Write for that reader, not for the engineer who did the work.
 2. **Know the channel.** Pick the preset below. If the text will be pasted somewhere, ask where unless it's obvious.
-3. **Check every fact.** Correctness beats everything else. Verify each claim (counts, dates, names, who did what, what shipped where) against the source: code, tickets, PRs/MRs, logs, or the user's own notes. If you can't verify a claim, cut it or mark it as unverified. Never round up a claim to sound better.
+3. **Check every fact.** Correctness beats everything else. Verify each claim (counts, dates, names, who did what, what shipped where) against the source: code, tickets, PRs, logs, or the user's own notes. If you can't verify a claim, cut it or mark it as unverified. Never round up a claim to sound better.
 
 ## Rules
 
@@ -51,7 +51,7 @@ The goal is text the user can send on the first try. Every rule here comes from 
 18. Use bullets for sets of facts and numbered lists for steps or ranked items. Start each bullet with a 1 to 3 word **bold label** followed by a colon when the list has more than three items or will be scanned.
 19. Use bold only for labels and for the few numbers or phrases that carry the message. Bold scattered through sentences reads as noise.
 20. Use inline code only for literal identifiers someone will copy (paths, commands, config values). Write product names as plain text.
-21. Write links as descriptive text, never "here" or "this link". Link every ticket, epic, PR/MR, and file reference when the channel renders links, and never wrap tracker refs (`#123`, `&28`, `KEY-123`) in backticks (which breaks auto-linking). Reference timeboxes, boards, or groupings only by a link or the exact label shown in the tracker UI, never by hidden API fields (such as turning GitLab `iteration.sequence` into "Sprint 3").
+21. Write links as descriptive text, never "here" or "this link". Link every ticket, epic, PR, and file reference when the channel renders links, and never wrap tracker refs (`#123`, `KEY-123`) in backticks (which breaks auto-linking). Reference timeboxes, boards, or groupings only by a link or the exact label shown in the tracker UI, never by hidden API fields (such as turning an internal sequence ID into "Sprint 3").
 22. Use a table only when the reader compares the same fields across rows and the channel renders tables. Otherwise use bullets.
 
 ## Channel presets
@@ -59,8 +59,8 @@ The goal is text the user can send on the first try. Every rule here comes from 
 | Channel | Shape |
 |---|---|
 | Chat reply to the user | The answer first, in one or two sentences, then only the detail they need to act. No headers for short answers. End with the one decision or next step if there is one. |
-| Slack, Teams, Jira or PR/MR comment, email | Paste-ready plain text: short paragraphs or `-` bullets, no headers, no tables, no nested lists, no HTML. Under about 150 words unless asked for more. |
-| Spike or investigation comment (Jira, GitHub, or GitLab) | A 2 to 3 line **Bottom line** first, then one short bullet group per question (gap, recommended direction, hard constraints) and links to follow-up tickets. Keep it around 250 to 400 words; leave out code walkthroughs, column lists, and wide tables unless asked. |
+| Slack, Teams, Jira or PR comment, email | Paste-ready plain text: short paragraphs or `-` bullets, no headers, no tables, no nested lists, no HTML. Under about 150 words unless asked for more. |
+| Spike or investigation comment (Jira or GitHub) | A 2 to 3 line **Bottom line** first, then one short bullet group per question (gap, recommended direction, hard constraints) and links to follow-up tickets. Keep it around 250 to 400 words; leave out code walkthroughs, column lists, and wide tables unless asked. |
 | Slide | One line per bullet (about 110 characters including the label), labels in bold, no full sentences of explanation, no personality, no thanks lines. The speaker elaborates. Put notes that must not appear on the slide on separate `>` lines. |
 | Status or sprint update | A TL;DR block first: one bold-labeled bullet per workstream, with the owner's name in parentheses and what shipped or what is next. Detail sections after, if any. Status words from a fixed set (Shipped, In review, In progress, Blocked). |
 | Feedback or review doc for an outside reader | A header block (Status, Source, Scope, Last updated), then numbered sections. Each section is a short plain heading, a paragraph of what is true today and what would fix it, and an **Affects:** line. Internal notes go in a clearly marked section or a separate file that is not sent. |

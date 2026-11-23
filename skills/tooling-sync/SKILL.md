@@ -2,9 +2,9 @@
 name: tooling-sync
 description: >
   Use only when the user asks to sync, compare, or set up repo linters,
-  formatters, pre-commit hooks, CI jobs, or Dependabot/Renovate config against
+  formatters, pre-commit hooks, CI jobs, or Dependabot config against
   the mw-kit playbook (lean, default, or full mode), or when invoked by
-  wrap-up; not when reviewing PR/MR diffs or judging review comments. Reports
+  wrap-up; not when reviewing PR diffs or judging review comments. Reports
   missing or drifted config, lets the user pick updates, and merges them
   without clobbering; never commits. Trigger: "sync tooling", "compare
   tooling", "check tooling against mw-kit", "set up repo linters/CI like my
@@ -53,7 +53,7 @@ Take the mode from the invocation args or the caller's instructions (`mode: <x>`
 
 ## Pre-flight & Step 1 — Scope (run the resolver)
 
-The deterministic half — repo validation, platform + structure detection, glob-based scoping, alternative resolution, and target presence — lives in a script in the playbook. **Run it and parse its JSON; do not re-derive any of it by hand** (no per-page Glob sweeps, no manual platform/monorepo reasoning).
+The deterministic half — repo validation, structure detection, glob-based scoping, and target presence — lives in a script in the playbook. **Run it and parse its JSON; do not re-derive any of it by hand** (no per-page Glob sweeps, no manual monorepo reasoning).
 
 Before step 1, check the prerequisites:
 ```bash
@@ -75,14 +75,13 @@ Use the printed `MW_KIT` path for every later playbook read.
 
 The plan JSON:
 
-- `preflight` — `{ok, repo, platform, platform_source}`; on failure `{ok:false, error}` (not a git repo / manifest missing).
+- `preflight` — `{ok, repo}`; on failure `{ok:false, error}` (not a git repo / manifest missing).
 - `structure` — `{verdict: single_project|multi_component|ambiguous, ambiguous, manifests, root_orchestrator, component_dirs}`. `component_dirs` are the project roots found under the repo root; nested `targets`/`detect` are anchored there.
-- `alternatives` — `{dep_updates:{chosen,reason}, releases:{chosen,reason,note?}, dropped:[…]}`. The losing alternatives are already moved to `skipped`; `chosen` is guaranteed in-scope.
-- `in_scope` — one row per relevant page: `{tool, page, scope, tier, platform, targets, targets_present, targets_missing, matched_detect, platform_pending?}`. `targets_present` holds **resolved repo-relative paths** (root-first, component-prefixed in a monorepo, e.g. `fastapi/pyproject.toml`) while `targets_missing` holds the page's raw target strings; read the `targets_present` paths directly and never re-derive them from `targets`.
-- `skipped` — `{tool, page, reason}` (no detect match / platform / single-project / alternative not chosen).
-- `needs_ask` — questions the script refused to guess (unknown platform, ambiguous structure).
-- `warnings` — plan-coherence issues; surface any to the user.
 - `state` — incremental-sync memory (see below): `{present, playbook_commit_now, playbook_commit_at_last_sync, last_sync, playbook_unchanged, settled_tools, stale_tools, new_tools, orphaned_tools, all_settled}`. Each `in_scope` row also carries a `state` block: `{decision, decided_at_commit, page_changed_since_decision, settled, reason?}`.
+- `in_scope` — one row per relevant page: `{tool, page, scope, tier, targets, targets_present, targets_missing, matched_detect, state}`. `targets_present` holds **resolved repo-relative paths** (root-first, component-prefixed in a monorepo, e.g. `fastapi/pyproject.toml`) while `targets_missing` holds the page's raw target strings; read the `targets_present` paths directly and never re-derive them from `targets`.
+- `skipped` — `{tool, page, reason}` (`no detect match` / `single-project`).
+- `needs_ask` — questions the script refused to guess (`ambiguous structure`).
+- `warnings` — plan-coherence issues; surface any to the user.
 
 ### Incremental sync (`.tooling-sync.json`)
 
@@ -98,14 +97,11 @@ Then:
 
 1. **`preflight.ok` false** → stop and surface `preflight.error`. (Manifest-missing means check the path / `$MW_KIT`.)
 2. **`needs_ask` non-empty** → ask each question, then **re-run the script with the answer as an override** so the plan stays deterministic — don't hand-patch it:
-   - platform → `--platform github|gitlab`
    - structure → `--structure single_project|multi_component`
    For the ambiguous-structure case, a nested single component is a strong monorepo signal — present it that way. When the answer is monorepo, also consult an existing **sibling component or org reference repo** for the concrete shape (CI include structure, image-tag flow) — the playbook block is canonical, the sibling shows the wired-up reality.
 3. **Greenfield repo → scope in the planned stack by hand.** Detection is *presence*-based (`**/*.py`, `package.json`, `go.mod`), so a repo whose stack is **decided but not yet written** scopes as "no language" and every language page lands in `skipped` with `no detect match`. The signal: `structure.manifests` is empty **and** no language-scope page is in `in_scope`. Don't take that at face value on a near-empty repo — ask what stack it's being built in (check a design doc / README / the user's stated plan first), then pull that scope's pages in manually and compare them as ❌ missing. There is no resolver flag for this; the manual scope-in *is* the fix, so say plainly which pages you added and why.
 
-   **Re-check the alternatives too.** Alternative resolution keys off the same absent detection, so it can pick the wrong winner: an empty repo on GitLab resolves `releases` → `releases-gitlab` (node semantic-release), when a repo about to be written in Python wants `releases-python`. Flip it and record the loser as `declined` with the reason (Step 6).
-
-4. **Relay the scoped set** before diffing, from the JSON: in-scope tools, the chosen alternatives (with the dropped ones named), and what was skipped + why. State single-project vs monorepo. When `state.present`, also name what's settled vs live: "Relevant: ruff, mypy, uv, pytest, lefthook, dependabot, releases-github. 5 settled since last sync (skipping); comparing 2 live: ruff (page changed), pytest (new). Skipped: node/* (no JS), renovate (alternative to dependabot). Scoped as single-project."
+4. **Relay the scoped set** before diffing, from the JSON: in-scope tools and what was skipped + why. State single-project vs monorepo. When `state.present`, also name what's settled vs live: "Relevant: ruff, mypy, uv, pytest, lefthook, dependabot, releases-github. 5 settled since last sync (skipping); comparing 2 live: ruff (page changed), pytest (new). Skipped: node/* (no JS). Scoped as single-project."
 
 ## Step 2 — Compare
 
@@ -136,7 +132,7 @@ Each compare subagent is read-only: it reads the playbook page and the repo targ
 | 🔧 **local override** | Repo deliberately diverges (documented in its `AGENTS.md`, or an obvious project-specific reason). Flag, don't fight it. |
 
 Comparison notes:
-- Configs are often **fragments**, not whole files. `ruff`/`mypy`/`pytest`/`uv` live in sections of `pyproject.toml`; `package-json` scripts are keys inside `package.json`; `biome`/`tsconfig`/`renovate` are whole files. Diff the relevant slice, not the whole file.
+- Configs are often **fragments**, not whole files. `ruff`/`mypy`/`pytest`/`uv` live in sections of `pyproject.toml`; `package-json` scripts are keys inside `package.json`; `biome`/`tsconfig` are whole files. Diff the relevant slice, not the whole file.
 - For drift, report the **direction**: which keys the playbook adds, changes, or is stricter on. Quote both sides for changed values.
 - Versions matter: pinned tool versions (`mise.toml`, biome `$schema`, `target-version`, action pins) — note when the repo is behind the playbook, but treat newer-in-repo as fine (the playbook may just be stale).
 - Do not treat the playbook as a mandate. If the repo's choice looks intentional, classify it 🔧 and surface the tension rather than proposing a revert.
@@ -171,7 +167,7 @@ For all chosen items:
      - **Scrub the body to agent-agnostic after the move.** The rename alone isn't the fix — the page's contract is neutral content, so once `AGENTS.md` is the file, rewrite Claude-specific phrasing in it (`Claude Code` / "Claude" → "the agent" / "AI agents"; drop Claude-only asides) and show that edit as part of the diff. Keep a named-agent line only where the instruction genuinely applies to just that one. Skipping this leaves every other agent reading "Claude"-flavored guidance.
 4. Adjust for repo reality: the playbook examples assume paths like `fastapi/`, `frontend/`, `app/`. Rewrite globs/roots/`source` to the repo's actual structure. Flag anything you couldn't auto-map.
 5. After applying, note any **follow-up** the user must do manually (install a dep, add a CI secret, run a formatter once, add a workflow token) — don't run installs or commits yourself.
-6. **Validate CI and linter changes immediately:** after any `.gitlab-ci.yml` edit, run `glab ci lint` (when `glab` is authenticated) to catch YAML syntax, unknown anchors, or stage errors before handing off. When adding a new lint/SAST job (`hadolint`, `semgrep-sast`, `trivy fs`, `check-line-limit.sh`) whose CLI binary is installed locally (`command -v`), run its script command once against the repo to catch immediate false positives or unconfigured ignores before finishing Apply.
+6. **Validate CI and linter changes immediately:** after any `.github/workflows/*.yml` edit, parse-check the YAML to catch syntax errors before handing off. When adding a new lint/SAST job (`hadolint`, `semgrep-sast`, `trivy fs`, `check-line-limit.sh`) whose CLI binary is installed locally (`command -v`), run its script command once against the repo to catch immediate false positives or unconfigured ignores before finishing Apply.
 
 After applying all chosen items, give a single post-apply summary listing the modified/created files and any manual follow-ups.
 
@@ -225,8 +221,7 @@ Do not dump the file contents in chat; mention that `.tooling-sync.json` was upd
 - **A global gitignore can hide a target you just created.** The `.tooling-sync.json` case is called out in Step 6, but it generalizes: users commonly ignore `*plan.md`, `CLAUDE.md` and similar globally, so an applied file can be correct on disk and invisible to `git status`. After applying, `git status --short` and — for anything missing — `git check-ignore -v <path>`. It's usually not a bug to fix, but say which applied files will and won't be committed rather than implying all of them are staged-ready.
 - **Trust a reference repo's config, not its prose.** When mirroring a sibling/reference repo (the monorepo-shape case in Step 1, or "match what project X does"), read the actual config file — `pyproject.toml`, `package.json`, `mise.toml`. A reference repo's own `AGENTS.md`/`README` version claims drift from its config and are a real source of wrong pins; the playbook block plus the sibling's *config* are canonical, its docs are not.
 - **Copied-from-upstream repos: match the upstream's formatter, not the playbook's.** When the repo's files are copies of another repo's (templates, vendored skills) and are periodically `diff -r`'d against it, adopting the playbook's `line-length`/`target-version` reformats every file and buries real upstream changes in noise. Probe first (`ruff check --config <tmp> . && ruff format --check --config <tmp> .`); if the canonical values churn files, take the upstream project's values and record the tool as `override`.
-- **`COPY .` images ship new root configs.** Before creating a whole-file config at the root (`ruff.toml`, `renovate.json`, `lefthook.yml`), check the Dockerfile. If it copies the build context wholesale, add the new files to `.dockerignore` in the same apply, or they land in the image.
-- **YAML aliases must follow their anchor definitions (`&anchor` before `*anchor`).** In a monorepo `.gitlab-ci.yml` with component sections (e.g. `.orchestrator-rules: &orchestrator-rules`), place any job using `rules: *<component>-rules` below that anchor definition, never in the top-level header block above it.
+- **`COPY .` images ship new root configs.** Before creating a whole-file config at the root (`ruff.toml`, `lefthook.yml`), check the Dockerfile. If it copies the build context wholesale, add the new files to `.dockerignore` in the same apply, or they land in the image.
 
 ## Retro
 

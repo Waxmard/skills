@@ -1,25 +1,25 @@
 # skills
 
-Agent skills for Git and MR work, docs, tooling sync, and UI, shipped as one
+Agent skills for Git and PR work, docs, tooling sync, and UI, shipped as one
 plugin (`mw-skills`). They run in Pi, Antigravity, Codex, Claude Code, omp,
 OpenCode, and many more agents.
 
 ```text
-branch grew too much ──▶ split-branch ──▶ one MR per theme
-reviewing an MR      ──▶ pr-review-toolkit ──▶ post-mr-review ──▶ MR threads
+branch grew too much ──▶ split-branch ──▶ one PR per theme
+reviewing a PR      ──▶ pr-review-toolkit ──▶ post-pr-review ──▶ PR threads
 review came back     ──▶ address-review-comments ──▶ verdicts, then replies
 restyling a UI       ──▶ ui-references ──▶ approved brief, then build
 before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxmard/mw-kit playbook
                                   ├─▶ pr-review-toolkit, ponytail-review,
                                   │   test-audit, docs-audit, interface-review
-                                  └─▶ triage-renovate-dependabot-prs
+                                  └─▶ triage-dependabot-prs
 ```
 
 ## Prerequisites
 
 Skills run on macOS and Linux; on Windows, use WSL. `free-disk-space` is
-macOS only. Most skills need `git`, plus `gh` or `glab` logged in to your
-forge for PR and MR work; some also need `jq` or `python3`. Each skill that
+macOS only. Most skills need `git`, plus `gh` logged in to GitHub for PR
+work; some also need `jq` or `python3`. Each skill that
 runs commands lists its exact tools under `## Prerequisites & Required Tools`
 and checks them before it starts; the rest name the harness capabilities they
 rely on.
@@ -51,21 +51,21 @@ now.
 
 | Skill | What |
 |---|---|
-| `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR or MR, posts answers to reviewer questions, then posts fix replies once fixes land. |
+| `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR, posts answers to reviewer questions, then posts fix replies once fixes land. |
 | `docs-audit` | Audits code comments and markdown docs in a branch or whole repo to prune restated comments, change narration, commented-out code, padding, duplicate docs, and stale references. |
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-security-scan` | Upgrades Semgrep and Trivy pins and clears failing SAST, dependency, base-image, or misconfiguration findings. |
 | `free-disk-space` | Reclaims macOS disk space from dev caches, VM disks, build artifacts, and old toolchains. |
 | `interface-review` | Reviews UI, typography, layout, color, copy, and accessibility changes across the affected surfaces. |
 | `plain-writing` | Writes short, plain, fact-checked prose and formats it for chat, Slack/Jira/PR comments, slides, status updates, and wiki docs. |
-| `post-mr-review` | Turns review findings into GitLab MR comments and posts only what you confirm. |
-| `pr-review-toolkit` | Reviews an MR, PR, or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
+| `post-pr-review` | Turns review findings into GitHub PR comments and posts only what you confirm. |
+| `pr-review-toolkit` | Reviews a PR or local branch through bug, error-handling, test, type, comment, and simplification lenses. |
 | `resolve-merge-conflicts` | Walks through conflicts one file at a time during a merge, rebase, or cherry-pick. |
 | `split-branch` | Splits a scope-crept branch into branches that merge in any order without conflicts. |
 | `test-audit` | Audits unit and integration tests in a branch or whole repo to prune tautologies, static-prose checks, cross-layer duplicates, and redundant cases. |
-| `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitLab, GitHub, or Linear. |
+| `ticket-draft` | Drafts a ticket title, description, and weight for Jira, GitHub, or Linear. |
 | `tooling-sync` | Compares a repo's tooling against the mw-kit playbook and applies the updates you pick. |
-| `triage-renovate-dependabot-prs` | Merges Renovate and Dependabot bump branches one at a time with risk review and post-merge checks. |
+| `triage-dependabot-prs` | Merges Dependabot bump branches one at a time with risk review and post-merge checks. |
 | `ui-references` | Borrows concrete layout, density, and motion mechanics from reference UIs you name or catalog, writes a transfer brief, and builds only after you approve it. |
 | `wrap-up` | Runs an end-of-branch pre-flight that picks which review skills are worth running. |
 
@@ -107,7 +107,7 @@ Adapted from:
 
 - [Jack Furton (Krog)](https://github.com/JackFurton): the README shape here
   and in `docs-style`, and the hop-tracing and command-proof rules in
-  `post-mr-review`, `address-review-comments` and `pr-review-toolkit`.
+  `post-pr-review`, `address-review-comments` and `pr-review-toolkit`.
 - [pr-review-toolkit](https://github.com/anthropics/claude-code/tree/main/plugins/pr-review-toolkit)
   by Anthropic: the `pr-review-toolkit` lens set.
 - [Google developer documentation style guide](https://developers.google.com/style):

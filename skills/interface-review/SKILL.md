@@ -2,7 +2,7 @@
 name: interface-review
 description: >
   Use when asked for a UI, frontend, interface, or design review of a branch,
-  PR, MR, or diff (lean, default, full). Expands changed files to affected UI
+  PR, or diff (lean, default, full). Expands changed files to affected UI
   surfaces, checks removed lines for regressions, and reviews accessibility,
   layout, writing, typography, color, and UI polish. Not for general code
   review (pr-review-toolkit). Trigger: "review the UI changes", "UI review",

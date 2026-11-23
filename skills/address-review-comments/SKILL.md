@@ -2,61 +2,49 @@
 name: address-review-comments
 description: >
   Use when checking, evaluating, or replying to review comments or threads on a
-  PR or MR (GitHub or GitLab, human or AI reviewers), or when the user asks
-  what reviewers said. Judges each comment against the code
-  (agree/disagree/answer), fixes agreed items when asked, and posts confirmed
-  replies to the rest; never resolves threads. Trigger: "review the PR comments", "review the MR
-  comments", "reviewer feedback", "respond to threads", "post replies", or
-  /address-review-comments.
+  GitHub PR (human or AI reviewers), or when the user asks what reviewers said.
+  Judges each comment against the code (agree/disagree/answer), fixes agreed
+  items when asked, and posts confirmed replies to the rest; never resolves
+  threads. Trigger: "review the PR comments", "reviewer feedback",
+  "respond to threads", "post replies", or /address-review-comments.
 ---
 
-Pull every review comment on the current branch's open PR/MR and judge each by reading the code, as a terse per-comment verdict with a reply ready to post on the thread.
+Pull every review comment on the current branch's open PR and judge each by reading the code, as a terse per-comment verdict with a reply ready to post on the thread.
 
 The verdict run posts nothing, resolves nothing and edits nothing; replies are posted only through **Respond → Draft and post**.
 
-Works with **GitHub** (`gh`) and **GitLab** (`glab`). All comments are in scope: bot reviewers (claude, coderabbit, copilot, etc.) and humans alike. No author filtering by default; user may pass an `--author <login>` filter to narrow.
+Works with **GitHub** (`gh`). All comments are in scope: bot reviewers (claude, coderabbit, copilot, etc.) and humans alike. No author filtering by default; user may pass an `--author <login>` filter to narrow.
 
 ## Prerequisites & Required Tools
 
 Runs on macOS and Linux (on Windows, use WSL).
 
 - `git`
-- `gh` (GitHub) or `glab` (GitLab), logged in to the PR/MR's host
-- `python3` and the `post-mr-review` skill (`scripts/gitlab_mr.py`), for GitLab MRs
+- `gh`, logged in to the PR's host
 
 Install missing tools with the OS package manager (Homebrew on macOS; apt, dnf, or pacman on Linux) or the tool's official release binaries.
 
 ## Pre-flight
 
-`<skill-dir>` is the directory this SKILL.md was loaded from; `<mr-script>` is `<skill-dir>/../post-mr-review/scripts/gitlab_mr.py`. Before step 1, check the prerequisites:
+Before step 1, check the prerequisites:
 ```bash
 command -v git >/dev/null || echo "missing: git"
-command -v gh >/dev/null || command -v glab >/dev/null || echo "missing: gh or glab"
+command -v gh >/dev/null || echo "missing: gh"
 ```
-If anything prints, stop and tell the user what to install. Step 4 checks the platform CLI's login.
+If anything prints, stop and tell the user what to install. Step 3 checks `gh`'s login.
 
 1. Confirm CWD is in a git repo: `git rev-parse --git-dir`. If not, stop.
-2. Read current branch: `git rev-parse --abbrev-ref HEAD`. Any branch is allowed regardless of its base/target — the gate is whether a PR/MR exists (step 5), not the branch name. A branch like `dev` may have an open `dev → main` PR; review it the same as any other.
-3. Detect platform:
-   - `git remote get-url origin` → if host is `github.com` → GitHub.
-   - If host contains `gitlab` → GitLab.
-   - Otherwise (self-hosted host with neither substring) probe the CLIs before asking: run `glab auth status` and `gh auth status` and pick the one logged in to the remote's host. Only ask the user if both fail or both match.
-4. Verify CLI is installed and authed:
-   - GitHub: `gh auth status` (must succeed).
-   - GitLab: `glab auth status` (must succeed), `command -v python3`, and `[ -f "<mr-script>" ]`.
-5. Resolve PR/MR for current branch:
-   - GitHub: `gh pr view --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` → fail if no PR. Record `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`). If state is not `OPEN`, warn but continue (user may still want feedback on a merged PR). Fetch the PR head so `git show <head_sha>:<path>` works locally, fork PRs included: `git fetch origin pull/<n>/head <baseRefName>`, then set `base_sha` = `git merge-base <baseRefOid> <head_sha>` (`baseRefOid` is the base branch tip). If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
-   - GitLab: run `python3 -B "<mr-script>" context` (plus `--mr <iid>` when given). Exit 3: stop and relay stderr, with a `glab mr create` hint. Take `head_sha`, `base_sha`, and `blob_base` from it (`base_sha` is already the fork point). If it reports a `warning` (e.g. the MR is merged), relay it and continue. If `fetched` is false, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
+2. Read current branch: `git rev-parse --abbrev-ref HEAD`. Any branch is allowed regardless of its base/target — the gate is whether a PR exists (step 4), not the branch name. A branch like `dev` may have an open `dev → main` PR; review it the same as any other.
+3. Verify `gh` is authed: `gh auth status` (must succeed).
+4. Resolve PR: run `gh pr view [<num>|<branch>] --json number,url,headRefName,baseRefName,state,headRefOid,baseRefOid` (omit the selector for `HEAD`, pass `<num>` for `--pr <num>`, or pass `<branch>` for `--branch <name>`). Fail if no PR. Record `number`, `headRefName`, `head_sha` = `headRefOid`, `base_sha` = `baseRefOid`, and `blob_base` = `url` minus the trailing `/pull/<n>` (e.g. `https://github.com/o/r`). If state is not `OPEN`, warn but continue (user may still want feedback on a merged PR). Fetch the PR head so `git show <head_sha>:<path>` works locally, fork PRs included: `git fetch origin pull/<n>/head <baseRefName>`, then set `base_sha` = `git merge-base <baseRefOid> <head_sha>` (`baseRefOid` is the base branch tip). If the fetch fails, continue without links: replies use plain backticked `` `file:line` ``, and say once, before the verdicts, that links were skipped.
 
 ## Fetch comments
-
-### GitHub
 
 Three endpoints — all three needed for full coverage:
 
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-PR=$(gh pr view --json number -q .number)
+PR=<number from Pre-flight step 4>
 
 # Inline code-review comments (anchored to file + line)
 gh api "repos/${OWNER_REPO}/pulls/${PR}/comments" --paginate
@@ -76,24 +64,19 @@ Skip:
 
 If `--author <login>` is passed, post-filter to that login.
 
-### GitLab
-
-Run `python3 -B "<mr-script>" discussions --scope open`, plus `--include-resolved` and `--author <login>` (repeatable) from Args. A non-zero exit means a failed or stale fetch: stop and relay stderr.
-
-**In scope (default) = everything nobody has resolved.** That's open resolvable threads (`notes[0].resolved == false`) *and* non-resolvable top-level MR notes (`null`) — the latter carry reviewer-bot Questions and every human "why did you do it this way?" comment, which are real feedback with no Resolve button to click. Out of scope: resolved threads (`true`), threads where the MR author wrote the last note (already answered, ball is in the reviewer's court), system events, the MR author's own notes, and the reviewer bot's own status notes (markers in `references/local.md`) — those are status, not feedback.
 
 ## Normalize
 
-For each comment build a record (GitLab records from `gitlab_mr.py` are already numbered by `n` and carry `id`, `author`, `path`, `line`, `body`, `url`):
+For each comment build a record:
 
 | Field | Source |
 |---|---|
-| `id` | `id` (GH) / `id` (GL) |
-| `author` | `user.login` (GH) / `author` (GL) |
-| `path` | `path` (GH inline) / `path` (GL) — empty if not anchored |
-| `line` | `line` or `original_line` (GH) / `line` (GL) — empty if not anchored |
+| `id` | `id` |
+| `author` | `user.login` |
+| `path` | `path` (inline) — empty if not anchored |
+| `line` | `line` or `original_line` — empty if not anchored |
 | `body` | `body` |
-| `url` | `html_url` (GH) / `url` (GL) |
+| `url` | `html_url` |
 
 Number them 1..N in the order returned. Output the list to the user before judging, so they see the scope.
 
@@ -107,16 +90,16 @@ Each comment is judged independently by reading the live code — there is no sh
 - **< 4 in-scope comments**, or all comments in one group: judge them inline yourself, in order.
 - **Otherwise**, split bot summary comments into sub-bullets (`5a`, `5b`, …) first, then group by `path`: a sub-bullet joins the group of the file it cites, and all unanchored comments form one group. Split any group over 6 comments into chunks of 6. Spawn one subagent per group in one batch (see Harness notes), on a mid-tier model where the harness lets you choose. Each runs steps 1 to 3 for every comment in its group, reading each file once, and returns **only** its verdict lines, one per comment, in comment order. Collect the lines, group and order them per step 3, then do the tally (step 4) yourself.
 
-Each subagent's prompt must include: its group's comment records (author, path, line, body, url), the platform, the repo root, `head_sha`, `base_sha`, `blob_base`, the platform's link format, the verdict criteria + output format below (including the reply-voice rule: a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops, no loading other skills or reading outside the repo; it only reads tracked repo files, runs read-only `git show` / `git diff` to check its links, and returns its lines). Subagents need file-read access plus that read-only git access.
+Each subagent's prompt must include: its group's comment records (author, path, line, body, url), the repo root, `head_sha`, `base_sha`, `blob_base`, the link format, the verdict criteria + output format below (including the reply-voice rule: a subagent writing in verdict voice costs a rewrite of every line), the Reply style block verbatim, and the read-only rule verbatim (no writes, no edits, no thread/approve ops, no loading other skills or reading outside the repo; it only reads tracked repo files, runs read-only `git show` / `git diff` to check its links, and returns its lines). When `headRefName` differs from `HEAD`, also include it and the `git show <head_sha>:<path>` read-first rule from step 1. Subagents need file-read access plus that read-only git access.
 
 For each comment (inline or in a subagent), in order:
 
 ### 1. Read the referenced code
 
-- If the comment is anchored (`path` + `line`): read that file around the line (±30 lines context). Don't trust the diff snippet in the comment body; it may be stale if newer commits were pushed.
+- If the comment is anchored (`path` + `line`): read that file around the line (±30 lines context). Don't trust the diff snippet in the comment body; it may be stale if newer commits were pushed. When `headRefName` differs from `HEAD`, read the anchored lines at `head_sha` first via `git show <head_sha>:<path>` (lines or rendered output on the PR branch may differ from the working tree), then inspect the corresponding region in the working tree if fixes will land there; always verify reply links against `git show <head_sha>:<path>`.
 - If the comment cites a different file/symbol in the body but isn't anchored there: read the cited target.
 - If the comment is purely conceptual (no code reference): no read needed.
-- Stay inside the repo's tracked files (`git ls-files`) and git history (`git log`, `git show`, `git diff`). Never load other skills (apart from `post-mr-review` when posting) or read external directories, caches (`~/.cache`), or untracked local state (such as `.tooling-sync.json`) to explain or justify code.
+- Stay inside the repo's tracked files (`git ls-files`) and git history (`git log`, `git show`, `git diff`). Never load other skills (apart from `post-pr-review` when posting) or read external directories, caches (`~/.cache`), or untracked local state (such as `.tooling-sync.json`) to explain or justify code.
 
 ### 2. Assess
 
@@ -160,8 +143,7 @@ Wrap the trailing url in angle brackets (`<https://…>`). A bare url line repea
 
 - **Code in backticks:** wrap each identifier, path, flag, literal, and command in its own backticks. Backtick the atoms, not whole expressions: write `` `user_id` is `None` ``, not `` `user_id is None` ``. Language keywords used as plain English words (match, if, async) stay unformatted. Link text stays unformatted: `[<file>:<a>-<b>](…)`, not ``[`<file>`](…)``.
 - **Linked references:** link every `file:line` in the reply prose, and every referenced symbol definition you can locate.
-  - GitHub: `[<file>:<a>-<b>](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)`, or `#L<a>` for a single line.
-  - GitLab: `[<file>:<a>-<b>](<blob_base>/-/blob/<head_sha>/<path>#L<a>-<b>)`, or `#L<a>` for a single line.
+  - `[<file>:<a>-<b>](<blob_base>/blob/<head_sha>/<path>#L<a>-L<b>)`, or `#L<a>` for a single line.
   - Inline the link directly after the phrase it supports; never wrap it in parentheses.
   - Removed code (e.g. in a `stale` reply): pin to `base_sha` instead.
   - Before emitting, run `git show <sha>:<path>` for each link and check the lines match the claim. Fix or drop a link that doesn't.
@@ -231,8 +213,8 @@ Runs right after the tally.
 
 Run after the user has committed and pushed the fixes, or right away when the fix list is empty.
 
-1. **Pushed check.** Re-run pre-flight step 5. `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha`. If not, tell the user to push first and stop.
-2. **Scope.** Reply only to threads that keep the code as is: `disagree`, `stale`, `answer`, and the pushed-back half of a `partial`. Re-fetch comments with the platform's filter (GitHub: the Skip list; GitLab: `discussions --scope open`), which drops threads the user already answered. Skip any thread the user says they're declining.
+1. **Pushed check.** Re-run pre-flight step 4. By default, `git status --short` must be clean and `git rev-parse HEAD` must equal the new `head_sha` (if not, tell the user to push first and stop). When `headRefName` differs from `HEAD`, follow any sync check defined in the repo's `AGENTS.md` (for example, verifying a CI-promoted branch matches `HEAD`).
+2. **Scope.** Reply only to threads that keep the code as is: `disagree`, `stale`, `answer`, and the pushed-back half of a `partial`. Re-fetch comments with the Skip list filter, which drops threads the user already answered. Skip any thread the user says they're declining.
 3. **Content.** Reuse the reply drafted in the verdict run, with links re-pinned to the new `head_sha` and checked with `git show <head_sha>:<path>`. Never mention fixes, landed or pending, in any reply.
 4. **Mode.** Post per **Posting**.
 
@@ -240,10 +222,9 @@ Run after the user has committed and pushed the fixes, or right away when the fi
 
 If the user explicitly asked to post (e.g. "post it", "post the replies"), use **Draft and post** directly. If they already picked a mode earlier in this run, reuse it. Otherwise ask once with the structured question tool: `Draft and post` (recommended) or `Copy-paste`.
 
-- **Draft and post:** confirm per `post-mr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the full body in the option preview where the tool supports one, otherwise in the question text. Then post:
-  - GitLab: write a spec of `reply` items (`{"kind": "reply", "discussion_id": "<record id>", "body": "..."}`) for the replies answered `Post`, run `python3 -B "<mr-script>" post <spec> --mr <iid> --apply`, and report its table; it verifies the new note count.
-  - GitHub inline comment: write each body to a temp file and run `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`), then re-fetch and verify the new comment count.
-  - GitHub review summary or conversation comment: these have no thread, so run `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>` with the body opening on a link to the comment's `html_url`, then re-fetch and verify the new comment count. Take that `html_url` from the reviewer's own comment record and check its author before posting; the PR author's comments sit beside it with nearby ids. Sub-bullets split from one summary comment go out together as a single comment per posting round, each under the reviewer's own number or bullet title, confirmed with one question.
+- **Draft and post:** confirm per `post-pr-review`'s **Confirm** section, with one `Post`/`Skip` question per reply and the full body in the option preview where the tool supports one, otherwise in the question text. Then post:
+  - Inline comment: write each body to a temp file and run `gh api -X POST repos/<owner_repo>/pulls/<n>/comments/<root_id>/replies -F body=@<file>`, where `<root_id>` is the thread's first comment (no `in_reply_to_id`), then re-fetch and verify the new comment count.
+  - Review summary or conversation comment: these have no thread, so run `gh api -X POST repos/<owner_repo>/issues/<n>/comments -F body=@<file>` with the body opening on a link to the comment's `html_url`, then re-fetch and verify the new comment count. Take that `html_url` from the reviewer's own comment record and check its author before posting; the PR author's comments sit beside it with nearby ids. Sub-bullets split from one summary comment go out together as a single comment per posting round, each under the reviewer's own number or bullet title, confirmed with one question.
 
   Never resolve or reopen threads.
 - **Copy-paste:** for each thread, emit the header line as normal markdown, then the reply inside its own fenced block tagged `markdown` so the raw source survives copy-paste (rendered markdown loses the backticks and link URLs), then the note URL in angle brackets on its own line:
@@ -256,19 +237,19 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 
       <<note_url>>
 
-  `<note_url>` is the comment's `html_url` on GitHub and `<mr_web_url>#note_<notes[0].id>` on GitLab.
+  `<note_url>` is the comment's `html_url`.
 
   If a reply itself contains a triple-backtick fence, use a four-backtick outer fence.
 
 ## Args
 
 - `--author <login>` — filter to one reviewer (repeat to allow multiple).
-- `--include-resolved` (GitLab only) — include resolved discussion threads.
-- `--pr <num>` / `--mr <iid>` — override auto-detect (e.g. review a PR on a branch other than HEAD).
+- `--pr <num>` — override auto-detect (e.g. review a PR on a branch other than HEAD).
+- `--branch <name>` — look up the open PR for `<name>` instead of `HEAD` (useful when reviewing a PR while staying on another branch).
 
 ## Hard rules
 
-- **Read-only unless the user picks Draft and post** in Respond, and then post only replies confirmed in that same turn. Never `gh pr review`, `glab mr approve`, or any other write API.
+- **Read-only unless the user picks Draft and post** in Respond, and then post only replies confirmed in that same turn. Never `gh pr review` or any other write API.
 - **Never resolve threads** — that's a write op too.
 - **The verdict run never edits files.** Even if you agree with the fix. Edit only after the user asks to address the fix list.
 - **Never `git push`** or commit.
@@ -282,7 +263,7 @@ If the user explicitly asked to post (e.g. "post it", "post the replies"), use *
 - **Outdated review threads**: GH marks a review comment `outdated: true` when the file changed since. Still worth assessing — the underlying point may still apply elsewhere — but flag it.
 - **Suggestion blocks**: GitHub `suggestion` blocks (\`\`\`suggestion ... \`\`\`) are concrete diffs. Read them carefully; they're often more precise than prose comments and easier to verdict.
 - **Bot summary comments**: many AI reviewers (coderabbit, claude) post one big "summary" review-level comment listing N findings as a bulleted list. Don't treat it as one comment — split each bullet into its own verdict line. Number them `5a`, `5b`, `5c` under the parent index. Skip bullets where the reviewer asks for nothing (a confirmation, "no behavior change"): no verdict, no reply, no mention.
-- **Threaded replies**: GH `in_reply_to_id` and GL `discussion_id` chain replies. Don't re-verdict each reply — judge the root comment, note if a reply changed the ask.
+- **Threaded replies**: `in_reply_to_id` chains replies. Don't re-verdict each reply — judge the root comment, note if a reply changed the ask.
 - **Cross-repo PRs (forks)**: anchored file paths are relative to the fork's branch, which is what's checked out locally. No special handling needed, but be aware if reading fails.
 
 ## Harness notes
@@ -302,5 +283,5 @@ user correction or repeated instruction, a wrong or stale step, or a manual work
 Name the section, show before/after lines, give one sentence of why, and apply only after a yes, in
 the skills repo source (`skills/address-review-comments/SKILL.md`), never the installed copy. If
 nothing fired, say nothing. Skill-specific signals: a comment/thread type or reviewer-bot format not
-handled, a platform quirk in the GH/GL fetch the pitfalls miss, a `gh`/`glab` field that changed, or
+handled, a quirk in the GitHub fetch the pitfalls miss, a `gh` field that changed, or
 a filter rule that misfired.
