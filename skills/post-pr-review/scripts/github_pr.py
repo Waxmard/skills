@@ -342,6 +342,26 @@ def anchor(lm: dict, path: str, line: int, side: str = "new", start_line: int | 
     return out
 
 
+STRIP_HIDDEN_RE = re.compile(r"(?is)<details[\s\S]*?</details>|```[\s\S]*?```")
+PRIORITY_RE = re.compile(r"\bP[0-3]\b")
+LABEL_PREFIX_RE = re.compile(r"(?im)(?:^|\s)(?:\*{1,2}|\[)?(?:blocker|must-fix|should-fix|nit)(?:\*{1,2}|\])?\s*:")
+LABEL_BADGE_RE = re.compile(r"(?im)^\s*(?:\*{1,2}|\[)(?:blocker|must-fix|should-fix|nit)(?:\*{1,2}|\])(?:\s|$)")
+COMMIT_HEADER_RE = re.compile(r"(?m)^\*\*Suggested commit message:\*\*\s*$")
+SECTION_SPLIT_RE = re.compile(r"(?m)^\s*---\s*$")
+
+
+def validate_body(kind: str, body: str) -> None:
+    visible = STRIP_HIDDEN_RE.sub("", body)
+    if PRIORITY_RE.search(visible) or LABEL_PREFIX_RE.search(visible) or LABEL_BADGE_RE.search(visible):
+        raise ValueError("remove severity label from posted body; labels belong only in the plan table")
+    if kind in ("inline", "general"):
+        trimmed = COMMIT_HEADER_RE.sub("", visible)
+        for section in SECTION_SPLIT_RE.split(trimmed):
+            n = len(section.split())
+            if n > 75:
+                raise ValueError(f"finding visible body is {n} words (max 75); cut the cause block first")
+
+
 def build_request(item: dict, ctx: dict, lm: dict) -> tuple[str, str, dict]:
     kind = item.get("kind")
     if kind not in REQUIRED:
@@ -349,6 +369,8 @@ def build_request(item: dict, ctx: dict, lm: dict) -> tuple[str, str, dict]:
     for field in REQUIRED[kind]:
         if item.get(field) in (None, ""):
             raise ValueError(f"missing {field}")
+    if kind in ("inline", "general", "reply", "edit"):
+        validate_body(kind, item["body"])
     repo = ctx["owner_repo"]
     num = ctx["number"]
     if kind == "inline":

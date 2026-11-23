@@ -286,5 +286,60 @@ class FetchDiscussions(unittest.TestCase):
         self.assertEqual(got_reviews, [{"id": 3, "state": "CHANGES_REQUESTED", "body": "fix"}])
 
 
+class ValidateBody(unittest.TestCase):
+    def setUp(self):
+        self.lm = g.line_map(DIFF)
+
+    def test_inline_under_budget_passes(self):
+        g.validate_body("inline", "Null pointer when user is missing.")
+
+    def test_inline_over_budget_fails(self):
+        with self.assertRaisesRegex(ValueError, "max 75"):
+            g.validate_body("inline", "word " * 76)
+
+    def test_hidden_blocks_and_commit_header_excluded(self):
+        body = (
+            "Short visible explanation.\n\n"
+            "<details><summary>Trace</summary>\n" + ("detail " * 120) + "\n</details>\n\n"
+            "```suggestion\n" + ("code_line()\n" * 90) + "```\n\n"
+            "**Suggested commit message:**\n"
+            "```\n" + ("msg " * 90) + "\n```\n"
+        )
+        g.validate_body("inline", body)
+
+    def test_general_sections_budget(self):
+        ok = ("word " * 50) + "\n---\n" + ("word " * 50)
+        g.validate_body("general", ok)
+        bad = ("word " * 40) + "\n---\n" + ("word " * 76)
+        with self.assertRaisesRegex(ValueError, "max 75"):
+            g.validate_body("general", bad)
+
+    def test_label_leaks_rejected(self):
+        for bad in (
+            "**blocker**: foo",
+            "[must-fix] foo",
+            "nit: foo",
+            "should-fix: foo",
+            "P0 issue",
+            "P1: bug",
+        ):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "remove severity label"):
+                g.validate_body("inline", bad)
+
+    def test_normal_prose_allowed(self):
+        g.validate_body("inline", "Add unit tests because this is a blocker for deployment.")
+
+    def test_build_request_propagates(self):
+        cases = [
+            {"kind": "inline", "path": "a.py", "line": 3, "body": "P0 issue"},
+            {"kind": "general", "body": "word " * 76},
+            {"kind": "reply", "comment_id": 12, "body": "nit: fixed"},
+            {"kind": "edit", "comment_id": 12, "body": "**blocker**: updated"},
+        ]
+        for item in cases:
+            with self.subTest(kind=item["kind"]), self.assertRaises(ValueError):
+                g.build_request(item, CTX, self.lm)
+
+
 if __name__ == "__main__":
     unittest.main()
