@@ -619,7 +619,7 @@ def collect_facts(top: str, missing: list[str]) -> dict:
         "repo_has_tests": any(TEST_RE.search(p) for p in tracked),
         "repo_has_ui": any(UI_RE.search(p) for p in tracked),
         "baseline": status, "uncommitted": uncommitted, "others": others,
-        "bot": bot, "bot_branches": bot_branches,
+        "bot": "Dependabot", "bot_branches": bot_branches,
         "scope": scope, "installed": inst, "notes": notes,
     }
     facts["verdicts"] = verdicts(facts)
