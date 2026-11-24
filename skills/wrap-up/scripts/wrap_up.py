@@ -21,6 +21,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
+from datetime import date
 
 TEST_RE = re.compile(
     r"(^|/)(test|tests|__tests__)/|\.(test|spec)\.[^/]+$|_test\.go$|\.bats$|^test_.*\.py$|/test_.*\.py$"
@@ -43,9 +44,11 @@ PROTECTED_RE = re.compile(r"main|master|dev|develop|release/.*|staging")
 
 ROW_SKILL = {
     1: "tooling-sync", 2: "pr-review-toolkit", 3: "ponytail-review", 4: "test-audit",
-    5: "interface-review", 6: "docs-audit", 7: "triage-dependabot-prs",
+    5: "interface-review", 6: "docs-audit", 7: "triage-dependabot-prs", 8: "correct",
 }
 EXTERNAL = {"ponytail-review", "ponytail-audit"}
+INLINE_ROWS = (1, 7, 8)
+CORRECT_DAYS = 30
 INLINE_TIER = "inline · fast+"
 TIERS = {"fast", "strong"}
 MODES = {"default", "lean", "full"}
@@ -86,7 +89,7 @@ def installed(facts: dict, row: int) -> bool:
 
 
 def verdicts(f: dict) -> list[dict]:
-    """The 7-row verdict table from a facts dict."""
+    """The verdict table from a facts dict."""
     out: list[dict] = []
     A = f["added"]
 
@@ -161,6 +164,14 @@ def verdicts(f: dict) -> list[dict]:
     else:
         row(7, "skip", f"no unmerged {f['bot']} branches", INLINE_TIER)
 
+    age, since = f["correct_age"], f["correct_commits"]
+    if age is None:
+        row(8, "RUN", "no correct pass recorded", INLINE_TIER)
+    elif age >= CORRECT_DAYS and since:
+        row(8, "RUN", f"last pass {age} days ago, {since} commits since", INLINE_TIER)
+    else:
+        row(8, "skip", f"last pass {age} days ago, {since} commits since", INLINE_TIER)
+
     for r in out:
         if not installed(f, r["row"]):
             r["verdict"] = "skip"
@@ -170,7 +181,7 @@ def verdicts(f: dict) -> list[dict]:
                     " (omp: `/marketplace add DietrichGebert/ponytail` then `/marketplace install ponytail@ponytail`; "
                     "Claude Code: `/plugin marketplace add DietrichGebert/ponytail` then `/plugin install ponytail@ponytail`)"
                 )
-        elif f["others"] >= 1 and r["row"] in (1, 7) and r["verdict"] == "RUN":
+        elif f["others"] >= 1 and r["row"] in INLINE_ROWS and r["verdict"] == "RUN":
             r["why"] += " (lean: pick by number to include)"
     return out
 
@@ -189,7 +200,7 @@ def parse_reply(reply: str, vs: list[dict], facts: dict) -> dict:
     notes: list[str] = []
 
     def check_row(n: int) -> int:
-        if not 1 <= n <= 7:
+        if n not in ROW_SKILL:
             raise ValueError(f"no row {n}")
         return n
 
@@ -235,9 +246,9 @@ def parse_reply(reply: str, vs: list[dict], facts: dict) -> dict:
         picked = {2} | explicit
 
     if gmode == "lean":
-        picked -= {1, 7} - explicit
+        picked -= set(INLINE_ROWS) - explicit
     if gmode == "full" and from_go:
-        picked |= {r for r in (1, 3, 4, 6) if installed(facts, r)}
+        picked |= {r for r in (1, 3, 4, 6, 8) if installed(facts, r)}
         if facts["repo_has_ui"] and installed(facts, 5):
             picked.add(5)
 
@@ -253,10 +264,10 @@ def parse_reply(reply: str, vs: list[dict], facts: dict) -> dict:
             notes.append(f"row {n} {ROW_SKILL[n]}: not installed")
 
     rows: dict[int, dict] = {}
-    if any("tier" in over.get(n, {}) for n in (1, 7)):
-        notes.append("rows 1 and 7 run inline; switch the session's model instead")
+    if any("tier" in over.get(n, {}) for n in INLINE_ROWS):
+        notes.append("rows 1, 7 and 8 run inline; switch the session's model instead")
     for n in sorted(picked):
-        tier = "inline" if n in (1, 7) else over.get(n, {}).get("tier", "fast")
+        tier = "inline" if n in INLINE_ROWS else over.get(n, {}).get("tier", "fast")
         mode = mode_of(n)
         skill = ROW_SKILL[n]
         if n == 3 and mode == "full" and "ponytail-audit" in facts["installed"]:
@@ -607,6 +618,15 @@ def collect_facts(top: str, missing: list[str]) -> dict:
         if s not in missing and (s in EXTERNAL or (skills_dir / s / "SKILL.md").exists())
     ]
 
+    stamp = Path(top) / git("rev-parse", "--git-path", "correct", cwd=top) / "last"
+    correct_age, correct_commits = None, 0
+    try:
+        last_pass = date.fromisoformat(stamp.read_text().strip())
+        correct_age = (date.today() - last_pass).days
+        correct_commits = int(git("rev-list", "--count", f"--since={last_pass.isoformat()}", "HEAD", cwd=top))
+    except (OSError, ValueError):
+        pass
+
     facts = {
         "toplevel": top, "run": str(wdir / "run"), "branch": branch, "protected": is_protected,
         "base": base, "mb": mb, "head0": head0, "from": frm, "mode": mode, "last": last,
@@ -621,6 +641,7 @@ def collect_facts(top: str, missing: list[str]) -> dict:
         "baseline": status, "uncommitted": uncommitted, "others": others,
         "bot": "Dependabot", "bot_branches": bot_branches,
         "scope": scope, "installed": inst, "notes": notes,
+        "correct_age": correct_age, "correct_commits": correct_commits,
     }
     facts["verdicts"] = verdicts(facts)
     return facts
@@ -646,7 +667,7 @@ def render_report(f: dict) -> str:
         f"- Parallelism: Row 1 runs first, inline, and stops at Gate A if it changed files. Then one parallel "
         f"wave, pinned to `{short(f['head0'])}`: rows 2, 3, 4 and 6 share one diff pass (sharded by directory "
         "on large diffs), and rows 5 and any full-mode row run as their own reviewers. Gate F walks findings "
-        "one row at a time, with a commit gate after each row that changes files. Row 7 runs last, inline.",
+        "one row at a time, with a commit gate after each row that changes files. Rows 7 and 8 run last, inline, in that order.",
         "- Always: Pre-flight is cheap. To run the picks on a stronger model, start a new session there and "
         "invoke wrap-up with `run <your reply>`.",
     ]
@@ -657,7 +678,7 @@ def render_report(f: dict) -> str:
         )
     out += [
         "",
-        "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–7 (e.g. `3 4 7`), or `none` for only "
+        "Reply `go` to run the RUN rows, numbers to choose from 1 and 3–8 (e.g. `3 4 7`), or `none` for only "
         "row 2. Override a tier with `N@fast|strong` (rows 2–6) or a scope mode with `default`, `lean`, "
         "`full`, or `N@default|lean|full` (e.g. `go default`, `go lean`, `go full`, `go 4@full`, `2@full:strong`).",
     ]
@@ -726,7 +747,7 @@ def cmd_plan(a: argparse.Namespace) -> int:
         "notes": res["notes"],
         "inline_before": [1] if 1 in picked else [],
         "tasks": [{"id": t["id"], "rows": t["rows"], "tier": t["tier"], "files_count": len(t["files"])} for t in tasks],
-        "inline_after": [7] if 7 in picked else [],
+        "inline_after": [n for n in (7, 8) if n in picked],
         "todo": todo_list(picked),
     }, ensure_ascii=False))
     return 0

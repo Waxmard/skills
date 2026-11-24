@@ -81,6 +81,7 @@ Walk the diff once, file by file, and apply every check the mode enables at the 
 | Type design | no | no | yes |
 | Missing rationale | no | no | yes |
 | Simplification | no | no | yes |
+| Structure | no | no | yes |
 
 - **Bugs & regressions** `[Bug]`: logic errors, null/undefined handling, off-by-one, races, leaks, security vulnerabilities, and violations of the project rules read in step 1.5.
 - **Silent failures** `[Silent failure]`: swallowed errors (catch that logs and continues, empty catch/except, unhandled promise rejections), broad `Exception`/`Error` catches that hide unrelated bugs, fallbacks that mask a failure with fake data or silent defaults, and error messages without the context needed to act on them.
@@ -88,11 +89,12 @@ Walk the diff once, file by file, and apply every check the mode enables at the 
 - **Tests to delete** `[Tests]` (Important, *Fix*: delete the test): tests added or modified in the diff whose expected values are copied from or computed with the code under test, that assert static prompt/source-text substrings or hardcoded constant/lookup-table echoes, that assert only mock call arguments or snapshots freezing incidental output, or that only check something renders, starts, or does not throw. Do not recommend deleting a snapshot or expected output that asserts a documented external format or consumer-visible contract solely because it is a snapshot or expected output.
 - **New e2e specs** `[Tests]` (Important, *Fix*: delete unless the user asked for this spec; confirm with the user): any Playwright, Cypress, or mocked-fixture e2e spec added in the diff.
 - Test checks cover only tests and code in the diff, never pre-existing tests outside it (broader pruning belongs to `test-audit`).
-- **Contract breaks** `[Contract]`: only when a hunk changes a contract: an exported signature, return or raise behavior, a schema, a wire/JSON field, a config key, a CLI flag, or an env var. Grep its direct consumers and read only the matching lines. In `full`, follow the consumers that change behavior for up to 3 hops. Report breakage that lands outside the diff.
+- **Contract breaks** `[Contract]`: only when a hunk changes a contract: an exported signature, return or raise behavior, a schema, a wire/JSON field, a config key, a CLI flag, or an env var. Grep its direct consumers and read only the matching lines. In `full`, follow the consumers that change behavior for up to 3 hops. Report breakage that lands outside the diff. In `full`, also check the consumers a symbol search misses: stored rows and DB columns, JSON that another service or language reads, feature flags, and the pinned version of a library the hunk relies on (read its source, not its docs).
 - **Comment rot** `[Comment]`: a comment in or next to a hunk that contradicts the changed code or describes removed behavior. Redundant or excess comments belong to `docs-audit`; never report them here.
 - **Type design** `[Types]`: illegal states made representable, constructors that skip invariant checks, leaked mutable internals, runtime checks where the type system could enforce the rule.
 - **Missing rationale** `[Rationale]`: request a comment only when essential rationale for a non-obvious algorithm, security constraint, or business rule cannot be recovered from the code or existing documentation. Repository comment policy takes precedence.
 - **Simplification** `[Simplify]`: excess nesting, dead branches, needless abstraction, always behavior-preserving. Outside `full`, simplification belongs to `ponytail-review`.
+- **Structure** `[Structure]`: only when a hunk adds an import between modules, touches another module's fields, or widens a module's public surface. Report an import cycle; two modules that reach into each other's state; a field read or written outside its owner in several places; or a module whose callers must call most of its functions to use it. *Fix*: name which module belongs at which layer, or the narrow interface that hides the fields, as one change for the whole pattern, never one mechanical move per site. Add a before/after sketch of the modules.
 
 Rules for every check:
 - **Confirm before reporting.** Open code outside the diff only to confirm or rule out a suspected finding, and read the enclosing function or block, not the whole file. Drop a suspicion you cannot confirm in live code.

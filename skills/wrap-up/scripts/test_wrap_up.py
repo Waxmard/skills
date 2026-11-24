@@ -16,7 +16,7 @@ def facts(**kw):
         "file_lines": {"a.py": 10}, "test_changed": [], "doc_changed": [], "ui_changed": [],
         "manifests_changed": [], "repo_has_tests": True, "repo_has_ui": False, "others": 0,
         "bot": "dependabot", "bot_branches": 0,
-        "scope": None, "installed": list(ALL),
+        "scope": None, "installed": list(ALL), "correct_age": 0, "correct_commits": 0,
     }
     f.update(kw)
     return f
@@ -61,6 +61,12 @@ class Verdicts(unittest.TestCase):
         self.assertTrue(v["why"].startswith("1 live tools"))
         self.assertTrue(v["why"].endswith("(lean: pick by number to include)"))
 
+    def test_row8_due(self):
+        self.assertEqual(by_row(facts(correct_age=None))[8]["verdict"], "RUN")
+        self.assertEqual(by_row(facts(correct_age=30, correct_commits=1))[8]["verdict"], "RUN")
+        self.assertEqual(by_row(facts(correct_age=29, correct_commits=9))[8]["verdict"], "skip")
+        self.assertEqual(by_row(facts(correct_age=90, correct_commits=0))[8]["verdict"], "skip")
+
 
 def run_rows(reply, **kw):
     f = facts(**kw)
@@ -87,8 +93,14 @@ class ParseReply(unittest.TestCase):
         self.assertIn(7, self.rows("go 7 lean", **kw))
 
     def test_go_full_forces_rows(self):
-        self.assertEqual(self.rows("go full"), {1, 2, 3, 4, 6})
-        self.assertEqual(self.rows("go full", repo_has_ui=True), {1, 2, 3, 4, 5, 6})
+        self.assertEqual(self.rows("go full"), {1, 2, 3, 4, 6, 8})
+        self.assertEqual(self.rows("go full", repo_has_ui=True), {1, 2, 3, 4, 5, 6, 8})
+
+    def test_row8_lean_and_explicit(self):
+        kw = {"correct_age": None}
+        self.assertIn(8, self.rows("go", **kw))
+        self.assertNotIn(8, self.rows("go lean", **kw))
+        self.assertIn(8, self.rows("go 8 lean", **kw))
 
     def test_default_clears_full(self):
         r = run_rows("run go default full default")["rows"]

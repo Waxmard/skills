@@ -12,7 +12,7 @@ restyling a UI       ──▶ ui-references ──▶ approved brief, then buil
 before merge         ──▶ wrap-up ─┬─▶ tooling-sync ◀── Waxmard/mw-kit playbook
                                   ├─▶ pr-review-toolkit, ponytail-review,
                                   │   test-audit, docs-audit, interface-review
-                                  └─▶ triage-dependabot-prs
+                                  └─▶ triage-dependabot-prs, correct
 ```
 
 ## Prerequisites
@@ -52,6 +52,7 @@ now.
 | Skill | What |
 |---|---|
 | `address-review-comments` | Gives an agree or disagree verdict on each review comment on the current PR, posts answers to reviewer questions, then posts fix replies once fixes land. |
+| `correct` | Finds the mistakes agents keep repeating in a repo and turns each into an architecture change, type, lint, or test, with prose rules last. |
 | `docs-audit` | Audits code comments and markdown docs in a branch or whole repo to prune restated comments, change narration, commented-out code, padding, duplicate docs, and stale references. |
 | `docs-style` | Applies Google developer documentation style to prose written into files. |
 | `fix-security-scan` | Upgrades Semgrep and Trivy pins and clears failing SAST, dependency, base-image, or misconfiguration findings. |
@@ -119,6 +120,10 @@ Adapted from:
 - [alexw91/homedir](https://github.com/alexw91/homedir/tree/main/.kiro/skills)
   by Alex Weibel: the process-residue checks in `docs-audit` and
   `plain-writing`, and the nothing-dropped check in `plain-writing`.
+- [pstack](https://github.com/cursor/plugins/tree/main/pstack) by Lauren Tan:
+  `correct`, and the beyond-grep consumers in `pr-review-toolkit`.
+- [deslop-please](https://github.com/deterministic-machines/deslop-please)
+  by deterministic-machines: the structure check in `pr-review-toolkit`.
 
 Builds on — load conditions for each companion are in [Companions](#companions):
 

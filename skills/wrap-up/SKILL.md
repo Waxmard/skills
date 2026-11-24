@@ -4,8 +4,8 @@ description: >
   Use at the end of a branch, before opening or merging a PR, or for a
   "repo spa day" pre-merge checklist. Runs pr-review-toolkit and selects which
   of tooling-sync, ponytail-review, test-audit, docs-audit, interface-review,
-  and triage-dependabot-prs to run, then fixes findings behind commit
-  gates. Trigger: "wrap up this branch", "I'm done with this branch", "end of
+  triage-dependabot-prs, and correct to run, then fixes findings behind
+  commit gates. Trigger: "wrap up this branch", "I'm done with this branch", "end of
   branch", "pre-merge checklist", "ready to merge", "repo spa day", or
   /wrap-up.
 ---
@@ -74,14 +74,14 @@ rows that report nothing to do. Print the completion block (Close) once every it
 completion summary` is done or blocked on a user action; list blocked rows under a `Blocked:`
 line naming the gate that stopped them.
 
-Modes: `lean` (minimal), `default` (branch), `full` (whole repo); `go full` forces rows 1–4 and 6.
+Modes: `lean` (minimal), `default` (branch), `full` (whole repo); `go full` forces rows 1–4, 6 and 8.
 
 ## 3. Run
 
 Why this order: tooling-sync first, so its new hooks and CI gates (lefthook, biome, commitlint)
 also check the review-fix commits and every triage merge. Reviews next, pinned to `<head0>`, so
 neither tooling commits nor triage merges enter the reviewed diff. Triage last, because it stacks
-merges on whatever the earlier rows committed.
+merges on whatever the earlier rows committed. `correct` runs after triage: it reads this run's findings as evidence, and the checks it adds start gating with the next branch.
 
 1. If the `plan` output's `inline_before` is `[1]`, run row 1 (Inline rows, Gate A) first.
 2. Spawn every entry of its `tasks` in one batch (Harness notes), each with the prompt from
@@ -154,7 +154,7 @@ decisions at once.
       the user commits and `git status --short` matches `baseline`.
 3. If no row had findings after exclusions, print "Gate F: no findings to fix" and continue
    without stopping.
-4. If `inline_after` is `[7]`, run row 7 now (Inline rows).
+4. Run each row in `inline_after`, in order (Inline rows).
 
 Inline rows:
 
@@ -190,7 +190,8 @@ Inline rows:
    checks, and the never-push rule. Don't second-guess its prompts: let it drive. When
    triage offers fix / revert / accept after a failed check, recommend **fix in place**. Revert
    or accept only on the user's explicit choice.
-3. Close: print the completion block below, then mark `Close: completion summary` done. Then run
+3. `correct`: load skill `correct` and follow it. It owns its evidence read, the pick, its fixes, and its own commit stops. Tell it this run's findings are in `.git/wrap-up/run/`.
+4. Close: print the completion block below, then mark `Close: completion summary` done. Then run
    Retro.
 
    ```
@@ -214,10 +215,10 @@ Inline rows:
 - **Never dump multiple review reports or cross-phase decisions in one turn.** Present and resolve
   rows 2–6 one report at a time in row order.
 - **Don't duplicate the underlying skills.** If `pr-review-toolkit`, `ponytail-review`,
-  `docs-audit`, `interface-review`, `tooling-sync` or `triage-dependabot-prs`
+  `docs-audit`, `interface-review`, `tooling-sync`, `triage-dependabot-prs` or `correct`
   behavior needs changing, edit that skill — not this wrapper.
 - **Every skill can still run alone.** This is only the convenience path; it adds no
-  review/sync/merge logic the seven don't already have. Its own behavior is limited to ordering,
+  review/sync/merge logic the eight don't already have. Its own behavior is limited to ordering,
   gates (including Gate F's fixes), and hand-offs.
 - **Pre-flight makes no writes outside `.git/`.** The script writes only
   `.git/wrap-up/run/` (pre-flight facts, the plan, findings files) and the memo
@@ -225,7 +226,7 @@ Inline rows:
   `~/.cache/mw-kit` clone or pull happens inside tooling-sync, when row 1 is picked. The
   `.tooling-sync.json` write happens only inside tooling-sync.
 - **Subagents are read-only,** except their findings file under `.git/wrap-up/run/`. Only rows 2–6
-  are ever delegated; tooling-sync and triage always run inline because they prompt and write.
+  are ever delegated; tooling-sync, triage and correct always run inline because they prompt and write.
 
 ## Retro
 
@@ -243,4 +244,4 @@ A pre-flight verdict that was wrong (RUN on a skill that found nothing useful, o
 user ran anyway and it mattered) is a signal to adjust that row's threshold. A tier that was wrong
 (a `fast` review missed something a `strong` re-run caught) is a signal to move that row's default
 tier up. If the change belongs in `pr-review-toolkit`, `ponytail-review`, `test-audit`,
-`docs-audit`, `interface-review`, `tooling-sync` or `triage-dependabot-prs`, point there instead.
+`docs-audit`, `interface-review`, `tooling-sync`, `triage-dependabot-prs` or `correct`, point there instead.
