@@ -117,6 +117,8 @@ Pick one verdict per comment:
 
 Be willing to push back on bots and humans equally. Past reviewers being usually-right doesn't make this comment right.
 
+**Impact before agree.** Before **agree**, name what must be true outside the repo for the bug to bite (old-format stored rows, a deployed version, clients on an old build). If it depends on that, check with a read-only tool the session already has (the one exception to staying in the repo) and quote the query and result in the reply; with no such tool, the verdict is **needs-info** naming the check.
+
 ### 3. Emit one line
 
 Emit `answer` verdicts first under a `### Questions` heading, then every other verdict under `### Findings`. Within each group keep comment order and the original numbers (`2`, `5b`). Omit an empty group's heading.
